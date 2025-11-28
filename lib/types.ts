@@ -4,7 +4,7 @@ export interface Book {
   author: string
   description: string | null
   cover_image_url: string | null
-  genre: string | null
+  genre: string[] | null
   published_year: number | null
   isbn: string | null
   created_at: string

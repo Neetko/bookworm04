@@ -22,11 +22,17 @@ export function BookGrid({ books }: BookGridProps) {
             <h3 className="font-semibold text-lg mb-2 line-clamp-2">{book.title}</h3>
             <p className="text-gray-600 mb-2">by {book.author}</p>
 
-            {book.genre && (
-              <Badge variant="secondary" className="mb-3">
-                {book.genre}
-              </Badge>
-            )}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {book.genre && Array.isArray(book.genre) ? (
+                book.genre.map((g) => (
+                  <Badge key={g} variant="secondary">
+                    {g}
+                  </Badge>
+                ))
+              ) : book.genre ? (
+                <Badge variant="secondary">{book.genre}</Badge>
+              ) : null}
+            </div>
 
             <div className="flex items-center gap-1 mb-3">
               {[...Array(5)].map((_, i) => (

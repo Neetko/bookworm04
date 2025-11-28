@@ -62,7 +62,11 @@ export default async function BookDetailPage({ params }: { params: { id: string 
                     </div>
 
                     <div className="flex gap-2 mb-6">
-                      {book.genre && <Badge>{book.genre}</Badge>}
+                      {book.genre && Array.isArray(book.genre) ? (
+                        book.genre.map((g) => <Badge key={g}>{g}</Badge>)
+                      ) : book.genre ? (
+                        <Badge>{book.genre}</Badge>
+                      ) : null}
                       {book.published_year && <Badge variant="outline">{book.published_year}</Badge>}
                     </div>
 

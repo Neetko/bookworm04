@@ -1,0 +1,1 @@
+ALTER TABLE "books" ALTER COLUMN "genre" SET DATA TYPE text[] USING ARRAY[genre];
