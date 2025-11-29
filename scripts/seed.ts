@@ -79,13 +79,27 @@ async function main() {
     },
   ]
 
-  const { error } = await supabase.from("books").insert(books)
+  const { data: insertedBooks, error } = await supabase.from("books").insert(books).select()
   if (error) {
     console.error("Seeding books failed:", error)
     process.exit(1)
   }
 
   console.log("Seeded books successfully.")
+
+  // Seed book contents with empty content
+  const bookContents = insertedBooks.map((book) => ({
+    book_id: book.id,
+    content: "", // Empty content as requested
+  }))
+
+  const { error: contentError } = await supabase.from("book_contents").insert(bookContents)
+  if (contentError) {
+    console.error("Seeding book contents failed:", contentError)
+    process.exit(1)
+  }
+
+  console.log("Seeded book contents (empty) successfully.")
 }
 
 main().catch((e) => {

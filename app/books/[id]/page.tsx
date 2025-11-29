@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Star, Heart, Bookmark, BookOpen, User } from "lucide-react"
+import { Star, Heart, Bookmark, BookOpen, User, BookOpenText } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import type { Book } from "@/lib/types"
+import Link from "next/link"
 
 async function getBook(id: string): Promise<Book | null> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -34,7 +35,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
       <Navigation />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-2 gap-8">
           {/* Book Info */}
           <div className="lg:col-span-2">
             <Card>
@@ -73,6 +74,12 @@ export default async function BookDetailPage({ params }: { params: { id: string 
                     <p className="text-gray-700 leading-relaxed mb-6">{book.description}</p>
 
                     <div className="flex gap-3">
+                      <Button asChild className="bg-blue-600 hover:bg-blue-700">
+                        <Link href={`/books/${book.id}/read`}>
+                          <BookOpenText className="h-4 w-4 mr-2" />
+                          Read Book
+                        </Link>
+                      </Button>
                       <Button>
                         <Heart className="h-4 w-4 mr-2" />
                         Add to Favorites

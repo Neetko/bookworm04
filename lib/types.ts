@@ -49,3 +49,11 @@ export interface Favorite {
   created_at: string
   books?: Book
 }
+
+export interface BookContent {
+  id: string
+  book_id: string
+  content: string
+  created_at: string
+  updated_at: string
+}

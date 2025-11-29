@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { pgSchema, pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex } from "drizzle-orm/pg-core"
+import { pgSchema, pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean } from "drizzle-orm/pg-core"
 
 // Reference auth schema for foreign keys (do not create it)
 const auth = pgSchema("auth")
@@ -76,5 +76,34 @@ export const favorites = pgTable(
   },
   (t: any) => ({
     uniqUserBook: uniqueIndex("favorites_user_book_unique").on(t.userId, t.bookId),
+  })
+)
+
+export const bookContents = pgTable("book_contents", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookId: uuid("book_id")
+    .references(() => books.id, { onDelete: "cascade" })
+    .notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+})
+
+export const userProgress = pgTable(
+  "user_progress",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userProfileId: uuid("user_profile_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    bookId: uuid("book_id")
+      .references(() => books.id, { onDelete: "cascade" })
+      .notNull(),
+    currentPage: integer("current_page").default(0).notNull(),
+    isCompleted: boolean("is_completed").default(false).notNull(),
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqUserBookProgress: uniqueIndex("user_progress_user_book_unique").on(t.userProfileId, t.bookId),
   })
 )
