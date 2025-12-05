@@ -101,7 +101,8 @@
     /* frame height */
     --sprite-sh: calc(var(--sprite-h) / var(--sprite-r));
     /* frame target height, width */
-    --sprite-th: calc(var(--sprite-sh) / 2);
+    /* Decrease the divisor to enlarge the book (e.g. / 1.6 instead of / 2) */
+    --sprite-th: calc(var(--sprite-sh) / 1.6);
 
     /* aspect ratio */
     --sprite-ar: calc(var(--sprite-th) / var(--sprite-sh));
@@ -268,10 +269,10 @@
             flex: 1;
             font-size: small;
             overflow: hidden;
-            display: grid;
-            grid-template-rows: 1fr auto;
+            position: relative;
 
             &:after {
+              position: absolute;
               bottom: 15px;
               color: hsl(45.71deg 69.23% 30%);
             }
@@ -279,7 +280,7 @@
             > div {
               text-align: justify;
               hyphens: auto;
-              line-height: normal;
+              line-height: 1.6;
               display: block;
               word-wrap: break-word;
             }
@@ -289,6 +290,7 @@
             padding: 20px 0 20px 20px;
             &:after {
               content: counter(curpage);
+              left: 20px;
             }
           }
 
@@ -297,7 +299,7 @@
             counter-increment: curpage;
             &:after {
               content: counter(curpage);
-              place-self: self-end;
+              right: 20px;
             }
           }
         }

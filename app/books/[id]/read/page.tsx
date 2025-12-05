@@ -30,6 +30,35 @@ async function getBookContent(bookId: string): Promise<string | null> {
   return data.content
 }
 
+function paginateContent(content: string, charsPerPage: number): string[] {
+  const pages = []
+  let currentIndex = 0
+  
+  while (currentIndex < content.length) {
+    let nextIndex = currentIndex + charsPerPage
+    
+    if (nextIndex >= content.length) {
+      pages.push(content.slice(currentIndex))
+      break
+    }
+    
+    // Find last space before the limit to avoid splitting words
+    const lastSpaceIndex = content.lastIndexOf(" ", nextIndex)
+    
+    // If we found a space and it's within the current page range (not from previous page)
+    if (lastSpaceIndex > currentIndex) {
+      pages.push(content.slice(currentIndex, lastSpaceIndex))
+      currentIndex = lastSpaceIndex + 1
+    } else {
+      // If no space found (extremely long word), just cut it
+      pages.push(content.slice(currentIndex, nextIndex))
+      currentIndex = nextIndex
+    }
+  }
+  
+  return pages
+}
+
 export default async function ReadBookPage({ params }: { params: { id: string } }) {
   const book = await getBook(params.id)
   const bookContent = await getBookContent(params.id)
@@ -40,11 +69,22 @@ export default async function ReadBookPage({ params }: { params: { id: string } 
 
   const content = bookContent || book.description || "No content available for this book."
   
-  // Simple pagination simulation
-  const charsPerPage = 800
-  const pages = []
-  for (let i = 0; i < 8; i++) {
-    pages.push(content.slice(i * charsPerPage, (i + 1) * charsPerPage))
+  // Dynamic pagination with word boundary detection
+  // Adjusted charsPerPage to accommodate pre-wrap spacing
+  const charsPerPage = 850 
+  const pages = paginateContent(content, charsPerPage)
+
+  // Group into slides (2 pages per slide)
+  const slides = []
+  for (let i = 0; i < pages.length; i += 2) {
+    slides.push({
+      left: pages[i],
+      right: pages[i + 1] || ""
+    })
+  }
+  
+  if (slides.length === 0) {
+      slides.push({ left: "", right: "" })
   }
 
   return (
@@ -59,99 +99,39 @@ export default async function ReadBookPage({ params }: { params: { id: string } 
       <div className="sprite-wrapper">
         <div className="book">
           {/* Carousel container */}
-          <div className="carousel" style={{ "--slides": 4 } as React.CSSProperties}>
+          <div className="carousel" style={{ "--slides": slides.length } as React.CSSProperties}>
             {/* Bg sprite */}
             <div className="sprite"></div>
             
-            {/* Carousel items - Page 1 */}
-            <div className="carousel-item">
-              <div className="page-container">
-                <div className="page left-page">
-                  <div>
-                    <h2 style={{ margin: "0 0 1rem 0", fontSize: "1.2rem" }}>{book.title}</h2>
-                    <p style={{ margin: 0, textIndent: "1rem" }}>
-                      <strong>By {book.author}</strong>
-                    </p>
-                    <br />
-                    <p style={{ margin: 0, textIndent: "1rem" }}>
-                      {pages[0]}...
-                    </p>
+            {slides.map((slide, index) => (
+              <div className="carousel-item" key={index}>
+                <div className="page-container">
+                  <div className="page left-page">
+                    <div>
+                      {index === 0 && (
+                        <>
+                          <h2 style={{ margin: "0 0 1rem 0", fontSize: "1.2rem" }}>{book.title}</h2>
+                          <p style={{ margin: 0, textIndent: "1rem" }}>
+                            <strong>By {book.author}</strong>
+                          </p>
+                          <br />
+                        </>
+                      )}
+                      <div style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                        {slide.left}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="page right-page">
-                  <div>
-                    <p style={{ margin: 0, textIndent: "1rem" }}>
-                      {pages[1]}...
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Carousel items - Page 2 */}
-            <div className="carousel-item">
-              <div className="page-container">
-                <div className="page left-page">
-                  <div>
-                    <p style={{ margin: 0 }}>
-                      {pages[2]}...
-                    </p>
-                  </div>
-                </div>
-                <div className="page right-page">
-                  <div>
-                    <p style={{ margin: 0 }}>
-                      {pages[3]}...
-                    </p>
+                  <div className="page right-page">
+                    <div>
+                      <div style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                        {slide.right}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Carousel items - Page 3 */}
-            <div className="carousel-item">
-              <div className="page-container">
-                <div className="page left-page">
-                  <div>
-                    <p style={{ margin: 0 }}>
-                      {pages[4]}...
-                    </p>
-                  </div>
-                </div>
-                <div className="page right-page">
-                  <div>
-                    <p style={{ margin: 0 }}>
-                      {pages[5]}...
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Carousel items - Page 4 */}
-            <div className="carousel-item">
-              <div className="page-container">
-                <div className="page left-page">
-                  <div>
-                    <p style={{ margin: 0 }}>
-                      {pages[6]}...
-                    </p>
-                  </div>
-                </div>
-                <div className="page right-page">
-                  <div>
-                    <p style={{ margin: 0 }}>
-                      {pages[7]}...
-                    </p>
-                    <br />
-                    <p style={{ textAlign: "center", marginTop: "2rem" }}>
-                      <strong>To continue reading, please purchase the full book.</strong>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
+            ))}
           </div>
         </div>
       </div>
