@@ -175,12 +175,8 @@ export default function ProfilePage() {
                               Reviewed <span className="text-blue-600">{activity.data.books?.title || "Unknown Book"}</span>
                             </p>
                             <div className="flex items-center gap-1 my-2">
-                              {[...Array(5)].map((_, j) => (
-                                <Star
-                                  key={j}
-                                  className={`h-4 w-4 ${j < activity.data.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
-                                />
-                              ))}
+                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                              <span className="font-medium text-sm">{activity.data.rating}/10</span>
                             </div>
                             {activity.data.review_text && (
                               <p className="text-gray-600 text-sm mt-2 bg-gray-50 p-3 rounded-md">

@@ -43,7 +43,7 @@ export const reviews = pgTable(
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     userId: uuid("user_id").references(() => userProfiles.id, { onDelete: "cascade" }),
     bookId: uuid("book_id").references(() => books.id, { onDelete: "cascade" }),
-    rating: integer("rating").notNull(),
+    rating: integer("rating").notNull(), // 1-10 scale
     reviewText: text("review_text"),
     createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),

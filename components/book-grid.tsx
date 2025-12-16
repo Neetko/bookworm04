@@ -35,10 +35,8 @@ export function BookGrid({ books }: BookGridProps) {
             </div>
 
             <div className="flex items-center gap-1 mb-3">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className={`h-4 w-4 ${i < 4 ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`} />
-              ))}
-              <span className="text-sm text-gray-600 ml-1">(4.2)</span>
+              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              <span className="text-sm font-medium text-gray-700">8.4/10</span>
             </div>
 
             <p className="text-sm text-gray-600 line-clamp-3 mb-4">{book.description}</p>
