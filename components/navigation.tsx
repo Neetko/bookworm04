@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { BookOpen, User, LogOut } from "lucide-react"
 import { useAuth } from "@/lib/auth-provider"
 import { AuthModal } from "@/components/auth-modal"
+import { ModeToggle } from "@/components/mode-toggle"
 
 export function Navigation() {
   const { user, signOut } = useAuth()
@@ -23,27 +24,28 @@ export function Navigation() {
   }
 
   return (
-    <nav className="border-b bg-white">
+    <nav className="border-b bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <BookOpen className="h-8 w-8 text-blue-600" />
-              <span className="text-2xl font-bold text-gray-900">BOOKWORM</span>
+              <BookOpen className="h-8 w-8 text-primary" />
+              <span className="text-2xl font-bold text-foreground">BOOKWORM</span>
             </Link>
           </div>
 
           <div className="flex items-center space-x-4">
-            <Link href="/about" className="text-gray-700 hover:text-gray-900">
+            <ModeToggle />
+            <Link href="/about" className="text-muted-foreground hover:text-foreground">
               About
             </Link>
 
             {user ? (
               <>
-                <Link href="/library" className="text-gray-700 hover:text-gray-900">
+                <Link href="/library" className="text-muted-foreground hover:text-foreground">
                   Library
                 </Link>
-                <Link href="/profile" className="flex items-center space-x-1 text-gray-700 hover:text-gray-900">
+                <Link href="/profile" className="flex items-center space-x-1 text-muted-foreground hover:text-foreground">
                   <User className="h-4 w-4" />
                   <span>Profile</span>
                 </Link>
