@@ -71,7 +71,7 @@ export default async function ReadBookPage({ params }: { params: { id: string } 
   
   // Dynamic pagination with word boundary detection
   // Adjusted charsPerPage to accommodate pre-wrap spacing
-  const charsPerPage = 850 
+  const charsPerPage = 500 
   const pages = paginateContent(content, charsPerPage)
 
   // Group into slides (2 pages per slide)
@@ -117,14 +117,14 @@ export default async function ReadBookPage({ params }: { params: { id: string } 
                           <br />
                         </>
                       )}
-                      <div style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                      <div style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: "0.85rem", maxWidth: "90%" }}>
                         {slide.left}
                       </div>
                     </div>
                   </div>
                   <div className="page right-page">
                     <div>
-                      <div style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                      <div style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: "0.85rem", maxWidth: "90%" }}>
                         {slide.right}
                       </div>
                     </div>

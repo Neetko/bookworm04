@@ -57,13 +57,13 @@ export function ReviewForm({ bookId }: ReviewFormProps) {
               >
                 <Star
                   className={`h-6 w-6 ${
-                    i < rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300 hover:text-yellow-200"
+                    i < rating ? "fill-primary text-primary" : "text-muted hover:text-primary/50"
                   }`}
                 />
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-500 mt-1">Rate from 1-10</p>
+          <p className="text-xs text-muted-foreground mt-1">Rate from 1-10</p>
         </div>
 
         <div>
