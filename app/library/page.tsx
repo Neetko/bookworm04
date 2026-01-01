@@ -3,9 +3,10 @@ import { Navigation } from "@/components/navigation"
 import { BookGrid } from "@/components/book-grid"
 import { SearchBar } from "@/components/search-bar"
 import { supabase } from "@/lib/supabase"
-import type { Book } from "@/lib/types"
+import type { Book, Genre } from "@/lib/types"
+import { isGenre } from "@/lib/types"
 
-async function getBooks(query: string, genres: string[]): Promise<Book[]> {
+async function getBooks(query: string, genres: Genre[]): Promise<Book[]> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     // Allow the app to build without envs; show empty list in preview.
     return []
@@ -37,7 +38,7 @@ export default async function LibraryPage({
 }) {
   const params = await searchParams
   const query = params.q || ""
-  const genres = params.g ? params.g.split(",") : []
+  const genres = params.g ? params.g.split(",").filter(isGenre) : []
 
   const books = await getBooks(query, genres)
 

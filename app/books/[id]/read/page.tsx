@@ -1,6 +1,8 @@
 import { supabase } from "@/lib/supabase"
-import type { Book } from "@/lib/types"
+import type { Book, Genre } from "@/lib/types"
+import { normalizeGenres } from "@/lib/types"
 import "./reader.css"
+import { ReaderClient } from "./reader-client"
 
 async function getBook(id: string): Promise<Book | null> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -31,11 +33,11 @@ async function getBookContent(bookId: string): Promise<string | null> {
 }
 
 function paginateContent(content: string, charsPerPage: number): string[] {
-  const pages = []
+  const pages: string[] = []
   let currentIndex = 0
   
   while (currentIndex < content.length) {
-    let nextIndex = currentIndex + charsPerPage
+    const nextIndex = currentIndex + charsPerPage
     
     if (nextIndex >= content.length) {
       pages.push(content.slice(currentIndex))
@@ -75,7 +77,7 @@ export default async function ReadBookPage({ params }: { params: { id: string } 
   const pages = paginateContent(content, charsPerPage)
 
   // Group into slides (2 pages per slide)
-  const slides = []
+  const slides: Array<{ left: string; right: string }> = []
   for (let i = 0; i < pages.length; i += 2) {
     slides.push({
       left: pages[i],
@@ -87,55 +89,15 @@ export default async function ReadBookPage({ params }: { params: { id: string } 
       slides.push({ left: "", right: "" })
   }
 
+  const primaryGenre: Genre | null = normalizeGenres(book.genre)[0] ?? null
+
   return (
-    <div className="reader-mode">
-      <a href={`/books/${params.id}`} style={{ position: "absolute", top: "1rem", right: "1rem", color: "white", textDecoration: "none", zIndex: 100, padding: "0.5rem 1rem", border: "1px solid white", borderRadius: "4px" }}>
-        Close
-      </a>
-      <div className="container">
-        <h1>
-          Reading: <span style={{ color: "#f840a8", textDecoration: "underline" }}>{book.title}</span>
-        </h1>
-      <div className="sprite-wrapper">
-        <div className="book">
-          {/* Carousel container */}
-          <div className="carousel" style={{ "--slides": slides.length } as React.CSSProperties}>
-            {/* Bg sprite */}
-            <div className="sprite"></div>
-            
-            {slides.map((slide, index) => (
-              <div className="carousel-item" key={index}>
-                <div className="page-container">
-                  <div className="page left-page">
-                    <div>
-                      {index === 0 && (
-                        <>
-                          <h2 style={{ margin: "0 0 1rem 0", fontSize: "1.2rem" }}>{book.title}</h2>
-                          <p style={{ margin: 0, textIndent: "1rem" }}>
-                            <strong>By {book.author}</strong>
-                          </p>
-                          <br />
-                        </>
-                      )}
-                      <div style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: "0.85rem", maxWidth: "90%" }}>
-                        {slide.left}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="page right-page">
-                    <div>
-                      <div style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: "0.85rem", maxWidth: "90%" }}>
-                        {slide.right}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-    </div>
+    <ReaderClient
+      bookId={params.id}
+      title={book.title}
+      author={book.author}
+      slides={slides}
+      primaryGenre={primaryGenre}
+    />
   )
 }

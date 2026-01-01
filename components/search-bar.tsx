@@ -14,22 +14,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-const GENRES = ["Romance", "Horror", "Fantasy", "Sci-Fi", "Adventure"]
+import { GENRES, type Genre, isGenre } from "@/lib/types"
 
 function SearchBarContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
+  const [selectedGenres, setSelectedGenres] = useState<Genre[]>([])
 
   useEffect(() => {
     setSearchTerm(searchParams.get("q") || "")
     const g = searchParams.get("g")
-    setSelectedGenres(g ? g.split(",") : [])
+    setSelectedGenres(g ? g.split(",").filter(isGenre) : [])
   }, [searchParams])
 
-  const handleSearch = (term: string, genres: string[]) => {
+  const handleSearch = (term: string, genres: Genre[]) => {
     const params = new URLSearchParams()
     if (term) params.set("q", term)
     if (genres.length > 0) params.set("g", genres.join(","))
@@ -43,7 +43,7 @@ function SearchBarContent() {
     }
   }
 
-  const toggleGenre = (genre: string) => {
+  const toggleGenre = (genre: Genre) => {
     const newGenres = selectedGenres.includes(genre)
       ? selectedGenres.filter((g) => g !== genre)
       : [...selectedGenres, genre]
