@@ -39,6 +39,9 @@ export function Navigation() {
             <Link href="/about" className="text-muted-foreground hover:text-foreground">
               About
             </Link>
+            <Link href="/community" className="text-muted-foreground hover:text-foreground">
+              Community
+            </Link>
 
             {user ? (
               <>

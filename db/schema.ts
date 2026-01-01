@@ -141,3 +141,32 @@ export const postLikes = pgTable(
     uniqUserPost: uniqueIndex("post_likes_user_post_unique").on(t.userId, t.postId),
   })
 )
+
+export const clubs = pgTable("clubs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: varchar("type", { length: 20 }).notNull(), // "book" | "writer"
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  ownerUserId: uuid("owner_user_id")
+    .references(() => userProfiles.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+})
+
+export const clubMembers = pgTable(
+  "club_members",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    clubId: uuid("club_id")
+      .references(() => clubs.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqUserClub: uniqueIndex("club_members_user_club_unique").on(t.userId, t.clubId),
+  })
+)
