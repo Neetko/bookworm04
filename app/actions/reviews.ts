@@ -1,10 +1,10 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase"
+import { createServerClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 
 export async function getReviews(bookId: string) {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
 
   const { data: reviews, error } = await supabase
     .from("reviews")
@@ -27,7 +27,7 @@ export async function getReviews(bookId: string) {
 }
 
 export async function submitReview(bookId: string, rating: number, reviewText: string) {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   
   // Get current user
   const { data: { user }, error: authError } = await supabase.auth.getUser()

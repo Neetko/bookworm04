@@ -29,7 +29,11 @@ async function getBookContent(bookId: string): Promise<string | null> {
     console.error("Error fetching book content:", error)
     return null
   }
-  return data.content
+
+  const content = data?.content ?? ""
+  if (content.trim().length === 0) return null
+
+  return content
 }
 
 function paginateContent(content: string, charsPerPage: number): string[] {
@@ -61,15 +65,28 @@ function paginateContent(content: string, charsPerPage: number): string[] {
   return pages
 }
 
-export default async function ReadBookPage({ params }: { params: { id: string } }) {
-  const book = await getBook(params.id)
-  const bookContent = await getBookContent(params.id)
+export default async function ReadBookPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const book = await getBook(id)
+  const bookContent = await getBookContent(id)
 
   if (!book) {
     return <div className="text-white text-center mt-20">Book not found</div>
   }
 
-  const content = bookContent || book.description || "No content available for this book."
+  if (!bookContent) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <h1 className="text-2xl font-bold">Not in library</h1>
+          <p className="text-muted-foreground">This book isn’t available to read yet.</p>
+          <a className="underline" href={`/books/${id}`}>Back to book</a>
+        </div>
+      </div>
+    )
+  }
+
+  const content = bookContent
   
   // Dynamic pagination with word boundary detection
   // Adjusted charsPerPage to accommodate pre-wrap spacing
@@ -93,7 +110,7 @@ export default async function ReadBookPage({ params }: { params: { id: string } 
 
   return (
     <ReaderClient
-      bookId={params.id}
+      bookId={id}
       title={book.title}
       author={book.author}
       slides={slides}

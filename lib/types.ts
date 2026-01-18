@@ -10,14 +10,26 @@ export const GENRES = [
 
 export type Genre = (typeof GENRES)[number]
 
-export const GENRE_DOT_CLASS: Record<Genre, string> = {
-  HORROR: "bg-red-500",
-  ROMANCE: "bg-pink-500",
-  FANTASY: "bg-green-500",
-  "SCI-FI": "bg-blue-500",
-  ADVENTURE: "bg-yellow-500",
-  MYSTERY: "bg-purple-500",
-  "NON-FICTION": "bg-cyan-500",
+// Base (active) background color per genre.
+export const GENRE_BG_CLASS: Record<Genre, string> = {
+  HORROR: "bg-red-500/65",
+  ROMANCE: "bg-pink-500/65",
+  FANTASY: "bg-green-500/65",
+  "SCI-FI": "bg-blue-500/65",
+  ADVENTURE: "bg-yellow-500/65",
+  MYSTERY: "bg-purple-500/65",
+  "NON-FICTION": "bg-cyan-500/65",
+} as const
+
+// Hover tint (faint) for buttons.
+export const GENRE_HOVER_BG_TINT_CLASS: Record<Genre, string> = {
+  HORROR: "hover:bg-red-500/55",
+  ROMANCE: "hover:bg-pink-500/45",
+  FANTASY: "hover:bg-green-500/45",
+  "SCI-FI": "hover:bg-blue-500/45",
+  ADVENTURE: "hover:bg-yellow-500/45",
+  MYSTERY: "hover:bg-purple-500/45",
+  "NON-FICTION": "hover:bg-cyan-500/45",
 } as const
 
 export function isGenre(value: unknown): value is Genre {

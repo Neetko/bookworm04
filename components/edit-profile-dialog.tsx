@@ -15,9 +15,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { updateUserProfile } from "@/app/actions/profile"
-import { supabase } from "@/lib/supabase"
+import { uploadUserAvatar } from "@/app/actions/profile"
+import { supabase } from "@/lib/supabase-browser"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface EditProfileDialogProps {
   user: {
@@ -43,6 +45,20 @@ export function EditProfileDialog({ user }: EditProfileDialogProps) {
       toast.error("You must be logged in to update your profile")
       setLoading(false)
       return
+    }
+
+    // If an avatar file was selected, upload to Storage first and then persist the resulting URL.
+    const avatarFile = formData.get("avatarFile")
+    if (avatarFile instanceof File && avatarFile.size > 0) {
+      const fd = new FormData()
+      fd.set("file", avatarFile)
+      const res = await uploadUserAvatar(session.access_token, fd)
+      if ("error" in res) {
+        toast.error(res.error)
+        setLoading(false)
+        return
+      }
+      formData.set("avatarUrl", res.url)
     }
 
     const result = await updateUserProfile(session.access_token, formData)
@@ -93,17 +109,23 @@ export function EditProfileDialog({ user }: EditProfileDialogProps) {
                 className="col-span-3"
               />
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="avatarUrl" className="text-right">
-                Avatar URL
-              </Label>
-              <Input
-                id="avatarUrl"
-                name="avatarUrl"
-                defaultValue={user.avatarUrl || ""}
-                className="col-span-3"
-                placeholder="https://..."
-              />
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Avatar</Label>
+
+              <div className="col-span-3 space-y-2">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={user.avatarUrl ?? undefined} />
+                    <AvatarFallback>{(user.username ?? "?").slice(0, 1).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="text-sm text-muted-foreground">Uploads to Storage (max 2MB)</div>
+                </div>
+
+                <Input id="avatarFile" name="avatarFile" type="file" accept="image/png,image/jpeg,image/webp" />
+
+                {/* Keep existing updateUserProfile contract (avatarUrl string) */}
+                <input type="hidden" name="avatarUrl" defaultValue={user.avatarUrl || ""} />
+              </div>
             </div>
           </div>
           <DialogFooter>

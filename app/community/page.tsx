@@ -1,9 +1,8 @@
 import { Suspense } from "react"
-import Link from "next/link"
 import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { CommunityHeader } from "@/components/community-header"
+import { ClubCard } from "@/components/club-card"
 import { getClubs } from "@/app/actions/clubs"
 
 export default async function CommunityPage({
@@ -48,25 +47,7 @@ export default async function CommunityPage({
             </Card>
           ) : (
             filtered.map((club) => (
-              <Card key={club.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-3">
-                    <CardTitle className="text-xl leading-tight">
-                      <Link href={`/community/clubs/${club.id}`} className="hover:underline">
-                        {club.name}
-                      </Link>
-                    </CardTitle>
-                    <Badge variant={club.type === "book" ? "default" : "secondary"}>
-                      {club.type === "book" ? "Book club" : "Writer club"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {club.description || "No description yet."}
-                  </p>
-                </CardContent>
-              </Card>
+              <ClubCard key={club.id} club={club} />
             ))
           )}
         </div>

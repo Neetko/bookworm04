@@ -16,6 +16,8 @@ import {
 import { Search, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { createClub } from "@/app/actions/clubs"
+import { GENRES, type Genre } from "@/lib/types"
+import { GenreToggleButton } from "@/components/genre-toggle-button"
 
 type ClubType = "book" | "writer"
 
@@ -30,7 +32,12 @@ export function CommunityHeader() {
   const [createType, setCreateType] = useState<ClubType>("book")
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [categories, setCategories] = useState<Genre[]>([])
   const [isCreating, setIsCreating] = useState(false)
+
+  const toggleCategory = (genre: Genre) => {
+    setCategories((prev) => (prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]))
+  }
 
   useEffect(() => {
     setQ(searchParams.get("q") || "")
@@ -74,10 +81,11 @@ export function CommunityHeader() {
 
     setIsCreating(true)
     try {
-      const id = await createClub(createType, name.trim(), description.trim())
+      const id = await createClub(createType, name.trim(), description.trim(), categories)
       toast.success("Club created")
       setName("")
       setDescription("")
+      setCategories([])
       setShowCreate(false)
       router.push(`/community/clubs/${id}`)
     } catch (err) {
@@ -147,6 +155,21 @@ export function CommunityHeader() {
             <div>
               <label className="block text-sm font-medium mb-2">Description</label>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Categories (optional)</label>
+              <div className="flex w-full flex-nowrap gap-2">
+                {GENRES.map((genre) => (
+                  <GenreToggleButton
+                    key={genre}
+                    genre={genre}
+                    selected={categories.includes(genre)}
+                    onToggle={toggleCategory}
+                    className="flex-1 min-w-0"
+                  />
+                ))}
+              </div>
             </div>
 
             <div className="flex justify-end">

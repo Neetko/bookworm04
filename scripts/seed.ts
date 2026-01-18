@@ -87,10 +87,13 @@ async function main() {
 
   console.log("Seeded books successfully.")
 
-  // Seed book contents with empty content
+  // Seed book contents with small readable text (library books are read-ready by definition)
   const bookContents = insertedBooks.map((book) => ({
     book_id: book.id,
-    content: "", // Empty content as requested
+    content:
+      `Sample content for ${book.title}\n\n` +
+      "This is placeholder readable text used for local development. " +
+      "In production, only in-library titles will have full text stored here.",
   }))
 
   const { error: contentError } = await supabase.from("book_contents").insert(bookContents)
@@ -99,7 +102,7 @@ async function main() {
     process.exit(1)
   }
 
-  console.log("Seeded book contents (empty) successfully.")
+  console.log("Seeded book contents successfully.")
 }
 
 main().catch((e) => {

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { CSSProperties } from "react"
 import type { Genre } from "@/lib/types"
-import { GENRE_DOT_CLASS } from "@/lib/types"
+import { GENRE_BG_CLASS } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 type Slide = { left: string; right: string }
@@ -24,7 +24,7 @@ export function ReaderClient(props: {
   const [pagesRead, setPagesRead] = useState(0)
 
   const dotClass = useMemo(() => {
-    return primaryGenre ? GENRE_DOT_CLASS[primaryGenre] : "bg-muted"
+    return primaryGenre ? GENRE_BG_CLASS[primaryGenre] : "bg-muted"
   }, [primaryGenre])
 
   useEffect(() => {

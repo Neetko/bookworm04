@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase"
+import { createServerClient } from "@/lib/supabase-server"
 import { createClient } from "@supabase/supabase-js"
 import { revalidatePath } from "next/cache"
 
@@ -22,7 +22,7 @@ export async function toggleBookReadStatus(token: string, bookId: string, isRead
     throw new Error("Unauthorized")
   }
 
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
 
   // 1. Get user profile id
   const { data: profile, error: profileError } = await supabase
@@ -87,7 +87,7 @@ export async function getReadStatus(token: string, bookId: string) {
     return false
   }
 
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
 
   // 1. Get user profile id
   const { data: profile, error: profileError } = await supabase
