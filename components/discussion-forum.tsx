@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { supabase } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase-browser"
 import { getReadStatus } from "@/app/actions/book"
 import { Lock } from "lucide-react"
 import { DiscussionPost } from "./discussion-post"

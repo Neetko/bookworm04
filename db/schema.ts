@@ -40,6 +40,35 @@ export const userProfiles = pgTable(
   })
 )
 
+export const clubReadingItems = pgTable("club_reading_items", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  clubId: uuid("club_id")
+    .references(() => clubs.id, { onDelete: "cascade" })
+    .notNull(),
+  bookId: uuid("book_id").references(() => books.id, { onDelete: "set null" }),
+  title: text("title"),
+  author: text("author"),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+})
+
+export const clubApplications = pgTable(
+  "club_applications",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    clubId: uuid("club_id")
+      .references(() => clubs.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    status: varchar("status", { length: 20 }).default("pending").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqUserClub: uniqueIndex("club_applications_user_club_unique").on(t.userId, t.clubId),
+  })
+)
+
 export const reviews = pgTable(
   "reviews",
   {
@@ -82,15 +111,21 @@ export const favorites = pgTable(
   })
 )
 
-export const bookContents = pgTable("book_contents", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  bookId: uuid("book_id")
-    .references(() => books.id, { onDelete: "cascade" })
-    .notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
-})
+export const bookContents = pgTable(
+  "book_contents",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    bookId: uuid("book_id")
+      .references(() => books.id, { onDelete: "cascade" })
+      .notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqBookId: uniqueIndex("book_contents_book_id_unique").on(t.bookId),
+  })
+)
 
 export const userProgress = pgTable(
   "user_progress",
@@ -139,5 +174,36 @@ export const postLikes = pgTable(
   },
   (t: any) => ({
     uniqUserPost: uniqueIndex("post_likes_user_post_unique").on(t.userId, t.postId),
+  })
+)
+
+export const clubs = pgTable("clubs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: varchar("type", { length: 20 }).notNull(), // "book" | "writer"
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  avatarUrl: text("avatar_url"),
+  categories: text("categories").array(),
+  ownerUserId: uuid("owner_user_id")
+    .references(() => userProfiles.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+})
+
+export const clubMembers = pgTable(
+  "club_members",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    clubId: uuid("club_id")
+      .references(() => clubs.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqUserClub: uniqueIndex("club_members_user_club_unique").on(t.userId, t.clubId),
   })
 )

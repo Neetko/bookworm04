@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, Circle, Loader2 } from "lucide-react"
 import { toggleBookReadStatus, getReadStatus } from "@/app/actions/book"
-import { supabase } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase-browser"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 

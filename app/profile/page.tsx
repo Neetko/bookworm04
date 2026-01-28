@@ -10,7 +10,7 @@ import { Navigation } from "@/components/navigation"
 import { useAuth } from "@/lib/auth-provider"
 import { getProfileData } from "@/app/actions/profile"
 import { EditProfileDialog } from "@/components/edit-profile-dialog"
-import { supabase } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase-browser"
 import { formatDistanceToNow } from "date-fns"
 
 // Mock badges for now, could be calculated from stats
