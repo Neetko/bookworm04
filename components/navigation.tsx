@@ -48,6 +48,9 @@ export function Navigation() {
                 <Link href="/library" className="text-muted-foreground hover:text-foreground">
                   Library
                 </Link>
+                <Link href="/search-titles" className="text-muted-foreground hover:text-foreground">
+                  Search Titles
+                </Link>
                 <Link href="/profile" className="flex items-center space-x-1 text-muted-foreground hover:text-foreground">
                   <User className="h-4 w-4" />
                   <span>Profile</span>

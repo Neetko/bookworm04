@@ -44,6 +44,7 @@ export function normalizeGenres(value: unknown): Genre[] {
 
 export interface Book {
   id: string
+  title_id?: string | null
   title: string
   author: string
   description: string | null
@@ -103,4 +104,17 @@ export interface BookContent {
   content: string
   created_at: string
   updated_at: string
+}
+
+export type SearchTitleResult = {
+  id: string
+  source: "local" | "google"
+  titleId?: string
+  volumeId?: string
+  title: string
+  author: string
+  description: string | null
+  coverImageUrl: string | null
+  engagement: number
+  claimed: boolean
 }

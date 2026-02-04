@@ -14,95 +14,87 @@ if (!url || !serviceRole) {
 const supabase = createClient(url, serviceRole)
 
 async function main() {
-  // Seed books if table exists and empty
-  const { data: countData, error: countErr } = await supabase
-    .from("books")
-    .select("id", { count: "exact", head: true })
-
-  if (countErr) {
-    console.error("Error checking books table:", countErr)
-    process.exit(1)
-  }
-
-  // Clear existing books to avoid duplicates and schema conflicts
-  const { error: deleteError } = await supabase.from("books").delete().neq("id", "00000000-0000-0000-0000-000000000000")
-  if (deleteError) {
-    console.error("Error clearing books:", deleteError)
-  }
-
-  // Insert sample books with multiple genres
-  const books = [
-    {
-      title: "The Hobbit",
-      author: "J.R.R. Tolkien",
-      description: "Bilbo Baggins, a hobbit, is swept into an epic quest to reclaim the lost Kingdom of Erebor from the fearsome dragon Smaug.",
-      genre: ["FANTASY", "ADVENTURE"],
-      published_year: 1937,
-      isbn: "978-0-547-92822-7",
-      cover_image_url: "https://images.unsplash.com/photo-1621351183012-e2f9972dd9bf?auto=format&fit=crop&q=80&w=1000",
-    },
-    {
-      title: "Dune",
-      author: "Frank Herbert",
-      description: "Set on the desert planet Arrakis, Dune is the story of the boy Paul Atreides, heir to a noble family tasked with ruling an inhospitable world where the only thing of value is the 'spice' melange.",
-      genre: ["SCI-FI", "ADVENTURE"],
-      published_year: 1965,
-      isbn: "978-0-441-17271-9",
-      cover_image_url: "https://images.unsplash.com/photo-1541963463532-d68292c34b19?auto=format&fit=crop&q=80&w=1000",
-    },
-    {
-      title: "Dracula",
-      author: "Bram Stoker",
-      description: "The vampire Count Dracula moves from Transylvania to England so that he may find new blood and spread the undead curse, and of the battle between him and a small group of people led by Professor Abraham Van Helsing.",
-      genre: ["HORROR", "FANTASY"],
-      published_year: 1897,
-      isbn: "978-0-486-41109-5",
-      cover_image_url: "https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&q=80&w=1000",
-    },
-    {
-      title: "Pride and Prejudice",
-      author: "Jane Austen",
-      description: "The story follows the main character, Elizabeth Bennet, as she deals with issues of manners, upbringing, morality, education, and marriage in the society of the landed gentry of the British Regency.",
-      genre: ["ROMANCE"],
-      published_year: 1813,
-      isbn: "978-0-14-143951-8",
-      cover_image_url: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=1000",
-    },
-    {
-      title: "Frankenstein",
-      author: "Mary Shelley",
-      description: "Victor Frankenstein, a young scientist, creates a grotesque but sentient creature in an unorthodox scientific experiment.",
-      genre: ["SCI-FI", "HORROR"],
-      published_year: 1818,
-      isbn: "978-0-486-28211-4",
-      cover_image_url: "https://images.unsplash.com/photo-1536237880829-dd441c24710d?auto=format&fit=crop&q=80&w=1000",
-    },
+  const desiredTitles = [
+    "Crossroads",
+    "The Wise Man's Fear",
+    "The Name of the Wind",
+    "The Hobbit",
   ]
 
-  const { data: insertedBooks, error } = await supabase.from("books").insert(books).select()
-  if (error) {
-    console.error("Seeding books failed:", error)
+  const { data: titleRows, error: titlesError } = await supabase
+    .from("titles")
+    .select("id, title, author, description, cover_image_url, published_year, isbn")
+    .in("title", desiredTitles)
+
+  if (titlesError) {
+    console.error("Error fetching titles:", titlesError)
     process.exit(1)
   }
 
-  console.log("Seeded books successfully.")
+  const titles = titleRows ?? []
+  if (!titles.length) {
+    console.error("No matching titles found in the titles table.")
+    process.exit(1)
+  }
 
-  // Seed book contents with small readable text (library books are read-ready by definition)
-  const bookContents = insertedBooks.map((book) => ({
+  const { data: existingBooks, error: existingError } = await supabase
+    .from("books")
+    .select("id, title")
+    .in("title", desiredTitles)
+
+  if (existingError) {
+    console.error("Error checking existing books:", existingError)
+    process.exit(1)
+  }
+
+  const existingByTitle = new Map((existingBooks ?? []).map((b) => [b.title, b]))
+
+  const booksToInsert = titles
+    .filter((row) => !existingByTitle.has(row.title))
+    .map((row) => ({
+      title_id: row.id,
+      title: row.title,
+      author: row.author,
+      description: row.description,
+      cover_image_url: row.cover_image_url,
+      published_year: row.published_year,
+      isbn: row.isbn,
+    }))
+
+  let insertedBooks: Array<{ id: string; title: string }> = []
+
+  if (booksToInsert.length > 0) {
+    const { data, error } = await supabase.from("books").insert(booksToInsert).select("id, title")
+    if (error) {
+      console.error("Seeding books failed:", error)
+      process.exit(1)
+    }
+    insertedBooks = data ?? []
+  }
+
+  const allSeededBooks = [...(existingBooks ?? []), ...insertedBooks]
+
+  const lorem =
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. " +
+    "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. " +
+    "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. " +
+    "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+
+  const contentRows = allSeededBooks.map((book) => ({
     book_id: book.id,
-    content:
-      `Sample content for ${book.title}\n\n` +
-      "This is placeholder readable text used for local development. " +
-      "In production, only in-library titles will have full text stored here.",
+    content: `Sample content for ${book.title}\n\n${lorem}`,
   }))
 
-  const { error: contentError } = await supabase.from("book_contents").insert(bookContents)
+  const { error: contentError } = await supabase
+    .from("book_contents")
+    .upsert(contentRows, { onConflict: "book_id" })
+
   if (contentError) {
     console.error("Seeding book contents failed:", contentError)
     process.exit(1)
   }
 
-  console.log("Seeded book contents successfully.")
+  console.log("Seeded books and book contents successfully.")
 }
 
 main().catch((e) => {

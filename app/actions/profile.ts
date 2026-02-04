@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase-server"
 import { createClient } from "@supabase/supabase-js"
 import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
+import { resizeAvatarImage } from "@/lib/avatar-image"
 
 // Helper to verify user
 async function getUser(token: string) {
@@ -47,13 +48,38 @@ async function ensureUserProfile(user: { id: string; email?: string | null }, to
 
   const fallbackEmail = user.email ?? null
 
+  const generateUniqueUsername = async () => {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const suffix = Math.floor(1000 + Math.random() * 9000)
+      const candidate = `Bookworm${suffix}`
+
+      const { data: collision, error: collisionError } = await client
+        .from("user_profiles")
+        .select("id")
+        .eq("username", candidate)
+        .maybeSingle()
+
+      if (collisionError) {
+        console.error("Error checking username availability", collisionError)
+        throw new Error("Failed to generate username")
+      }
+
+      if (!collision) return candidate
+    }
+
+    const fallback = `Bookworm${randomUUID().replace(/-/g, "").slice(0, 8)}`
+    return fallback
+  }
+
+  const placeholderUsername = await generateUniqueUsername()
+
   const { data: created, error: createError } = await client
     .from("user_profiles")
     .upsert(
       {
         auth_user_id: user.id,
         email: fallbackEmail,
-        username: fallbackEmail,
+        username: placeholderUsername,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "auth_user_id" }
@@ -95,7 +121,7 @@ export async function getProfileData(token: string) {
     .eq("user_id", profile.id)
 
   const { count: booksReadCount } = await supabase
-    .from("user_progress")
+    .from("title_reads")
     .select("*", { count: "exact", head: true })
     .eq("user_profile_id", profile.id)
 
@@ -106,6 +132,12 @@ export async function getProfileData(token: string) {
     .eq("user_id", profile.id)
     .order("created_at", { ascending: false })
     .limit(10)
+
+  const { data: readTitles } = await supabase
+    .from("title_reads")
+    .select("title_id, created_at, titles ( id, title, author, cover_image_url )")
+    .eq("user_profile_id", profile.id)
+    .order("created_at", { ascending: false })
 
   // Map snake_case to camelCase for frontend compatibility
   const mappedProfile = {
@@ -124,7 +156,8 @@ export async function getProfileData(token: string) {
       favorites: favoritesCount || 0,
       bookmarks: bookmarksCount || 0,
     },
-    recentReviews: recentReviews || []
+    recentReviews: recentReviews || [],
+    readTitles: readTitles || [],
   }
 }
 
@@ -174,15 +207,13 @@ export async function uploadUserAvatar(token: string, formData: FormData) {
   const MAX_BYTES = 2 * 1024 * 1024
   if (file.size > MAX_BYTES) return { error: "Avatar too large (max 2MB)" as const }
 
-  const allowed = new Set(["image/png", "image/jpeg", "image/webp"])
-  if (!allowed.has(file.type)) return { error: "Unsupported image type" as const }
-
-  const ext =
-    file.type === "image/png"
-      ? "png"
-      : file.type === "image/webp"
-        ? "webp"
-        : "jpg"
+  let resized
+  try {
+    resized = await resizeAvatarImage(file, 200)
+  } catch (error) {
+    console.error(error)
+    return { error: "Unsupported image type" as const }
+  }
 
   const anonUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -197,11 +228,11 @@ export async function uploadUserAvatar(token: string, formData: FormData) {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
-  const path = `${user.id}/${randomUUID()}.${ext}`
+  const path = `${user.id}/${randomUUID()}.${resized.ext}`
 
   const { error: uploadError } = await authed.storage
     .from("user-avatars")
-    .upload(path, file, { upsert: true, contentType: file.type })
+    .upload(path, resized.buffer, { upsert: true, contentType: resized.contentType })
 
   if (uploadError) {
     console.error(uploadError)

@@ -80,7 +80,7 @@ export default async function ReadBookPage({ params }: { params: Promise<{ id: s
         <div className="text-center space-y-3">
           <h1 className="text-2xl font-bold">Not in library</h1>
           <p className="text-muted-foreground">This book isn’t available to read yet.</p>
-          <a className="underline" href={`/books/${id}`}>Back to book</a>
+          <a className="underline" href={`/titles/${id}`}>Back to title</a>
         </div>
       </div>
     )

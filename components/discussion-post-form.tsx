@@ -7,12 +7,13 @@ import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
 import { Loader2, Send } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { createDiscussionPost } from "@/app/actions/title"
 
 interface DiscussionPostFormProps {
-  bookId: string
+  titleId: string
 }
 
-export function DiscussionPostForm({ bookId }: DiscussionPostFormProps) {
+export function DiscussionPostForm({ titleId }: DiscussionPostFormProps) {
   const [content, setContent] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
@@ -25,8 +26,7 @@ export function DiscussionPostForm({ bookId }: DiscussionPostFormProps) {
 
     setIsSubmitting(true)
     try {
-      // TODO: Implement createPost server action
-      // await createPost(bookId, content)
+      await createDiscussionPost(titleId, content)
       toast.success("Post published successfully")
       setContent("")
       router.refresh()

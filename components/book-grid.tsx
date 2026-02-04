@@ -4,6 +4,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Star, BookOpen } from "lucide-react"
 import type { Book } from "@/lib/types"
+import { CoverImage } from "@/components/cover-image"
+
+function normalizeCoverUrl(url: string | null): string | null {
+  if (!url) return null
+  return url.replace(/^http:/, "https:")
+}
 
 interface BookGridProps {
   books: Book[]
@@ -14,8 +20,20 @@ export function BookGrid({ books }: BookGridProps) {
     <div className="space-y-6">
       {books.map((book) => (
         <Card key={book.id} className="flex flex-col sm:flex-row hover:shadow-lg transition-shadow overflow-hidden min-h-[200px]">
-          <div className="w-full sm:w-48 h-48 sm:h-auto bg-muted flex items-center justify-center flex-shrink-0">
-            <BookOpen className="h-12 w-12 text-muted-foreground" />
+          <div className="relative w-full sm:w-48 h-48 sm:h-auto bg-muted flex-shrink-0 overflow-hidden">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <BookOpen className="h-12 w-12 text-muted-foreground" />
+            </div>
+            {normalizeCoverUrl(book.cover_image_url) ? (
+              // Use <img> to avoid Next image remote-domain config.
+              <CoverImage
+                src={normalizeCoverUrl(book.cover_image_url) ?? undefined}
+                alt={book.title}
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+            ) : null}
           </div>
 
           <div className="flex flex-col flex-1">
@@ -48,7 +66,7 @@ export function BookGrid({ books }: BookGridProps) {
 
             <CardFooter className="p-6 pt-0 flex justify-end">
               <Button asChild>
-                <Link href={`/books/${book.id}`}>Read</Link>
+                <Link href={`/titles/${book.title_id ?? book.id}`}>Open</Link>
               </Button>
             </CardFooter>
           </div>

@@ -3,30 +3,24 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, Circle, Loader2 } from "lucide-react"
-import { toggleBookReadStatus, getReadStatus } from "@/app/actions/book"
-import { supabase } from "@/lib/supabase-browser"
+import { getTitleReadStatus, setTitleReadStatus } from "@/app/actions/title"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
 interface MarkReadButtonProps {
-  bookId: string
+  titleId: string
 }
 
-export function MarkReadButton({ bookId }: MarkReadButtonProps) {
+export function MarkReadButton({ titleId }: MarkReadButtonProps) {
   const [isRead, setIsRead] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
-          setIsAuthenticated(true)
-          const status = await getReadStatus(session.access_token, bookId)
-          setIsRead(status)
-        }
+        const status = await getTitleReadStatus(titleId)
+        setIsRead(status)
       } catch (error) {
         console.error("Failed to fetch read status", error)
       } finally {
@@ -34,14 +28,9 @@ export function MarkReadButton({ bookId }: MarkReadButtonProps) {
       }
     }
     checkStatus()
-  }, [bookId])
+  }, [titleId])
 
   const handleToggle = async () => {
-    if (!isAuthenticated) {
-      toast.error("You must be logged in to mark books as read")
-      return
-    }
-
     setIsLoading(true)
     const newStatus = !isRead
     
@@ -49,18 +38,13 @@ export function MarkReadButton({ bookId }: MarkReadButtonProps) {
     setIsRead(newStatus)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        throw new Error("No session")
-      }
-
-      await toggleBookReadStatus(session.access_token, bookId, newStatus)
+      await setTitleReadStatus(titleId, newStatus)
       toast.success(newStatus ? "Marked as read" : "Marked as unread")
       router.refresh()
     } catch (error) {
       console.error(error)
       setIsRead(!newStatus) // Revert
-      toast.error("Failed to update status")
+      toast.error((error as any)?.message ?? "Failed to update status")
     } finally {
       setIsLoading(false)
     }

@@ -1,23 +1,45 @@
 import { Suspense } from "react"
 import { Navigation } from "@/components/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { CommunityHeader } from "@/components/community-header"
-import { ClubCard } from "@/components/club-card"
+import { ClubGrid } from "@/components/club-grid"
 import { getClubs } from "@/app/actions/clubs"
+import { isGenre } from "@/lib/types"
+
+type ClubType = "book" | "writer"
 
 export default async function CommunityPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; t?: string }>
+  searchParams: Promise<{ q?: string; t?: string; genres?: string }>
 }) {
   const params = await searchParams
   const query = params.q?.trim() || ""
-  const type = params.t === "book" || params.t === "writer" ? params.t : ""
+  const selectedTypes = params.t
+    ? params.t
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value): value is ClubType => value === "book" || value === "writer")
+    : []
+  const selectedGenres = params.genres
+    ? params.genres
+        .split(",")
+        .map((value) => value.trim())
+        .filter(isGenre)
+    : []
 
   const clubs = await getClubs()
 
   const filtered = clubs.filter((club) => {
-    if (type && club.type !== type) return false
+    if (selectedTypes.length > 0 && !selectedTypes.includes(club.type)) return false
+
+    if (selectedGenres.length > 0) {
+      const clubGenres = club.categories ?? []
+      if (clubGenres.length === 0) return false
+      const hasAll = selectedGenres.every((genre) => clubGenres.includes(genre))
+      if (!hasAll) return false
+    }
+
     if (!query) return true
 
     const haystack = `${club.name} ${club.description ?? ""}`.toLowerCase()
@@ -38,19 +60,15 @@ export default async function CommunityPage({
           <CommunityHeader />
         </Suspense>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.length === 0 ? (
-            <Card className="sm:col-span-2 lg:col-span-3">
-              <CardContent className="py-10 text-center text-muted-foreground">
-                No clubs found.
-              </CardContent>
-            </Card>
-          ) : (
-            filtered.map((club) => (
-              <ClubCard key={club.id} club={club} />
-            ))
-          )}
-        </div>
+        {filtered.length === 0 ? (
+          <Card className="mt-8 sm:col-span-2 lg:col-span-3">
+            <CardContent className="py-10 text-center text-muted-foreground">
+              No clubs found.
+            </CardContent>
+          </Card>
+        ) : (
+          <ClubGrid clubs={filtered} />
+        )}
       </div>
     </div>
   )

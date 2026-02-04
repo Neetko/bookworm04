@@ -13,11 +13,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Loader2 } from "lucide-react"
+import { Search, Loader2, UploadCloud } from "lucide-react"
 import { toast } from "sonner"
-import { createClub } from "@/app/actions/clubs"
-import { GENRES, type Genre } from "@/lib/types"
+import { createClub, addClubReadingItem, uploadClubAvatar } from "@/app/actions/clubs"
+import { GENRES, isGenre, type Genre } from "@/lib/types"
 import { GenreToggleButton } from "@/components/genre-toggle-button"
+import { ClubTitleSearch } from "@/components/club-title-search"
+import type { SearchTitleResult } from "@/lib/types"
+import { ensureGoogleBook } from "@/app/actions/track-reading"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 type ClubType = "book" | "writer"
 
@@ -26,7 +30,8 @@ export function CommunityHeader() {
   const searchParams = useSearchParams()
 
   const [q, setQ] = useState("")
-  const [type, setType] = useState<"" | ClubType>("")
+  const [selectedTypes, setSelectedTypes] = useState<ClubType[]>([])
+  const [selectedGenres, setSelectedGenres] = useState<Genre[]>([])
   const [showCreate, setShowCreate] = useState(false)
 
   const [createType, setCreateType] = useState<ClubType>("book")
@@ -34,6 +39,9 @@ export function CommunityHeader() {
   const [description, setDescription] = useState("")
   const [categories, setCategories] = useState<Genre[]>([])
   const [isCreating, setIsCreating] = useState(false)
+  const [plannedReading, setPlannedReading] = useState<SearchTitleResult[]>([])
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
 
   const toggleCategory = (genre: Genre) => {
     setCategories((prev) => (prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]))
@@ -42,10 +50,31 @@ export function CommunityHeader() {
   useEffect(() => {
     setQ(searchParams.get("q") || "")
     const t = searchParams.get("t")
-    setType(t === "book" || t === "writer" ? t : "")
+    const nextTypes = t
+      ? t
+          .split(",")
+          .map((value) => value.trim())
+          .filter((value): value is ClubType => value === "book" || value === "writer")
+      : []
+    setSelectedTypes(nextTypes)
+
+    const g = searchParams.get("genres")
+    const nextGenres = g
+      ? g
+          .split(",")
+          .map((value) => value.trim())
+          .filter(isGenre)
+      : []
+    setSelectedGenres(nextGenres)
   }, [searchParams])
 
-  const pushParams = (next: { q?: string; t?: "" | ClubType }) => {
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
+    }
+  }, [avatarPreviewUrl])
+
+  const pushParams = (next: { q?: string; types?: ClubType[]; genres?: Genre[] }) => {
     const params = new URLSearchParams(searchParams.toString())
 
     if (typeof next.q === "string") {
@@ -53,9 +82,14 @@ export function CommunityHeader() {
       else params.delete("q")
     }
 
-    if (typeof next.t === "string") {
-      if (next.t) params.set("t", next.t)
+    if (next.types) {
+      if (next.types.length > 0) params.set("t", next.types.join(","))
       else params.delete("t")
+    }
+
+    if (next.genres) {
+      if (next.genres.length > 0) params.set("genres", next.genres.join(","))
+      else params.delete("genres")
     }
 
     const qs = params.toString()
@@ -64,13 +98,24 @@ export function CommunityHeader() {
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      pushParams({ q, t: type })
+      pushParams({ q, types: selectedTypes, genres: selectedGenres })
     }
   }
 
   const toggleType = (next: ClubType) => {
-    const newType = type === next ? "" : next
-    pushParams({ q, t: newType })
+    const nextTypes = selectedTypes.includes(next)
+      ? selectedTypes.filter((t) => t !== next)
+      : [...selectedTypes, next]
+    setSelectedTypes(nextTypes)
+    pushParams({ q, types: nextTypes, genres: selectedGenres })
+  }
+
+  const toggleGenre = (genre: Genre) => {
+    const nextGenres = selectedGenres.includes(genre)
+      ? selectedGenres.filter((g) => g !== genre)
+      : [...selectedGenres, genre]
+    setSelectedGenres(nextGenres)
+    pushParams({ q, types: selectedTypes, genres: nextGenres })
   }
 
   const onCreate = async () => {
@@ -82,10 +127,44 @@ export function CommunityHeader() {
     setIsCreating(true)
     try {
       const id = await createClub(createType, name.trim(), description.trim(), categories)
+
+      if (avatarFile) {
+        try {
+          const fd = new FormData()
+          fd.set("file", avatarFile)
+          await uploadClubAvatar(id, fd)
+        } catch (err) {
+          console.error(err)
+          toast.error("Club created, but avatar upload failed")
+        }
+      }
+
+      for (const item of plannedReading) {
+        if (item.source === "google") {
+          const ensured = await ensureGoogleBook(item.volumeId ?? item.id)
+          await addClubReadingItem(id, {
+            titleId: ensured.titleId,
+            title: item.title,
+            author: item.author,
+          })
+        } else {
+          await addClubReadingItem(id, {
+            bookId: item.id,
+            titleId: item.titleId ?? item.id,
+            title: item.title,
+            author: item.author,
+          })
+        }
+      }
+
       toast.success("Club created")
       setName("")
       setDescription("")
       setCategories([])
+      setPlannedReading([])
+      setAvatarFile(null)
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
+      setAvatarPreviewUrl(null)
       setShowCreate(false)
       router.push(`/community/clubs/${id}`)
     } catch (err) {
@@ -96,33 +175,60 @@ export function CommunityHeader() {
     }
   }
 
+  const onSelectAvatar = async (file: File | null) => {
+    if (!file) {
+      setAvatarFile(null)
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
+      setAvatarPreviewUrl(null)
+      return
+    }
+
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
+    const previewUrl = URL.createObjectURL(file)
+    setAvatarPreviewUrl(previewUrl)
+    setAvatarFile(file)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex w-full max-w-2xl gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search clubs..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={onKeyDown}
-              className="pl-10"
-            />
+        <div className="flex w-full flex-col gap-3">
+          <div className="flex w-full max-w-2xl gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search clubs..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={onKeyDown}
+                className="pl-10"
+              />
+            </div>
+
+            <Button
+              variant={selectedTypes.includes("book") ? "default" : "outline"}
+              onClick={() => toggleType("book")}
+            >
+              Book clubs
+            </Button>
+            <Button
+              variant={selectedTypes.includes("writer") ? "default" : "outline"}
+              onClick={() => toggleType("writer")}
+            >
+              Writer clubs
+            </Button>
           </div>
 
-          <Button
-            variant={type === "book" ? "default" : "outline"}
-            onClick={() => toggleType("book")}
-          >
-            Book clubs
-          </Button>
-          <Button
-            variant={type === "writer" ? "default" : "outline"}
-            onClick={() => toggleType("writer")}
-          >
-            Writer clubs
-          </Button>
+          <div className="flex flex-nowrap gap-2 w-full">
+            {GENRES.map((genre) => (
+              <GenreToggleButton
+                key={genre}
+                genre={genre}
+                selected={selectedGenres.includes(genre)}
+                onToggle={toggleGenre}
+              />
+            ))}
+          </div>
         </div>
 
         <Button onClick={() => setShowCreate((v) => !v)}>
@@ -171,6 +277,40 @@ export function CommunityHeader() {
                 ))}
               </div>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Avatar image (optional)</label>
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={avatarPreviewUrl ?? undefined} />
+                  <AvatarFallback>{(name.trim() || "?").slice(0, 1).toUpperCase()}</AvatarFallback>
+                </Avatar>
+
+                <div className="flex-1 space-y-2">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    disabled={isCreating}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null
+                      void onSelectAvatar(f)
+                      e.target.value = ""
+                    }}
+                  />
+                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                    <UploadCloud className="h-4 w-4" />
+                    Auto-resized to 200x200 px (max 5MB)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {createType === "book" ? (
+              <div className="space-y-3">
+                <label className="block text-sm font-medium">Planned reading</label>
+                <ClubTitleSearch onSelected={setPlannedReading} initialSelected={plannedReading} />
+              </div>
+            ) : null}
 
             <div className="flex justify-end">
               <Button onClick={onCreate} disabled={isCreating}>

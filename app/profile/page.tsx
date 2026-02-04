@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react"
 import { BookOpen, MessageCircle, Star, Award, Calendar, TrendingUp, Loader2, User } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Navigation } from "@/components/navigation"
 import { useAuth } from "@/lib/auth-provider"
 import { getProfileData } from "@/app/actions/profile"
+import { setTitleReadStatus } from "@/app/actions/title"
 import { EditProfileDialog } from "@/components/edit-profile-dialog"
 import { supabase } from "@/lib/supabase-browser"
 import { formatDistanceToNow } from "date-fns"
@@ -29,6 +31,17 @@ export default function ProfilePage() {
   const { user: authUser, loading: authLoading } = useAuth()
   const [profileData, setProfileData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [isRemoving, setIsRemoving] = useState<string | null>(null)
+  const [sessionToken, setSessionToken] = useState<string | null>(null)
+
+  const reloadProfile = async (token: string) => {
+    try {
+      const data = await getProfileData(token)
+      setProfileData(data)
+    } catch (error) {
+      console.error("Failed to load profile", error)
+    }
+  }
 
   useEffect(() => {
     async function loadProfile() {
@@ -36,12 +49,8 @@ export default function ProfilePage() {
       
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.access_token) {
-        try {
-          const data = await getProfileData(session.access_token)
-          setProfileData(data)
-        } catch (error) {
-          console.error("Failed to load profile", error)
-        }
+        setSessionToken(session.access_token)
+        await reloadProfile(session.access_token)
       }
       setLoading(false)
     }
@@ -86,6 +95,7 @@ export default function ProfilePage() {
   }
 
   const { profile, stats } = profileData
+  const readTitles = profileData.readTitles || []
 
   // Calculate badges
   const earnedBadges = badgesList.map(badge => ({
@@ -106,6 +116,20 @@ export default function ProfilePage() {
       data: r
     }))
   ].sort((a, b) => b.date.getTime() - a.date.getTime())
+
+  const handleRemoveRead = async (titleId: string) => {
+    setIsRemoving(titleId)
+    try {
+      await setTitleReadStatus(titleId, false)
+      if (sessionToken) {
+        await reloadProfile(sessionToken)
+      }
+    } catch (error) {
+      console.error("Failed to update read list", error)
+    } finally {
+      setIsRemoving(null)
+    }
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -180,6 +204,44 @@ export default function ProfilePage() {
         </div>
 
         <div className="space-y-8">
+          {/* Read Titles */}
+          <Card className="border-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Read Titles
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {readTitles.length === 0 ? (
+                <p className="text-sm text-muted-foreground">You haven’t marked any titles as read yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {readTitles.map((entry: any) => (
+                    <div key={entry.title_id} className="flex items-center gap-4">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={entry.titles?.cover_image_url || undefined} />
+                        <AvatarFallback>{entry.titles?.title?.[0] ?? "T"}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{entry.titles?.title ?? "Untitled"}</p>
+                        <p className="text-sm text-muted-foreground truncate">{entry.titles?.author ?? "Unknown author"}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isRemoving === entry.title_id}
+                        onClick={() => handleRemoveRead(entry.title_id)}
+                      >
+                        {isRemoving === entry.title_id ? "Removing..." : "Remove"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Badges Section */}
           <Card className="border-2">
             <CardHeader>

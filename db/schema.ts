@@ -9,6 +9,66 @@ export const authUsers = auth.table("users", {
 
 export const books = pgTable("books", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  titleId: uuid("title_id"),
+  title: varchar("title", { length: 255 }).notNull(),
+  author: varchar("author", { length: 255 }).notNull(),
+  description: text("description"),
+  coverImageUrl: text("cover_image_url"),
+  genre: text("genre").array(),
+  publishedYear: integer("published_year"),
+  isbn: varchar("isbn", { length: 20 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+})
+
+export const titles = pgTable("titles", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  author: text("author").notNull(),
+  description: text("description"),
+  coverImageUrl: text("cover_image_url"),
+  publishedYear: integer("published_year"),
+  isbn: text("isbn"),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+})
+
+export const titleReads = pgTable(
+  "title_reads",
+  {
+    userProfileId: uuid("user_profile_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    titleId: uuid("title_id")
+      .references(() => titles.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqUserTitleRead: uniqueIndex("title_reads_user_title_unique").on(t.userProfileId, t.titleId),
+  })
+)
+
+export const titleSources = pgTable(
+  "title_sources",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    source: text("source").notNull(),
+    externalId: text("external_id").notNull(),
+    titleId: uuid("title_id")
+      .references(() => titles.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqSourceExternalId: uniqueIndex("title_sources_source_external_id_unique").on(t.source, t.externalId),
+  })
+)
+
+// Tracked/ingested titles (metadata-only; not readable content in the Library)
+export const trackedBooks = pgTable("tracked_books", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  titleId: uuid("title_id").references(() => titles.id, { onDelete: "cascade" }),
   title: varchar("title", { length: 255 }).notNull(),
   author: varchar("author", { length: 255 }).notNull(),
   description: text("description"),
@@ -46,6 +106,7 @@ export const clubReadingItems = pgTable("club_reading_items", {
     .references(() => clubs.id, { onDelete: "cascade" })
     .notNull(),
   bookId: uuid("book_id").references(() => books.id, { onDelete: "set null" }),
+  titleId: uuid("title_id").references(() => titles.id, { onDelete: "set null" }),
   title: text("title"),
   author: text("author"),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
@@ -75,6 +136,7 @@ export const reviews = pgTable(
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     userId: uuid("user_id").references(() => userProfiles.id, { onDelete: "cascade" }),
     bookId: uuid("book_id").references(() => books.id, { onDelete: "cascade" }),
+    titleId: uuid("title_id").references(() => titles.id, { onDelete: "cascade" }),
     rating: integer("rating").notNull(), // 1-10 scale
     reviewText: text("review_text"),
     createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
@@ -82,6 +144,7 @@ export const reviews = pgTable(
   },
   (t: any) => ({
     uniqUserBook: uniqueIndex("reviews_user_book_unique").on(t.userId, t.bookId),
+    uniqUserTitle: uniqueIndex("reviews_user_title_unique").on(t.userId, t.titleId),
   })
 )
 
@@ -138,6 +201,10 @@ export const userProgress = pgTable(
       .references(() => books.id, { onDelete: "cascade" })
       .notNull(),
     currentPage: integer("current_page").default(0).notNull(),
+    totalPages: integer("total_pages"),
+    minutesListened: integer("minutes_listened"),
+    totalMinutes: integer("total_minutes"),
+    progressPercent: integer("progress_percent"),
     isCompleted: boolean("is_completed").default(false).notNull(),
     lastReadAt: timestamp("last_read_at", { withTimezone: true }).default(sql`now()`),
   },
@@ -146,10 +213,50 @@ export const userProgress = pgTable(
   })
 )
 
+export const trackedUserProgress = pgTable(
+  "tracked_user_progress",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userProfileId: uuid("user_profile_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    trackedBookId: uuid("tracked_book_id")
+      .references(() => trackedBooks.id, { onDelete: "cascade" })
+      .notNull(),
+    currentPage: integer("current_page").default(0).notNull(),
+    totalPages: integer("total_pages"),
+    minutesListened: integer("minutes_listened"),
+    totalMinutes: integer("total_minutes"),
+    progressPercent: integer("progress_percent"),
+    isCompleted: boolean("is_completed").default(false).notNull(),
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqUserTrackedBookProgress: uniqueIndex("tracked_user_progress_user_book_unique").on(t.userProfileId, t.trackedBookId),
+  })
+)
+
+export const externalBooks = pgTable(
+  "external_books",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    source: text("source").notNull(),
+    externalId: text("external_id").notNull(),
+    trackedBookId: uuid("tracked_book_id")
+      .references(() => trackedBooks.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqSourceExternalId: uniqueIndex("external_books_source_external_id_unique").on(t.source, t.externalId),
+  })
+)
+
 export const discussionPosts = pgTable("discussion_posts", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  bookId: uuid("book_id")
-    .references(() => books.id, { onDelete: "cascade" })
+  bookId: uuid("book_id").references(() => books.id, { onDelete: "cascade" }),
+  titleId: uuid("title_id")
+    .references(() => titles.id, { onDelete: "cascade" })
     .notNull(),
   userId: uuid("user_id")
     .references(() => userProfiles.id, { onDelete: "cascade" })
@@ -184,11 +291,28 @@ export const clubs = pgTable("clubs", {
   description: text("description"),
   avatarUrl: text("avatar_url"),
   categories: text("categories").array(),
+  currentTitleId: uuid("current_title_id").references(() => titles.id, { onDelete: "set null" }),
   ownerUserId: uuid("owner_user_id")
     .references(() => userProfiles.id, { onDelete: "cascade" })
     .notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+})
+
+export const clubReadingComments = pgTable("club_reading_comments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  clubId: uuid("club_id")
+    .references(() => clubs.id, { onDelete: "cascade" })
+    .notNull(),
+  titleId: uuid("title_id")
+    .references(() => titles.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: uuid("user_id")
+    .references(() => userProfiles.id, { onDelete: "cascade" })
+    .notNull(),
+  content: text("content").notNull(),
+  likesCount: integer("likes_count").default(0).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
 })
 
 export const clubMembers = pgTable(

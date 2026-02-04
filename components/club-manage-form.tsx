@@ -15,11 +15,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 import { GENRES, normalizeGenres, type Genre } from "@/lib/types"
 import { GenreToggleButton } from "@/components/genre-toggle-button"
+import { ClubTitleSearch } from "@/components/club-title-search"
 import {
   addClubReadingItem,
   inviteMemberToClub,
   kickMemberFromClub,
   removeClubReadingItem,
+  setClubCurrentReading,
   uploadClubAvatar,
   updateClubSettings,
 } from "@/app/actions/clubs"
@@ -33,6 +35,7 @@ type Club = {
   description: string | null
   categories: Genre[] | null
   avatar_url: string | null
+  current_title_id?: string | null
 }
 
 type Member = { id: string; username: string | null; avatar_url: string | null; role: string | null }
@@ -40,9 +43,11 @@ type Member = { id: string; username: string | null; avatar_url: string | null; 
 type ReadingItem = {
   id: string
   book_id: string | null
+  title_id?: string | null
   title: string | null
   author: string | null
   book: { id: string; title: string; author: string } | null
+  title_data?: { id: string; title: string; author: string; cover_image_url: string | null } | null
 }
 
 export function ClubManageForm({
@@ -62,6 +67,8 @@ export function ClubManageForm({
   const [avatarUrl, setAvatarUrl] = useState(club.avatar_url ?? "")
   const [description, setDescription] = useState(club.description ?? "")
   const [categories, setCategories] = useState<Genre[]>(initialCategories)
+  const [currentTitleId, setCurrentTitleId] = useState<string | null>(club.current_title_id ?? null)
+  const [isSavingCurrent, setIsSavingCurrent] = useState(false)
 
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
@@ -85,6 +92,7 @@ export function ClubManageForm({
         categories,
       })
       toast.success("Club updated")
+      router.push(`/community/clubs/${club.id}`)
       router.refresh()
     } catch (e) {
       console.error(e)
@@ -145,44 +153,6 @@ export function ClubManageForm({
     }
   }
 
-  const [libraryBookId, setLibraryBookId] = useState("")
-  const [extTitle, setExtTitle] = useState("")
-  const [extAuthor, setExtAuthor] = useState("")
-  const [isAddingTitle, setIsAddingTitle] = useState(false)
-
-  const onAddLibrary = async () => {
-    if (!libraryBookId.trim()) return
-    setIsAddingTitle(true)
-    try {
-      await addClubReadingItem(club.id, { bookId: libraryBookId })
-      toast.success("Added")
-      setLibraryBookId("")
-      router.refresh()
-    } catch (e) {
-      console.error(e)
-      toast.error("Failed to add")
-    } finally {
-      setIsAddingTitle(false)
-    }
-  }
-
-  const onAddExternal = async () => {
-    if (!extTitle.trim()) return
-    setIsAddingTitle(true)
-    try {
-      await addClubReadingItem(club.id, { title: extTitle, author: extAuthor })
-      toast.success("Added")
-      setExtTitle("")
-      setExtAuthor("")
-      router.refresh()
-    } catch (e) {
-      console.error(e)
-      toast.error("Failed to add")
-    } finally {
-      setIsAddingTitle(false)
-    }
-  }
-
   const [removingItemId, setRemovingItemId] = useState<string | null>(null)
   const onRemoveItem = async (itemId: string) => {
     setRemovingItemId(itemId)
@@ -195,6 +165,20 @@ export function ClubManageForm({
       toast.error("Failed to remove")
     } finally {
       setRemovingItemId(null)
+    }
+  }
+
+  const onSaveCurrentReading = async () => {
+    setIsSavingCurrent(true)
+    try {
+      await setClubCurrentReading(club.id, currentTitleId)
+      toast.success("Current reading updated")
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      toast.error("Failed to update current reading")
+    } finally {
+      setIsSavingCurrent(false)
     }
   }
 
@@ -211,7 +195,7 @@ export function ClubManageForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Avatar URL</label>
+            <label className="block text-sm font-medium mb-2">Avatar image</label>
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={avatarUrl || undefined} />
@@ -231,7 +215,7 @@ export function ClubManageForm({
                 />
                 <div className="text-xs text-muted-foreground flex items-center gap-2">
                   <UploadCloud className="h-4 w-4" />
-                  Uploads to Supabase Storage (max 5MB)
+                  Auto-resized to 200x200 px (max 5MB)
                 </div>
               </div>
 
@@ -259,12 +243,6 @@ export function ClubManageForm({
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <Button onClick={onSave} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save changes
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
@@ -274,54 +252,64 @@ export function ClubManageForm({
             <CardTitle>Selected titles</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Add from library (book id)</div>
-                <div className="flex gap-2">
-                  <Input value={libraryBookId} onChange={(e) => setLibraryBookId(e.target.value)} />
-                  <Button onClick={onAddLibrary} disabled={isAddingTitle} variant="secondary">
-                    {isAddingTitle && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Add
-                  </Button>
-                </div>
-              </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Current reading</div>
+              <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                <select
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={currentTitleId ?? ""}
+                  onChange={(event) => setCurrentTitleId(event.target.value || null)}
+                >
+                  <option value="">No current reading</option>
+                  {readingItems.map((item) => {
+                    const titleRecord = item.title_data ?? item.book
+                    const title = titleRecord?.title ?? item.title ?? "Untitled"
+                    const author = titleRecord?.author ?? item.author ?? ""
+                    const titleId = item.title_id ?? item.book?.id ?? null
 
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Add external title</div>
-                <div className="grid gap-2">
-                  <Input placeholder="Title" value={extTitle} onChange={(e) => setExtTitle(e.target.value)} />
-                  <div className="flex gap-2">
-                    <Input placeholder="Author (optional)" value={extAuthor} onChange={(e) => setExtAuthor(e.target.value)} />
-                    <Button onClick={onAddExternal} disabled={isAddingTitle} variant="secondary">
-                      {isAddingTitle && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Add
-                    </Button>
-                  </div>
-                </div>
+                    if (!titleId) return null
+
+                    return (
+                      <option key={item.id} value={titleId}>
+                        {title} {author ? `— ${author}` : ""}
+                      </option>
+                    )
+                  })}
+                </select>
+                <Button onClick={onSaveCurrentReading} disabled={isSavingCurrent}>
+                  {isSavingCurrent && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save current reading
+                </Button>
               </div>
             </div>
+
+            <ClubTitleSearch clubId={club.id} />
 
             <div className="space-y-2">
               {readingItems.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No titles selected.</div>
               ) : (
                 readingItems.map((item) => {
-                  const inLibrary = !!item.book
-                  const title = inLibrary ? item.book!.title : (item.title ?? "Untitled")
-                  const author = inLibrary ? item.book!.author : (item.author ?? "")
+                  const titleRecord = item.title_data ?? item.book
+                  const title = titleRecord?.title ?? item.title ?? "Untitled"
+                  const author = titleRecord?.author ?? item.author ?? ""
+                  const coverUrl = item.title_data?.cover_image_url ?? null
 
                   return (
                     <Card key={item.id}>
                       <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage src={coverUrl ?? undefined} />
+                            <AvatarFallback>{title[0] ?? "T"}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
                             <div className="truncate font-medium">{title}</div>
                             {author && <div className="text-sm text-muted-foreground">{author}</div>}
                           </div>
-
                           <div className="flex items-center gap-2">
-                            <Badge variant={inLibrary ? "default" : "secondary"}>
-                              {inLibrary ? "In library" : "Not in library"}
+                            <Badge variant={item.book ? "default" : "secondary"}>
+                              {item.book ? "In library" : "Not in library"}
                             </Badge>
                             <Button
                               size="icon"
@@ -400,6 +388,13 @@ export function ClubManageForm({
           </ScrollArea>
         </CardContent>
       </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={onSave} disabled={isSaving}>
+          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Save changes
+        </Button>
+      </div>
     </div>
   )
 }

@@ -77,7 +77,7 @@ export async function toggleBookReadStatus(token: string, bookId: string, isRead
     }
   }
 
-  revalidatePath(`/books/${bookId}`)
+  revalidatePath(`/titles/${bookId}`)
 }
 
 export async function getReadStatus(token: string, bookId: string) {

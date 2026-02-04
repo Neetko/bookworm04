@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { GENRE_BG_CLASS, normalizeGenres, type Genre } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 type ClubType = "book" | "writer"
 
@@ -16,10 +17,16 @@ export type ClubCardClub = {
   description: string | null
   categories: Genre[] | null
   memberCount: number
+  avatar_url: string | null
+  currentReading: string | null
+  plannedReading: string[]
 }
 
 export function ClubCard({ club }: { club: ClubCardClub }) {
   const categories = normalizeGenres(club.categories)
+  const plannedPreview = club.type === "book" ? club.plannedReading ?? [] : []
+  const plannedTop = plannedPreview.slice(0, 3)
+  const hasMorePlanned = plannedPreview.length > 3
 
   return (
     <HoverCard openDelay={150} closeDelay={100}>
@@ -31,18 +38,26 @@ export function ClubCard({ club }: { club: ClubCardClub }) {
           <Card className="group flex h-full flex-col transition-[transform,box-shadow] duration-200 hover:shadow-md hover:scale-[1.02]">
             <CardHeader>
               <div className="flex items-start justify-between gap-3">
-                <CardTitle className="text-xl leading-tight">
-                  <span className="group-hover:underline">{club.name}</span>
-                </CardTitle>
-                <Badge variant={club.type === "book" ? "default" : "secondary"}>
-                  {club.type === "book" ? "Book club" : "Writer club"}
-                </Badge>
+                <div className="flex flex-col gap-2 min-w-0">
+                  <CardTitle className="text-xl leading-tight">{club.name}</CardTitle>
+                  <Badge variant={club.type === "book" ? "default" : "secondary"} className="w-fit">
+                    {club.type === "book" ? "Book club" : "Writer club"}
+                  </Badge>
+                </div>
+                {club.avatar_url ? (
+                  <Avatar className="h-12 w-12 shrink-0">
+                    <AvatarImage src={club.avatar_url ?? undefined} />
+                    <AvatarFallback>{(club.name || "?").slice(0, 1).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                ) : null}
               </div>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col">
               <p className="text-sm text-muted-foreground line-clamp-3">
                 {club.description || "No description yet."}
               </p>
+
+             
 
               <div className="mt-auto flex items-center justify-between pt-3">
                 <div className="flex items-center gap-1.5">
@@ -69,18 +84,30 @@ export function ClubCard({ club }: { club: ClubCardClub }) {
         className="w-96 max-w-[calc(100vw-2rem)]"
       >
         <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="truncate font-semibold">{club.name}</div>
-              <div className="mt-1 text-sm text-muted-foreground">
-                {club.type === "book" ? "Book club" : "Writer club"}
-              </div>
+          <div className="min-w-0">
+            <div className="truncate font-semibold">{club.name}</div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              {club.type === "book" ? "Book club" : "Writer club"}
             </div>
           </div>
 
           <div className="text-sm text-muted-foreground whitespace-pre-wrap">
             {club.description || "No description yet."}
           </div>
+
+          {club.type === "book" && plannedTop.length > 0 ? (
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-foreground">Planned reading</div>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                {plannedTop.map((title, idx) => (
+                  <li key={`${title}-${idx}`} className="truncate">
+                    {title}
+                  </li>
+                ))}
+                {hasMorePlanned ? <li className="text-muted-foreground">...</li> : null}
+              </ul>
+            </div>
+          ) : null}
 
           {categories.length > 0 && (
             <div className="flex flex-wrap gap-2">

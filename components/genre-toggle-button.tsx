@@ -24,7 +24,7 @@ export function GenreToggleButton({
       variant="outline"
       onClick={() => onToggle(genre)}
       className={cn(
-        "min-w-0 justify-center rounded-xl px-2 whitespace-nowrap",
+        "shrink-0 h-7 justify-center rounded-xl px-2 text-xs whitespace-nowrap",
         selected
           ? cn(
               GENRE_BG_CLASS[genre],
@@ -38,7 +38,7 @@ export function GenreToggleButton({
         className
       )}
     >
-      <span className="truncate">{genre}</span>
+      <span>{genre}</span>
     </Button>
   )
 }

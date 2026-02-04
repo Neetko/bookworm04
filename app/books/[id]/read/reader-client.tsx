@@ -71,7 +71,7 @@ export function ReaderClient(props: {
   return (
     <div className="reader-mode">
       <a
-        href={`/books/${bookId}`}
+        href={`/titles/${bookId}`}
         style={{
           position: "absolute",
           top: "1rem",
