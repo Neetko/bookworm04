@@ -1,19 +1,48 @@
 "use client"
 
-import { useEffect, useState, type KeyboardEvent, type MouseEvent } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { BookOpen } from "lucide-react"
 import type { SearchTitleResult } from "@/lib/types"
-import { TrackReadingProgressDialog, type TrackReadingProgress } from "@/components/track-reading-progress-dialog"
-import { claimAndTrackGoogleBook, claimAndTrackLocalBook } from "@/app/actions/track-reading"
+import { ensureGoogleBook } from "@/app/actions/track-reading"
 import { toast } from "sonner"
 import { sanitizeDescriptionHtml } from "@/lib/sanitize"
 
-function Cover({ src, alt }: { src: string | null; alt: string }) {
+type CoverStatus = "loading" | "loaded" | "failed" | "missing"
+
+const failedCoverSrcs = new Set<string>()
+
+function Cover({
+  src,
+  alt,
+  onStatusChange,
+}: {
+  src: string | null
+  alt: string
+  onStatusChange?: (status: CoverStatus) => void
+}) {
   const [failed, setFailed] = useState(false)
   const normalized = src ? src.replace(/^http:/, "https:") : null
+
+  useEffect(() => {
+    if (!normalized) {
+      setFailed(true)
+      onStatusChange?.("missing")
+      return
+    }
+
+    if (failedCoverSrcs.has(normalized)) {
+      setFailed(true)
+      onStatusChange?.("failed")
+      return
+    }
+
+    setFailed(false)
+    onStatusChange?.("loading")
+  }, [normalized, onStatusChange])
 
   if (!normalized || failed) {
     return (
@@ -24,14 +53,21 @@ function Cover({ src, alt }: { src: string | null; alt: string }) {
   }
 
   return (
-    <div className="w-full sm:w-48 h-48 sm:h-auto bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-      <img
+    <div className="relative w-full sm:w-48 h-48 sm:h-auto bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+      <Image
         src={normalized}
         alt={alt}
-        className="h-full w-full object-cover"
-        loading="lazy"
+        fill
+        sizes="(max-width: 640px) 100vw, 192px"
+        className="object-cover"
         referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
+        onLoadingComplete={() => onStatusChange?.("loaded")}
+        onError={() => {
+          failedCoverSrcs.add(normalized)
+          setFailed(true)
+          onStatusChange?.("failed")
+        }}
+        unoptimized
       />
     </div>
   )
@@ -39,11 +75,12 @@ function Cover({ src, alt }: { src: string | null; alt: string }) {
 
 export function TrackReadingResultList({ results }: { results: SearchTitleResult[] }) {
   const router = useRouter()
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogTitle, setDialogTitle] = useState("")
-  const [pendingLocalId, setPendingLocalId] = useState<string | null>(null)
-  const [pendingGoogleId, setPendingGoogleId] = useState<string | null>(null)
   const [googleTitleIds, setGoogleTitleIds] = useState<Record<string, string>>({})
+  const [ingestedVolumeIds, setIngestedVolumeIds] = useState<Set<string>>(new Set())
+  const [coverStatus, setCoverStatus] = useState<Record<string, CoverStatus>>({})
+  const [orderedResults, setOrderedResults] = useState<SearchTitleResult[]>(results)
+  const hasReorderedRef = useRef(false)
+  const reorderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const initialMap: Record<string, string> = {}
@@ -53,47 +90,81 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
       }
     }
     setGoogleTitleIds(initialMap)
+    setCoverStatus({})
+    setOrderedResults(results)
+    setIngestedVolumeIds(new Set())
+    hasReorderedRef.current = false
+    if (reorderTimerRef.current) {
+      clearTimeout(reorderTimerRef.current)
+      reorderTimerRef.current = null
+    }
   }, [results])
 
-  const openLocalDialog = (result: SearchTitleResult) => {
-    setPendingGoogleId(null)
-    setPendingLocalId(result.id)
-    setDialogTitle(result.title)
-    setDialogOpen(true)
-  }
+  useEffect(() => {
+    if (hasReorderedRef.current || results.length === 0) return
 
-  const openGoogleDialog = (result: SearchTitleResult) => {
-    setPendingLocalId(null)
-    setPendingGoogleId(result.volumeId ?? null)
-    setDialogTitle(result.title)
-    setDialogOpen(true)
-  }
+    if (reorderTimerRef.current) {
+      clearTimeout(reorderTimerRef.current)
+    }
 
-  const submit = async (progress: TrackReadingProgress) => {
-    try {
-      if (pendingLocalId) {
-        await claimAndTrackLocalBook(pendingLocalId, progress)
-        toast.success("Progress saved")
-        setDialogOpen(false)
-        setPendingLocalId(null)
-        router.refresh()
-        return
-      }
+    reorderTimerRef.current = setTimeout(() => {
+      const indexMap = new Map<string, number>()
+      results.forEach((result, index) => {
+        indexMap.set(`${result.source}:${result.id}`, index)
+      })
 
-      if (pendingGoogleId) {
-        const res = await claimAndTrackGoogleBook(pendingGoogleId, progress)
-        toast.success("Book claimed and progress saved")
-        if (res.titleId) {
-          setGoogleTitleIds((prev) => ({ ...prev, [pendingGoogleId]: res.titleId }))
+      const rankForStatus = (status: CoverStatus | undefined) => {
+        switch (status) {
+          case "loaded":
+            return 0
+          case "loading":
+            return 1
+          case "failed":
+          case "missing":
+          default:
+            return 2
         }
-        setDialogOpen(false)
-        setPendingGoogleId(null)
-        router.refresh()
-        return
       }
+
+      const next = [...results].sort((a, b) => {
+        const keyA = `${a.source}:${a.id}`
+        const keyB = `${b.source}:${b.id}`
+        const rankA = rankForStatus(coverStatus[keyA])
+        const rankB = rankForStatus(coverStatus[keyB])
+        if (rankA !== rankB) return rankA - rankB
+        return (indexMap.get(keyA) ?? 0) - (indexMap.get(keyB) ?? 0)
+      })
+
+      setOrderedResults(next)
+      hasReorderedRef.current = true
+      reorderTimerRef.current = null
+    }, 400)
+
+    return () => {
+      if (reorderTimerRef.current) {
+        clearTimeout(reorderTimerRef.current)
+        reorderTimerRef.current = null
+      }
+    }
+  }, [coverStatus, results])
+
+  const ingestExternal = async (result: SearchTitleResult) => {
+    if (result.source !== "google" || !result.volumeId) return
+
+    try {
+      const res = await ensureGoogleBook(result.volumeId)
+      toast.success("Title ingested")
+      if (res.titleId) {
+        setGoogleTitleIds((prev) => ({ ...prev, [result.volumeId as string]: res.titleId }))
+      }
+      setIngestedVolumeIds((prev) => {
+        const next = new Set(prev)
+        next.add(result.volumeId as string)
+        return next
+      })
+      router.refresh()
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to save progress")
-      throw e
+      toast.error(e?.message ?? "Failed to ingest title")
     }
   }
 
@@ -110,13 +181,19 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
 
   return (
     <div className="space-y-6">
-      {results.map((result) => {
+      {orderedResults.map((result) => {
+        const resultKey = `${result.source}:${result.id}`
         const resolvedTitleId =
           result.source === "google" && result.volumeId
             ? googleTitleIds[result.volumeId] ?? result.titleId
             : result.titleId ?? result.id
         const isClickable = Boolean(resolvedTitleId)
         const showOpenReady = Boolean(resolvedTitleId)
+        const isIngested =
+          result.source === "local" ||
+          result.claimed ||
+          (result.volumeId ? ingestedVolumeIds.has(result.volumeId) : false)
+        const showIngest = result.source === "google" && !isIngested
         const descriptionHtml = sanitizeDescriptionHtml(result.description)
 
         return (
@@ -143,7 +220,16 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
                 : undefined
             }
           >
-            <Cover src={result.coverImageUrl} alt={result.title} />
+            <Cover
+              src={result.coverImageUrl}
+              alt={result.title}
+              onStatusChange={(status) => {
+                setCoverStatus((prev) => {
+                  if (prev[resultKey] === status) return prev
+                  return { ...prev, [resultKey]: status }
+                })
+              }}
+            />
 
             <div className="flex flex-col flex-1">
               <CardContent className="p-6 flex-1">
@@ -167,28 +253,17 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
                 ) : null}
               </CardContent>
 
-              <CardFooter className="p-6 pt-0 flex justify-end gap-2">
-                {result.source === "google" ? (
-                  <Button variant="outline" onClick={() => openGoogleDialog(result)}>
-                    Track
+              {showIngest ? (
+                <CardFooter className="p-6 pt-0 flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => ingestExternal(result)}>
+                    Ingest
                   </Button>
-                ) : (
-                  <Button variant="outline" onClick={() => openLocalDialog(result)}>
-                    Track
-                  </Button>
-                )}
-              </CardFooter>
+                </CardFooter>
+              ) : null}
             </div>
           </Card>
         )
       })}
-
-      <TrackReadingProgressDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        title={dialogTitle}
-        onSubmit={submit}
-      />
     </div>
   )
 }

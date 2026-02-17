@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { RichTextEditor } from "@/components/rich-text-editor"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { submitReview } from "@/app/actions/reviews"
 import { toast } from "sonner"
@@ -12,29 +12,33 @@ import { getTitleReadStatus } from "@/app/actions/title"
 
 interface ReviewFormProps {
   titleId: string
+  canWrite?: boolean
 }
 
-export function ReviewForm({ titleId }: ReviewFormProps) {
+export function ReviewForm({ titleId, canWrite: canWriteProp }: ReviewFormProps) {
   const [rating, setRating] = useState(0)
-  const [reviewText, setReviewText] = useState("")
+  const [reviewHtml, setReviewHtml] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [canWrite, setCanWrite] = useState(false)
+  const [canWriteState, setCanWriteState] = useState(false)
   const router = useRouter()
 
+  const canWrite = canWriteProp ?? canWriteState
+
   useEffect(() => {
+    if (canWriteProp !== undefined) return
     let cancelled = false
     ;(async () => {
       try {
         const ok = await getTitleReadStatus(titleId)
-        if (!cancelled) setCanWrite(ok)
+        if (!cancelled) setCanWriteState(ok)
       } catch {
-        if (!cancelled) setCanWrite(false)
+        if (!cancelled) setCanWriteState(false)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [titleId])
+  }, [titleId, canWriteProp])
 
   const handleSubmit = async () => {
     if (!canWrite) {
@@ -48,10 +52,10 @@ export function ReviewForm({ titleId }: ReviewFormProps) {
 
     setIsSubmitting(true)
     try {
-      await submitReview(titleId, rating, reviewText)
+      await submitReview(titleId, rating, reviewHtml)
       toast.success("Review submitted successfully")
       setRating(0)
-      setReviewText("")
+      setReviewHtml("")
       router.refresh()
     } catch (error) {
       console.error(error)
@@ -72,42 +76,49 @@ export function ReviewForm({ titleId }: ReviewFormProps) {
             Log in and mark this title as read to write a review.
           </p>
         ) : null}
-        <div>
-          <label className="block text-sm font-medium mb-2">Your Rating</label>
-          <div className="flex gap-1 flex-wrap">
-            {[...Array(10)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setRating(i + 1)}
-                className="focus:outline-none transition-colors"
+        {canWrite ? (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-2">Your Rating</label>
+              <div className="flex gap-1 flex-wrap">
+                {[...Array(10)].map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setRating(i + 1)}
+                    className="focus:outline-none transition-colors"
+                    disabled={!canWrite}
+                  >
+                    <Star
+                      className={`h-6 w-6 ${
+                        i < rating
+                          ? "fill-primary text-primary"
+                          : "text-muted hover:text-primary/50"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Rate from 1-10</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Your Review</label>
+              <RichTextEditor
+                value={reviewHtml}
+                onChange={(html) => {
+                  setReviewHtml(html)
+                }}
+                placeholder="Share your thoughts about this book..."
                 disabled={!canWrite}
-              >
-                <Star
-                  className={`h-6 w-6 ${
-                    i < rating ? "fill-primary text-primary" : "text-muted hover:text-primary/50"
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">Rate from 1-10</p>
-        </div>
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">Your Review</label>
-          <Textarea
-            placeholder="Share your thoughts about this book..."
-            rows={4}
-            value={reviewText}
-            onChange={(e) => setReviewText(e.target.value)}
-            disabled={!canWrite}
-          />
-        </div>
-
-        <Button className="w-full" onClick={handleSubmit} disabled={isSubmitting || !canWrite}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Submit Review
-        </Button>
+            <Button className="w-full" onClick={handleSubmit} disabled={isSubmitting || !canWrite}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Submit Review
+            </Button>
+          </>
+        ) : null}
       </CardContent>
     </Card>
   )

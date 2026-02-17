@@ -249,6 +249,77 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
 }
 
+export async function trackTitleProgress(input: {
+  titleId: string
+  bookId?: string | null
+  trackedBookId?: string | null
+  progress: TrackProgressInput
+}) {
+  const supabase = await createServerClient()
+  const profileId = await requireAuthedProfileId(supabase)
+
+  const { titleId, bookId, trackedBookId, progress } = input
+
+  if (!bookId && !trackedBookId) {
+    throw new Error("No ingested title available to track")
+  }
+
+  const update: Record<string, any> = {
+    user_profile_id: profileId,
+    is_completed: true,
+    last_read_at: new Date().toISOString(),
+  }
+
+  if (progress.mode === "pages") {
+    const totalPages = Math.max(1, Math.floor(progress.totalPages))
+    const currentPage = clamp(Math.floor(progress.currentPage), 0, totalPages)
+    const percent = Math.round((currentPage / totalPages) * 100)
+
+    update.current_page = currentPage
+    update.total_pages = totalPages
+    update.progress_percent = percent
+    update.minutes_listened = null
+    update.total_minutes = null
+  } else {
+    const totalMinutes = Math.max(1, Math.floor(progress.totalMinutes))
+    const minutesListened = clamp(Math.floor(progress.minutesListened), 0, totalMinutes)
+    const percent = Math.round((minutesListened / totalMinutes) * 100)
+
+    update.minutes_listened = minutesListened
+    update.total_minutes = totalMinutes
+    update.progress_percent = percent
+    update.total_pages = null
+  }
+
+  if (bookId) {
+    update.book_id = bookId
+    const { error } = await supabase.from("user_progress").upsert(update, {
+      onConflict: "user_profile_id,book_id",
+    })
+
+    if (error) {
+      console.error("Failed to upsert progress", error)
+      throw new Error("Failed to save progress")
+    }
+
+    revalidatePath(`/titles/${titleId}`)
+    return { bookId, titleId }
+  }
+
+  update.tracked_book_id = trackedBookId
+  const { error } = await supabase.from("tracked_user_progress").upsert(update, {
+    onConflict: "user_profile_id,tracked_book_id",
+  })
+
+  if (error) {
+    console.error("Failed to upsert progress", error)
+    throw new Error("Failed to save progress")
+  }
+
+  revalidatePath(`/titles/${titleId}`)
+  return { trackedBookId, titleId }
+}
+
 export async function claimAndTrackLocalBook(bookId: string, progress: TrackProgressInput) {
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)

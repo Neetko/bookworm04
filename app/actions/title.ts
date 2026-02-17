@@ -1,6 +1,7 @@
 "use server"
 
 import { createServerClient } from "@/lib/supabase-server"
+import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
 import { revalidatePath } from "next/cache"
 
 async function requireAuthedProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
@@ -160,13 +161,14 @@ export async function createDiscussionPost(titleId: string, content: string) {
   const profileId = await requireAuthedProfileId(supabase)
   await requireTitleRead(supabase, profileId, titleId)
 
-  const trimmed = content.trim()
-  if (!trimmed) throw new Error("Message cannot be empty")
+  const cleaned = sanitizeRichTextHtml(content)
+  const plain = extractPlainTextFromHtml(cleaned)
+  if (!plain) throw new Error("Message cannot be empty")
 
   const { error } = await supabase.from("discussion_posts").insert({
     title_id: titleId,
     user_id: profileId,
-    content: trimmed,
+    content: cleaned,
     likes_count: 0,
   })
 

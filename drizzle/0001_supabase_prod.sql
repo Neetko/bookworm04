@@ -26,7 +26,7 @@ create table if not exists public.user_profiles (
   bio text,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
-  auth_user_id uuid references auth.users(id) on delete cascade
+  auth_user_id uuid
 );
 create unique index if not exists user_profiles_auth_user_id_unique
   on public.user_profiles(auth_user_id);
@@ -64,18 +64,4 @@ create table if not exists public.favorites (
 create unique index if not exists favorites_user_book_unique
   on public.favorites(user_id, book_id);
 
--- Auto-provision profile after auth signup
-create or replace function public.handle_new_user()
-returns trigger as $$
-begin
-  insert into public.user_profiles (auth_user_id, username, email)
-  values (new.id, new.email, new.email)
-  on conflict do nothing;
-  return new;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
+-- NOTE: auth.users triggers are managed by Supabase and should not be created here.

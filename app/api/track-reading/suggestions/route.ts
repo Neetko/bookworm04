@@ -3,20 +3,27 @@ import { createServerClient } from "@/lib/supabase-server"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
+  const title = (searchParams.get("title") ?? "").trim()
+  const author = (searchParams.get("author") ?? "").trim()
   const q = (searchParams.get("q") ?? "").trim()
 
-  if (!q) {
+  const hasStructured = Boolean(title || author)
+  if (!hasStructured && !q) {
     return NextResponse.json({ results: [] as Array<{ id: string; title: string; author: string }> })
   }
 
   const supabase = await createServerClient()
 
-  const { data, error } = await supabase
-    .from("books")
-    .select("id,title,author")
-    .or(`title.ilike.%${q}%,author.ilike.%${q}%`)
-    .order("created_at", { ascending: false })
-    .limit(8)
+  let query = supabase.from("books").select("id,title,author")
+
+  if (hasStructured) {
+    if (title) query = query.ilike("title", `%${title}%`)
+    if (author) query = query.ilike("author", `%${author}%`)
+  } else {
+    query = query.or(`title.ilike.%${q}%,author.ilike.%${q}%`)
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(8)
 
   if (error) {
     console.error("Suggestions query failed", error)

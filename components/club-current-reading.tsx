@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { sanitizeRichTextHtml } from "@/lib/sanitize"
+import { RichTextEditor } from "@/components/rich-text-editor"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { MessageSquare, ThumbsUp, Loader2 } from "lucide-react"
 import { addClubCurrentReadingComment, getClubCurrentReadingComments, upvoteClubCurrentReadingComment } from "@/app/actions/clubs"
@@ -40,7 +41,8 @@ export function ClubCurrentReadingSection({
   initialComments: ClubCurrentReadingComment[]
 }) {
   const [comments, setComments] = useState<ClubCurrentReadingComment[]>(initialComments)
-  const [content, setContent] = useState("")
+  const [contentHtml, setContentHtml] = useState("")
+  const [contentText, setContentText] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [upvotingId, setUpvotingId] = useState<string | null>(null)
@@ -64,11 +66,12 @@ export function ClubCurrentReadingSection({
   }
 
   const submit = async () => {
-    if (!content.trim()) return
+    if (!contentText.trim()) return
     setIsSubmitting(true)
     try {
-      await addClubCurrentReadingComment(clubId, content)
-      setContent("")
+      await addClubCurrentReadingComment(clubId, contentHtml)
+      setContentHtml("")
+      setContentText("")
       await refresh()
     } finally {
       setIsSubmitting(false)
@@ -131,7 +134,10 @@ export function ClubCurrentReadingSection({
                     <div className="text-sm font-medium">
                       {comment.user_profiles?.username ?? "Anonymous"}
                     </div>
-                    <div className="text-sm text-muted-foreground whitespace-pre-wrap">{comment.content}</div>
+                    <div
+                      className="text-sm text-muted-foreground prose prose-sm max-w-none [&_p]:mb-2 last:[&_p]:mb-0"
+                      dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(comment.content) }}
+                    />
                     <button
                       type="button"
                       className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -152,14 +158,16 @@ export function ClubCurrentReadingSection({
 
         {canPost ? (
           <div className="space-y-2">
-            <Textarea
+            <RichTextEditor
+              value={contentHtml}
+              onChange={(html, text) => {
+                setContentHtml(html)
+                setContentText(text)
+              }}
               placeholder="Write a comment..."
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              rows={3}
             />
             <div className="flex justify-end">
-              <Button onClick={submit} disabled={isSubmitting || !content.trim()}>
+              <Button onClick={submit} disabled={isSubmitting || !contentText.trim()}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Post
               </Button>

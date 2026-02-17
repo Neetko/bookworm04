@@ -3,6 +3,7 @@
 import { createServerClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 import { normalizeGenres, type Genre } from "@/lib/types"
+import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
 import { randomUUID } from "crypto"
 import { resizeAvatarImage } from "@/lib/avatar-image"
 
@@ -354,14 +355,15 @@ export async function addClubCurrentReadingComment(clubId: string, content: stri
 
   if (!club?.current_title_id) throw new Error("No current reading selected")
 
-  const trimmed = content.trim()
-  if (!trimmed) throw new Error("Message cannot be empty")
+  const cleaned = sanitizeRichTextHtml(content)
+  const plain = extractPlainTextFromHtml(cleaned)
+  if (!plain) throw new Error("Message cannot be empty")
 
   const { error } = await supabase.from("club_reading_comments").insert({
     club_id: clubId,
     title_id: club.current_title_id,
     user_id: profileId,
-    content: trimmed,
+    content: cleaned,
     likes_count: 0,
   })
 
