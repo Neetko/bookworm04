@@ -9,10 +9,13 @@ import { Card, CardContent } from "@/components/ui/card"
 export default async function SearchTitlesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{ q?: string; title?: string; author?: string; includeExternal?: string }>
 }) {
   const params = await searchParams
-  const query = params.q ?? ""
+  const title = (params.title ?? params.q ?? "").trim()
+  const author = (params.author ?? "").trim()
+  const displayQuery = [title, author].filter(Boolean).join(" — ")
+  const includeExternal = params.includeExternal === "1" || params.includeExternal === "true"
 
   const hasGoogleBooksKey = Boolean(process.env.GOOGLE_BOOKS_API_KEY)
 
@@ -25,7 +28,9 @@ export default async function SearchTitlesPage({
     redirect("/auth")
   }
 
-  const results = query.trim() ? await searchTitles(query) : []
+  const results = displayQuery
+    ? await searchTitles({ title, author, raw: params.q, includeExternal })
+    : []
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,10 +42,10 @@ export default async function SearchTitlesPage({
           <TrackReadingSearch />
         </div>
 
-        {query.trim() && results.length === 0 ? (
+        {displayQuery && results.length === 0 ? (
           <Card>
             <CardContent className="p-6">
-              <p className="font-medium">No results for “{query.trim()}”.</p>
+              <p className="font-medium">No results for “{displayQuery}”.</p>
               {!hasGoogleBooksKey ? (
                 <p className="text-sm text-muted-foreground mt-2">
                   Google Books API key is not configured. Set `GOOGLE_BOOKS_API_KEY` in `.env.local` to enable higher-quota searches.

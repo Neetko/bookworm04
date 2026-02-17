@@ -1,6 +1,7 @@
 "use server"
 
 import { createServerClient } from "@/lib/supabase-server"
+import { sanitizeRichTextHtml } from "@/lib/sanitize"
 import { revalidatePath } from "next/cache"
 
 async function requireAuthedProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
@@ -70,6 +71,8 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
   const profileId = await requireAuthedProfileId(supabase)
   await requireTitleRead(supabase, profileId, titleId)
 
+  const cleanedReview = sanitizeRichTextHtml(reviewText)
+
   // Check if review already exists
   const { data: existingReview } = await supabase
     .from("reviews")
@@ -84,7 +87,7 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
       .from("reviews")
       .update({
         rating,
-        review_text: reviewText,
+        review_text: cleanedReview,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existingReview.id)
@@ -99,7 +102,7 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
         book_id: null,
         title_id: titleId,
         rating,
-        review_text: reviewText,
+        review_text: cleanedReview,
       })
 
     if (error) throw new Error("Failed to submit review")

@@ -1,0 +1,924 @@
+[
+  {
+    "label": "romance",
+    "queries": 35,
+    "categoryCount": 38,
+    "top": [
+      [
+        "Fiction",
+        25
+      ],
+      [
+        "Biography & Autobiography",
+        7
+      ],
+      [
+        "Computers",
+        5
+      ],
+      [
+        "Young Adult Fiction",
+        4
+      ],
+      [
+        "Literary Criticism",
+        4
+      ],
+      [
+        "Philosophy",
+        3
+      ],
+      [
+        "Juvenile Fiction",
+        3
+      ],
+      [
+        "Juvenile Nonfiction",
+        3
+      ],
+      [
+        "Study Aids",
+        3
+      ],
+      [
+        "Social Science",
+        3
+      ],
+      [
+        "Language Arts & Disciplines",
+        3
+      ],
+      [
+        "Reference",
+        3
+      ],
+      [
+        "Family & Relationships",
+        2
+      ],
+      [
+        "Patents",
+        1
+      ],
+      [
+        "Labor laws and legislation",
+        1
+      ],
+      [
+        "Artists",
+        1
+      ],
+      [
+        "Religion",
+        1
+      ],
+      [
+        "Music",
+        1
+      ],
+      [
+        "Librarians",
+        1
+      ],
+      [
+        "Married people",
+        1
+      ]
+    ],
+    "errors": [
+      {
+        "q": "sense and sensibility",
+        "status": 429
+      },
+      {
+        "q": "wuthering heights",
+        "status": 429
+      },
+      {
+        "q": "pride and prejudice",
+        "status": 429
+      },
+      {
+        "q": "emma",
+        "status": 429
+      },
+      {
+        "q": "outlander",
+        "status": 429
+      },
+      {
+        "q": "me before you",
+        "status": 429
+      },
+      {
+        "q": "twilight",
+        "status": 429
+      },
+      {
+        "q": "jane eyre",
+        "status": 429
+      },
+      {
+        "q": "fifty shades of grey",
+        "status": 429
+      },
+      {
+        "q": "it ends with us",
+        "status": 429
+      },
+      {
+        "q": "red white and royal blue",
+        "status": 429
+      },
+      {
+        "q": "the kiss quotient",
+        "status": 429
+      },
+      {
+        "q": "the bride test",
+        "status": 429
+      },
+      {
+        "q": "the rosie project",
+        "status": 429
+      },
+      {
+        "q": "one day",
+        "status": 429
+      },
+      {
+        "q": "the princess bride",
+        "status": 429
+      },
+      {
+        "q": "the light we lost",
+        "status": 429
+      },
+      {
+        "q": "the proposal",
+        "status": 429
+      },
+      {
+        "q": "a walk to remember",
+        "status": 429
+      },
+      {
+        "q": "the selection",
+        "status": 429
+      },
+      {
+        "q": "anna and the french kiss",
+        "status": 429
+      },
+      {
+        "q": "p.s. i love you",
+        "status": 429
+      },
+      {
+        "q": "the duke and i",
+        "status": 429
+      },
+      {
+        "q": "the time traveler's wife",
+        "status": 429
+      }
+    ]
+  },
+  {
+    "label": "horror",
+    "queries": 28,
+    "categoryCount": 39,
+    "top": [
+      [
+        "Fiction",
+        15
+      ],
+      [
+        "Performing Arts",
+        10
+      ],
+      [
+        "Literary Criticism",
+        6
+      ],
+      [
+        "Social Science",
+        4
+      ],
+      [
+        "Juvenile Nonfiction",
+        3
+      ],
+      [
+        "Biography & Autobiography",
+        3
+      ],
+      [
+        "True Crime",
+        3
+      ],
+      [
+        "Forests and forestry",
+        2
+      ],
+      [
+        "Patents",
+        2
+      ],
+      [
+        "Birds",
+        2
+      ],
+      [
+        "History",
+        1
+      ],
+      [
+        "Political Science",
+        1
+      ],
+      [
+        "Ethics",
+        1
+      ],
+      [
+        "Book of the dead",
+        1
+      ],
+      [
+        "Language Arts & Disciplines",
+        1
+      ],
+      [
+        "Transylvania (Romania)",
+        1
+      ],
+      [
+        "Science",
+        1
+      ],
+      [
+        "Business & Economics",
+        1
+      ],
+      [
+        "Religion",
+        1
+      ],
+      [
+        "Fantasy films",
+        1
+      ]
+    ],
+    "errors": [
+      {
+        "q": "frankenstein",
+        "status": 429
+      },
+      {
+        "q": "pet sematary",
+        "status": 429
+      },
+      {
+        "q": "misery",
+        "status": 429
+      },
+      {
+        "q": "the exorcist",
+        "status": 429
+      },
+      {
+        "q": "carrie",
+        "status": 429
+      },
+      {
+        "q": "house of leaves",
+        "status": 429
+      },
+      {
+        "q": "world war z",
+        "status": 429
+      },
+      {
+        "q": "the haunting of hill house",
+        "status": 429
+      },
+      {
+        "q": "mexican gothic",
+        "status": 429
+      },
+      {
+        "q": "the silence of the lambs",
+        "status": 429
+      },
+      {
+        "q": "the hunger",
+        "status": 429
+      },
+      {
+        "q": "the ruins",
+        "status": 429
+      },
+      {
+        "q": "the strain",
+        "status": 429
+      },
+      {
+        "q": "let the right one in",
+        "status": 429
+      },
+      {
+        "q": "the girl with all the gifts",
+        "status": 429
+      },
+      {
+        "q": "the turn of the screw",
+        "status": 429
+      },
+      {
+        "q": "the lottery",
+        "status": 429
+      },
+      {
+        "q": "the outsider",
+        "status": 429
+      },
+      {
+        "q": "the haunting of hill house",
+        "status": 429
+      }
+    ]
+  },
+  {
+    "label": "mystery",
+    "queries": 25,
+    "categoryCount": 19,
+    "top": [
+      [
+        "Fiction",
+        14
+      ],
+      [
+        "Literary Criticism",
+        5
+      ],
+      [
+        "Detective and mystery stories",
+        3
+      ],
+      [
+        "Performing Arts",
+        3
+      ],
+      [
+        "Business & Economics",
+        2
+      ],
+      [
+        "Juvenile Fiction",
+        2
+      ],
+      [
+        "Bipolar disorder",
+        1
+      ],
+      [
+        "English drama",
+        1
+      ],
+      [
+        "Birds",
+        1
+      ],
+      [
+        "Afghan War, 2001-",
+        1
+      ],
+      [
+        "Philosophy",
+        1
+      ],
+      [
+        "Study Aids",
+        1
+      ],
+      [
+        "Psychology",
+        1
+      ],
+      [
+        "Antiques & Collectibles",
+        1
+      ],
+      [
+        "Language Arts & Disciplines",
+        1
+      ],
+      [
+        "Games & Activities",
+        1
+      ],
+      [
+        "Drama (English)",
+        1
+      ],
+      [
+        "Jewish youth",
+        1
+      ],
+      [
+        "Fairy tales",
+        1
+      ]
+    ],
+    "errors": [
+      {
+        "q": "murder on the orient express",
+        "status": 429
+      },
+      {
+        "q": "the girl with the dragon tattoo",
+        "status": 429
+      },
+      {
+        "q": "gone girl",
+        "status": 429
+      },
+      {
+        "q": "the da vinci code",
+        "status": 429
+      },
+      {
+        "q": "the big sleep",
+        "status": 429
+      },
+      {
+        "q": "the hound of the baskervilles",
+        "status": 429
+      },
+      {
+        "q": "in the woods",
+        "status": 429
+      },
+      {
+        "q": "the name of the rose",
+        "status": 429
+      },
+      {
+        "q": "the dry",
+        "status": 429
+      },
+      {
+        "q": "big little lies",
+        "status": 429
+      },
+      {
+        "q": "sharp objects",
+        "status": 429
+      },
+      {
+        "q": "the silent patient",
+        "status": 429
+      },
+      {
+        "q": "the woman in the window",
+        "status": 429
+      },
+      {
+        "q": "the girl on the train",
+        "status": 429
+      },
+      {
+        "q": "the no. 1 ladies' detective agency",
+        "status": 429
+      },
+      {
+        "q": "the lovely bones",
+        "status": 429
+      },
+      {
+        "q": "the secret history",
+        "status": 429
+      },
+      {
+        "q": "the talisman",
+        "status": 429
+      },
+      {
+        "q": "the alienist",
+        "status": 429
+      },
+      {
+        "q": "the seven deaths of evelyn hardcastle",
+        "status": 429
+      }
+    ]
+  },
+  {
+    "label": "adventure",
+    "queries": 27,
+    "categoryCount": 19,
+    "top": [
+      [
+        "Fiction",
+        12
+      ],
+      [
+        "Juvenile Fiction",
+        3
+      ],
+      [
+        "Social Science",
+        2
+      ],
+      [
+        "Health & Fitness",
+        2
+      ],
+      [
+        "History",
+        1
+      ],
+      [
+        "Business & Economics",
+        1
+      ],
+      [
+        "Performing Arts",
+        1
+      ],
+      [
+        "Reference",
+        1
+      ],
+      [
+        "China",
+        1
+      ],
+      [
+        "Evangelistic sermons",
+        1
+      ],
+      [
+        "Wit and humor",
+        1
+      ],
+      [
+        "Language Arts & Disciplines",
+        1
+      ],
+      [
+        "Literature",
+        1
+      ],
+      [
+        "English language",
+        1
+      ],
+      [
+        "Science",
+        1
+      ],
+      [
+        "Family & Relationships",
+        1
+      ],
+      [
+        "Medical",
+        1
+      ],
+      [
+        "Oxygen",
+        1
+      ],
+      [
+        "Boys",
+        1
+      ]
+    ],
+    "errors": [
+      {
+        "q": "the three musketeers",
+        "status": 429
+      },
+      {
+        "q": "around the world in eighty days",
+        "status": 429
+      },
+      {
+        "q": "robinson crusoe",
+        "status": 429
+      },
+      {
+        "q": "moby dick",
+        "status": 429
+      },
+      {
+        "q": "treasure island",
+        "status": 429
+      },
+      {
+        "q": "the odyssey",
+        "status": 429
+      },
+      {
+        "q": "the iliad",
+        "status": 429
+      },
+      {
+        "q": "the call of the wild",
+        "status": 429
+      },
+      {
+        "q": "white fang",
+        "status": 429
+      },
+      {
+        "q": "king solomon's mines",
+        "status": 429
+      },
+      {
+        "q": "journey to the center of the earth",
+        "status": 429
+      },
+      {
+        "q": "twenty thousand leagues under the sea",
+        "status": 429
+      },
+      {
+        "q": "the hobbit",
+        "status": 429
+      },
+      {
+        "q": "the martian",
+        "status": 429
+      },
+      {
+        "q": "the lord of the rings",
+        "status": 429
+      },
+      {
+        "q": "life of pi",
+        "status": 429
+      },
+      {
+        "q": "the alchemist",
+        "status": 429
+      },
+      {
+        "q": "the road",
+        "status": 429
+      },
+      {
+        "q": "the jungle book",
+        "status": 429
+      },
+      {
+        "q": "the river",
+        "status": 429
+      },
+      {
+        "q": "into the wild",
+        "status": 429
+      }
+    ]
+  },
+  {
+    "label": "fantasy",
+    "queries": 24,
+    "categoryCount": 37,
+    "top": [
+      [
+        "Fiction",
+        54
+      ],
+      [
+        "Literary Criticism",
+        8
+      ],
+      [
+        "Juvenile Fiction",
+        8
+      ],
+      [
+        "Religion",
+        3
+      ],
+      [
+        "Comics & Graphic Novels",
+        3
+      ],
+      [
+        "Young Adult Fiction",
+        3
+      ],
+      [
+        "Sociology",
+        2
+      ],
+      [
+        "Patents",
+        2
+      ],
+      [
+        "Fantasy fiction, American",
+        1
+      ],
+      [
+        "Fantasy",
+        1
+      ],
+      [
+        "Body, Mind & Spirit",
+        1
+      ],
+      [
+        "Philosophy",
+        1
+      ],
+      [
+        "Juvenile Nonfiction",
+        1
+      ],
+      [
+        "Social sciences",
+        1
+      ],
+      [
+        "Performing Arts",
+        1
+      ],
+      [
+        "America",
+        1
+      ],
+      [
+        "Assassins",
+        1
+      ],
+      [
+        "History",
+        1
+      ],
+      [
+        "Reference",
+        1
+      ],
+      [
+        "Family & Relationships",
+        1
+      ]
+    ],
+    "errors": [
+      {
+        "q": "harry potter and the sorcerer's stone",
+        "status": 429
+      },
+      {
+        "q": "the hobbit",
+        "status": 429
+      },
+      {
+        "q": "the lord of the rings",
+        "status": 429
+      },
+      {
+        "q": "a game of thrones",
+        "status": 429
+      },
+      {
+        "q": "the name of the wind",
+        "status": 429
+      },
+      {
+        "q": "the last unicorn",
+        "status": 429
+      },
+      {
+        "q": "the eye of the world",
+        "status": 429
+      },
+      {
+        "q": "the fellowship of the ring",
+        "status": 429
+      },
+      {
+        "q": "the two towers",
+        "status": 429
+      },
+      {
+        "q": "the return of the king",
+        "status": 429
+      },
+      {
+        "q": "the once and future king",
+        "status": 429
+      }
+    ]
+  },
+  {
+    "label": "scifi",
+    "queries": 26,
+    "categoryCount": 70,
+    "top": [
+      [
+        "Fiction",
+        52
+      ],
+      [
+        "Literary Criticism",
+        18
+      ],
+      [
+        "Comics & Graphic Novels",
+        9
+      ],
+      [
+        "History",
+        6
+      ],
+      [
+        "Science",
+        6
+      ],
+      [
+        "Study Aids",
+        6
+      ],
+      [
+        "Imaginary wars and battles",
+        5
+      ],
+      [
+        "Language Arts & Disciplines",
+        4
+      ],
+      [
+        "Social Science",
+        4
+      ],
+      [
+        "Performing Arts",
+        4
+      ],
+      [
+        "Psychology",
+        4
+      ],
+      [
+        "Nature",
+        3
+      ],
+      [
+        "Biography & Autobiography",
+        3
+      ],
+      [
+        "Medical",
+        3
+      ],
+      [
+        "Business & Economics",
+        2
+      ],
+      [
+        "Agriculture",
+        2
+      ],
+      [
+        "Automobiles",
+        2
+      ],
+      [
+        "Juvenile Nonfiction",
+        2
+      ],
+      [
+        "Education",
+        2
+      ],
+      [
+        "Philosophy",
+        2
+      ]
+    ],
+    "errors": [
+      {
+        "q": "brave new world",
+        "status": 429
+      },
+      {
+        "q": "1984",
+        "status": 429
+      },
+      {
+        "q": "the forever war",
+        "status": 429
+      },
+      {
+        "q": "ringworld",
+        "status": 429
+      }
+    ]
+  }
+]

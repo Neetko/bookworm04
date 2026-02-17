@@ -1,15 +1,11 @@
 import { sql } from "drizzle-orm"
-import { pgSchema, pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean } from "drizzle-orm/pg-core"
-
-// Reference auth schema for foreign keys (do not create it)
-const auth = pgSchema("auth")
-export const authUsers = auth.table("users", {
-  id: uuid("id").primaryKey().notNull(),
-})
+import { pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean, check } from "drizzle-orm/pg-core"
 
 export const books = pgTable("books", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  titleId: uuid("title_id"),
+  titleId: uuid("title_id")
+    .references(() => titles.id, { onDelete: "cascade" })
+    .notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   author: varchar("author", { length: 255 }).notNull(),
   description: text("description"),
@@ -78,7 +74,9 @@ export const trackedBooks = pgTable("tracked_books", {
   isbn: varchar("isbn", { length: 20 }),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
-})
+}, (t: any) => ({
+  uniqTrackedTitleId: uniqueIndex("tracked_books_title_id_unique").on(t.titleId),
+}))
 
 export const userProfiles = pgTable(
   "user_profiles",
@@ -93,7 +91,7 @@ export const userProfiles = pgTable(
     signatureImage: text("signature_image"), // URL to signature GIF/image
     createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
     updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
-    authUserId: uuid("auth_user_id").references(() => authUsers.id, { onDelete: "cascade" }),
+    authUserId: uuid("auth_user_id"),
   },
   (t: any) => ({
     uniqAuthUser: uniqueIndex("user_profiles_auth_user_id_unique").on(t.authUserId),
@@ -110,7 +108,12 @@ export const clubReadingItems = pgTable("club_reading_items", {
   title: text("title"),
   author: text("author"),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-})
+}, (t: any) => ({
+  requireBookOrTitle: check(
+    "club_reading_items_book_or_title_check",
+    sql`book_id is not null or title_id is not null`
+  ),
+}))
 
 export const clubApplications = pgTable(
   "club_applications",
@@ -145,6 +148,10 @@ export const reviews = pgTable(
   (t: any) => ({
     uniqUserBook: uniqueIndex("reviews_user_book_unique").on(t.userId, t.bookId),
     uniqUserTitle: uniqueIndex("reviews_user_title_unique").on(t.userId, t.titleId),
+    requireExactlyOneTarget: check(
+      "reviews_book_or_title_check",
+      sql`(book_id is null) <> (title_id is null)`
+    ),
   })
 )
 

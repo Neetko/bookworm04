@@ -49,7 +49,7 @@ export function DiscussionForum({ titleId }: DiscussionForumProps) {
           </div>
           <h3 className="text-xl font-semibold mb-2">Discussion Locked</h3>
           <p className="text-muted-foreground max-w-md">
-            You must mark this book as "Read" to view and participate in the discussion forum. This helps prevent spoilers for other readers!
+            You must mark this book as &quot;Read&quot; to view and participate in the discussion forum. This helps prevent spoilers for other readers!
           </p>
         </CardContent>
       </Card>

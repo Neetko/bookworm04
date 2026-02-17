@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Star, BookOpenText, BookOpen } from "lucide-react"
 import { createServerClient } from "@/lib/supabase-server"
 import { getReviews } from "@/app/actions/reviews"
-import { ReviewForm } from "@/components/review-form"
-import { DiscussionForum } from "@/components/discussion-forum"
+import { TitleEngagementTabs } from "@/components/title-engagement-tabs"
 import { MarkReadButton } from "@/components/mark-read-button"
 import { CoverImage } from "@/components/cover-image"
 import { sanitizeDescriptionHtml } from "@/lib/sanitize"
+import { getTitleReadStatus } from "@/app/actions/title"
+import { TitleTrackProgressButton } from "@/components/title-track-progress-button"
 
 type TitleRow = {
   id: string
@@ -54,6 +55,22 @@ async function getLibraryBookIdForTitle(titleId: string): Promise<string | null>
   return (data?.id as string | undefined) ?? null
 }
 
+async function getTrackedBookIdForTitle(titleId: string): Promise<string | null> {
+  const supabase = await createServerClient()
+  const { data, error } = await supabase
+    .from("tracked_books")
+    .select("id")
+    .eq("title_id", titleId)
+    .maybeSingle()
+
+  if (error) {
+    console.error("Error fetching tracked mapping:", error)
+    return null
+  }
+
+  return (data?.id as string | undefined) ?? null
+}
+
 export default async function TitlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const title = await getTitle(id)
@@ -63,7 +80,9 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
   }
 
   const libraryBookId = await getLibraryBookIdForTitle(title.id)
+  const trackedBookId = await getTrackedBookIdForTitle(title.id)
   const reviews = await getReviews(title.id)
+  const canRead = await getTitleReadStatus(title.id)
 
   const averageRating = reviews.length > 0
     ? (reviews.reduce((acc: number, review: any) => acc + review.rating, 0) / reviews.length).toFixed(1)
@@ -122,47 +141,19 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                   ) : null}
 
                   <MarkReadButton titleId={title.id} />
+                  <TitleTrackProgressButton
+                    titleId={title.id}
+                    title={title.title}
+                    bookId={libraryBookId}
+                    trackedBookId={trackedBookId}
+                  />
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Reviews</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <ReviewForm titleId={title.id} />
-
-            {reviews.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No reviews yet. Be the first to review!</p>
-            ) : (
-              <div className="space-y-6">
-                {reviews.map((review: any) => (
-                  <div key={review.id} className="border-b pb-6 last:border-b-0">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium">{review.user_profiles?.username ?? "Anonymous"}</div>
-                      <div className="text-sm text-muted-foreground">{review.rating}/10</div>
-                    </div>
-                    {review.review_text ? (
-                      <p className="text-muted-foreground mt-2 whitespace-pre-wrap">{review.review_text}</p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Discussion</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DiscussionForum titleId={title.id} />
-          </CardContent>
-        </Card>
+        <TitleEngagementTabs titleId={title.id} reviews={reviews as any[]} canRead={canRead} />
       </div>
     </div>
   )

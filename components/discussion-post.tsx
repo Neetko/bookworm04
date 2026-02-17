@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { User, Calendar, ThumbsUp, Flag, MoreHorizontal } from "lucide-react"
 import { formatDistanceToNow, format } from "date-fns"
+import { sanitizeRichTextHtml } from "@/lib/sanitize"
+import Image from "next/image"
 
 interface PostData {
   id: string
@@ -94,9 +96,10 @@ export function DiscussionPost({ post }: DiscussionPostProps) {
 
             {/* Post Content */}
             <div className="prose prose-sm max-w-none mb-6">
-              <p className="text-foreground whitespace-pre-wrap leading-relaxed">
-                {post.content}
-              </p>
+              <div
+                className="text-foreground leading-relaxed [&_p]:mb-3 last:[&_p]:mb-0"
+                dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(post.content) }}
+              />
             </div>
 
             {/* User Signature */}
@@ -108,10 +111,13 @@ export function DiscussionPost({ post }: DiscussionPostProps) {
                     <p className="mb-2">{userProfile.signature}</p>
                   )}
                   {userProfile.signature_image && (
-                    <img 
-                      src={userProfile.signature_image} 
-                      alt="User signature" 
-                      className="max-h-20 rounded"
+                    <Image
+                      src={userProfile.signature_image}
+                      alt="User signature"
+                      width={320}
+                      height={80}
+                      className="max-h-20 w-auto rounded"
+                      unoptimized
                     />
                   )}
                 </div>

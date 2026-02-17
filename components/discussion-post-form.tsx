@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { RichTextEditor } from "@/components/rich-text-editor"
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
 import { Loader2, Send } from "lucide-react"
@@ -14,21 +14,23 @@ interface DiscussionPostFormProps {
 }
 
 export function DiscussionPostForm({ titleId }: DiscussionPostFormProps) {
-  const [content, setContent] = useState("")
+  const [contentHtml, setContentHtml] = useState("")
+  const [contentText, setContentText] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async () => {
-    if (!content.trim()) {
+    if (!contentText.trim()) {
       toast.error("Please enter your message")
       return
     }
 
     setIsSubmitting(true)
     try {
-      await createDiscussionPost(titleId, content)
+      await createDiscussionPost(titleId, contentHtml)
       toast.success("Post published successfully")
-      setContent("")
+      setContentHtml("")
+      setContentText("")
       router.refresh()
     } catch (error) {
       console.error(error)
@@ -43,18 +45,19 @@ export function DiscussionPostForm({ titleId }: DiscussionPostFormProps) {
       <CardContent className="p-6">
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Share Your Thoughts</h3>
-          <Textarea
+          <RichTextEditor
+            value={contentHtml}
+            onChange={(html, text) => {
+              setContentHtml(html)
+              setContentText(text)
+            }}
             placeholder="What are your thoughts on this book? Share your insights, favorite moments, or questions..."
-            rows={5}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            className="resize-none"
           />
           <div className="flex justify-between items-center">
             <p className="text-xs text-muted-foreground">
-              {content.length} characters
+              {contentText.length} characters
             </p>
-            <Button onClick={handleSubmit} disabled={isSubmitting || !content.trim()}>
+            <Button onClick={handleSubmit} disabled={isSubmitting || !contentText.trim()}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
