@@ -6,6 +6,8 @@ import { createClient } from "@supabase/supabase-js"
 import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
 import { resizeAvatarImage } from "@/lib/avatar-image"
+import { GENRES, type Genre } from "@/lib/types"
+import { summarizeGenrePoints } from "@/app/actions/rewards"
 
 // Helper to verify user
 async function getUser(token: string) {
@@ -139,6 +141,17 @@ export async function getProfileData(token: string) {
     .eq("user_profile_id", profile.id)
     .order("created_at", { ascending: false })
 
+  const { data: pointRows } = await supabase
+    .from("user_genre_points")
+    .select("genre, points")
+    .eq("user_profile_id", profile.id)
+
+  const totals = await summarizeGenrePoints((pointRows ?? []) as Array<{ genre: string | null; points: number | null }>)
+  const pointsByGenre = GENRES.reduce<Record<Genre, number>>((acc, genre) => {
+    acc[genre] = totals.get(genre) ?? 0
+    return acc
+  }, {} as Record<Genre, number>)
+
   // Map snake_case to camelCase for frontend compatibility
   const mappedProfile = {
     ...profile,
@@ -155,9 +168,11 @@ export async function getProfileData(token: string) {
       reviewsWritten: reviewsCount || 0,
       favorites: favoritesCount || 0,
       bookmarks: bookmarksCount || 0,
+      genrePoints: pointsByGenre,
     },
     recentReviews: recentReviews || [],
     readTitles: readTitles || [],
+    pointsByGenre,
   }
 }
 

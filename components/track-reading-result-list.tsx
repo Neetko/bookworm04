@@ -1,15 +1,19 @@
 "use client"
 
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
+import { useEffect, useState, type KeyboardEvent, type MouseEvent } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { BookOpen } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { GENRES, type Genre, GENRE_BG_CLASS, normalizeGenres } from "@/lib/types"
 import type { SearchTitleResult } from "@/lib/types"
-import { ensureGoogleBook } from "@/app/actions/track-reading"
+import { confirmGoogleBookIngest, getGoogleIngestSuggestion } from "@/app/actions/track-reading"
 import { toast } from "sonner"
 import { sanitizeDescriptionHtml } from "@/lib/sanitize"
+import { cn } from "@/lib/utils"
+import { GenreToggleButton } from "@/components/genre-toggle-button"
 
 type CoverStatus = "loading" | "loaded" | "failed" | "missing"
 
@@ -77,10 +81,34 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
   const router = useRouter()
   const [googleTitleIds, setGoogleTitleIds] = useState<Record<string, string>>({})
   const [ingestedVolumeIds, setIngestedVolumeIds] = useState<Set<string>>(new Set())
-  const [coverStatus, setCoverStatus] = useState<Record<string, CoverStatus>>({})
-  const [orderedResults, setOrderedResults] = useState<SearchTitleResult[]>(results)
-  const hasReorderedRef = useRef(false)
-  const reorderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogResult, setDialogResult] = useState<SearchTitleResult | null>(null)
+  const [readAnswer, setReadAnswer] = useState<boolean | null>(null)
+  const [loadingSuggestion, setLoadingSuggestion] = useState(false)
+  const [submittingIngest, setSubmittingIngest] = useState(false)
+  const [suggestedGenres, setSuggestedGenres] = useState<Genre[]>([])
+  const [selectedGenres, setSelectedGenres] = useState<Genre[]>([])
+  const [workCandidates, setWorkCandidates] = useState<Array<{
+    workId: string
+    title: string
+    author: string
+    coverUrl: string | null
+    firstPublishYear: number | null
+    editionCount: number | null
+    subjects: string[]
+  }>>([])
+  const [selectedWorkIds, setSelectedWorkIds] = useState<string[]>([])
+  const [showAllCandidates, setShowAllCandidates] = useState(false)
+  const [localDuplicates, setLocalDuplicates] = useState<Array<{
+    id: string
+    title: string
+    author: string
+    coverImageUrl: string | null
+    source: "title" | "tracked"
+  }>>([])
+  const [requiresWorkConfirmation, setRequiresWorkConfirmation] = useState(false)
+  const [showAllDuplicates, setShowAllDuplicates] = useState(false)
 
   useEffect(() => {
     const initialMap: Record<string, string> = {}
@@ -90,81 +118,88 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
       }
     }
     setGoogleTitleIds(initialMap)
-    setCoverStatus({})
-    setOrderedResults(results)
     setIngestedVolumeIds(new Set())
-    hasReorderedRef.current = false
-    if (reorderTimerRef.current) {
-      clearTimeout(reorderTimerRef.current)
-      reorderTimerRef.current = null
-    }
   }, [results])
 
-  useEffect(() => {
-    if (hasReorderedRef.current || results.length === 0) return
-
-    if (reorderTimerRef.current) {
-      clearTimeout(reorderTimerRef.current)
-    }
-
-    reorderTimerRef.current = setTimeout(() => {
-      const indexMap = new Map<string, number>()
-      results.forEach((result, index) => {
-        indexMap.set(`${result.source}:${result.id}`, index)
-      })
-
-      const rankForStatus = (status: CoverStatus | undefined) => {
-        switch (status) {
-          case "loaded":
-            return 0
-          case "loading":
-            return 1
-          case "failed":
-          case "missing":
-          default:
-            return 2
-        }
-      }
-
-      const next = [...results].sort((a, b) => {
-        const keyA = `${a.source}:${a.id}`
-        const keyB = `${b.source}:${b.id}`
-        const rankA = rankForStatus(coverStatus[keyA])
-        const rankB = rankForStatus(coverStatus[keyB])
-        if (rankA !== rankB) return rankA - rankB
-        return (indexMap.get(keyA) ?? 0) - (indexMap.get(keyB) ?? 0)
-      })
-
-      setOrderedResults(next)
-      hasReorderedRef.current = true
-      reorderTimerRef.current = null
-    }, 400)
-
-    return () => {
-      if (reorderTimerRef.current) {
-        clearTimeout(reorderTimerRef.current)
-        reorderTimerRef.current = null
-      }
-    }
-  }, [coverStatus, results])
-
-  const ingestExternal = async (result: SearchTitleResult) => {
+  const openIngestDialog = async (result: SearchTitleResult) => {
     if (result.source !== "google" || !result.volumeId) return
 
+    setDialogResult(result)
+    setDialogOpen(true)
+    setReadAnswer(null)
+    setSuggestedGenres([])
+    setSelectedGenres([])
+    setWorkCandidates([])
+    setSelectedWorkIds([])
+    setShowAllCandidates(false)
+    setLocalDuplicates([])
+    setRequiresWorkConfirmation(false)
+    setShowAllDuplicates(false)
+    setLoadingSuggestion(true)
+
     try {
-      const res = await ensureGoogleBook(result.volumeId)
+      const suggestion = await getGoogleIngestSuggestion(result.volumeId)
+      const initial = normalizeGenres(suggestion.suggestedGenres)
+      setSuggestedGenres(initial)
+      setSelectedGenres(initial)
+      setWorkCandidates(suggestion.workCandidates ?? [])
+      setRequiresWorkConfirmation(Boolean(suggestion.requiresWorkConfirmation))
+      setLocalDuplicates(suggestion.localDuplicates ?? [])
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to load ingest details")
+      setDialogOpen(false)
+      setDialogResult(null)
+    } finally {
+      setLoadingSuggestion(false)
+    }
+  }
+
+  const toggleGenre = (genre: Genre) => {
+    setSelectedGenres((prev) =>
+      prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]
+    )
+  }
+
+  const confirmIngest = async () => {
+    if (!dialogResult?.volumeId || readAnswer === null) return
+    if (selectedGenres.length === 0) {
+      toast.error("Select at least one genre")
+      return
+    }
+
+    if (requiresWorkConfirmation && selectedWorkIds.length === 0) {
+      toast.error("Select a matching Open Library work")
+      return
+    }
+
+    setSubmittingIngest(true)
+    try {
+      const res = await confirmGoogleBookIngest({
+        volumeId: dialogResult.volumeId,
+        hasRead: readAnswer,
+        selectedGenres,
+        selectedWorkIds,
+        requiresWorkSelection: requiresWorkConfirmation,
+      })
       toast.success("Title ingested")
-      if (res.titleId) {
-        setGoogleTitleIds((prev) => ({ ...prev, [result.volumeId as string]: res.titleId }))
+
+      if (res.titleId && dialogResult.volumeId) {
+        setGoogleTitleIds((prev) => ({ ...prev, [dialogResult.volumeId as string]: res.titleId }))
       }
+
       setIngestedVolumeIds((prev) => {
         const next = new Set(prev)
-        next.add(result.volumeId as string)
+        if (dialogResult.volumeId) next.add(dialogResult.volumeId)
         return next
       })
+
+      setDialogOpen(false)
+      setDialogResult(null)
       router.refresh()
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to ingest title")
+    } finally {
+      setSubmittingIngest(false)
     }
   }
 
@@ -179,10 +214,242 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
     router.push(href)
   }
 
+  const closeDialog = () => {
+    if (submittingIngest) return
+    setDialogOpen(false)
+    setDialogResult(null)
+    setReadAnswer(null)
+    setSuggestedGenres([])
+    setSelectedGenres([])
+    setWorkCandidates([])
+    setSelectedWorkIds([])
+    setShowAllCandidates(false)
+    setLocalDuplicates([])
+    setRequiresWorkConfirmation(false)
+    setShowAllDuplicates(false)
+  }
+
+  const toggleWorkCandidate = (workId: string) => {
+    setSelectedWorkIds((prev) =>
+      prev.includes(workId) ? prev.filter((id) => id !== workId) : [...prev, workId]
+    )
+  }
+
+  const makePrimaryWork = (workId: string) => {
+    setSelectedWorkIds((prev) => {
+      if (!prev.includes(workId)) return [workId, ...prev]
+      return [workId, ...prev.filter((id) => id !== workId)]
+    })
+  }
+
   return (
-    <div className="space-y-6">
-      {orderedResults.map((result) => {
-        const resultKey = `${result.source}:${result.id}`
+    <>
+      <Dialog open={dialogOpen} onOpenChange={(open) => (open ? setDialogOpen(true) : closeDialog())}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ingest title</DialogTitle>
+          </DialogHeader>
+
+          {!dialogResult ? null : (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                {dialogResult.title} — {dialogResult.author}
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Have you already read this book?</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant={readAnswer === true ? "default" : "outline"}
+                    onClick={() => setReadAnswer(true)}
+                    disabled={loadingSuggestion || submittingIngest}
+                  >
+                    Yes
+                  </Button>
+                  <Button
+                    variant={readAnswer === false ? "default" : "outline"}
+                    onClick={() => setReadAnswer(false)}
+                    disabled={loadingSuggestion || submittingIngest}
+                  >
+                    No
+                  </Button>
+                </div>
+              </div>
+
+              {readAnswer !== null ? (
+                <div className="space-y-3">
+                  {localDuplicates.length > 0 ? (
+                    <div className="space-y-2 rounded-lg border border-border p-3">
+                      <p className="text-sm font-medium">Possible duplicates</p>
+                      <p className="text-xs text-muted-foreground">
+                        We found similar titles in your library. Review before ingesting.
+                      </p>
+                      <div className="space-y-2">
+                        {(showAllDuplicates ? localDuplicates.slice(0, 15) : localDuplicates.slice(0, 5)).map((dupe) => (
+                          <div key={`${dupe.source}-${dupe.id}`} className="flex items-center gap-3 text-sm">
+                            <div className="h-10 w-8 bg-muted rounded overflow-hidden">
+                              {dupe.coverImageUrl ? (
+                                <Image
+                                  src={dupe.coverImageUrl}
+                                  alt={dupe.title}
+                                  width={32}
+                                  height={40}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : null}
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium">{dupe.title}</div>
+                              <div className="text-xs text-muted-foreground">{dupe.author}</div>
+                            </div>
+                            {dupe.source === "title" ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => router.push(`/titles/${dupe.id}`)}
+                              >
+                                View
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Tracked</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {localDuplicates.length > 5 ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowAllDuplicates((prev) => !prev)}
+                        >
+                          {showAllDuplicates ? "Show less" : "Show more"}
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {workCandidates.length > 0 ? (
+                    <div className="space-y-2 rounded-lg border border-border p-3">
+                      <p className="text-sm font-medium">Open Library matches</p>
+                      <p className="text-xs text-muted-foreground">
+                        Select the work that best matches this title.
+                      </p>
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        {(showAllCandidates ? workCandidates.slice(0, 15) : workCandidates.slice(0, 5)).map((candidate) => (
+                          <div
+                            key={candidate.workId}
+                            className={cn(
+                              "flex items-start gap-3 rounded-md border p-2",
+                              selectedWorkIds.includes(candidate.workId) ? "border-primary" : "border-border"
+                            )}
+                          >
+                            <div className="h-14 w-10 bg-muted rounded overflow-hidden">
+                              {candidate.coverUrl ? (
+                                <Image
+                                  src={candidate.coverUrl}
+                                  alt={candidate.workId}
+                                  width={40}
+                                  height={56}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : null}
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <div className="text-sm font-medium">{candidate.title || "Untitled"}</div>
+                              <div className="text-xs text-muted-foreground">{candidate.author || "Unknown author"}</div>
+                              <div className="text-xs text-muted-foreground">{candidate.workId}</div>
+                              <div className="text-xs">First publish: {candidate.firstPublishYear ?? "Unknown"}</div>
+                              <div className="text-xs">Editions: {candidate.editionCount ?? "Unknown"}</div>
+                              <div className="text-xs text-muted-foreground line-clamp-2">
+                                {(candidate.subjects ?? []).slice(0, 3).join(" / ") || "No subjects"}
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <Button
+                                variant={selectedWorkIds.includes(candidate.workId) ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => toggleWorkCandidate(candidate.workId)}
+                              >
+                                {selectedWorkIds.includes(candidate.workId) ? "Selected" : "Select"}
+                              </Button>
+                              {selectedWorkIds[0] === candidate.workId ? (
+                                <span className="text-xs text-primary text-center">Primary</span>
+                              ) : selectedWorkIds.includes(candidate.workId) ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => makePrimaryWork(candidate.workId)}
+                                >
+                                  Make primary
+                                </Button>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {workCandidates.length > 5 ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowAllCandidates((prev) => !prev)}
+                        >
+                          {showAllCandidates ? "Show less" : "Show more"}
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <p className="text-sm font-medium">Review suggested tags and adjust if needed</p>
+                  {loadingSuggestion ? (
+                    <p className="text-sm text-muted-foreground">Loading suggestions...</p>
+                  ) : (
+                    <>
+                      {suggestedGenres.length > 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          Suggested: {suggestedGenres.join(", ")}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No suggested tags found. Please select at least one.</p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {GENRES.map((genre) => (
+                          <GenreToggleButton
+                            key={genre}
+                            genre={genre}
+                            selected={selectedGenres.includes(genre)}
+                            onToggle={toggleGenre}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : null}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={closeDialog} disabled={submittingIngest}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmIngest}
+                  disabled={
+                    loadingSuggestion ||
+                    submittingIngest ||
+                    readAnswer === null ||
+                    selectedGenres.length === 0 ||
+                    (requiresWorkConfirmation && selectedWorkIds.length === 0)
+                  }
+                >
+                  {submittingIngest ? "Ingesting..." : "Ingest"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <div className="space-y-6">
+      {results.map((result) => {
         const resolvedTitleId =
           result.source === "google" && result.volumeId
             ? googleTitleIds[result.volumeId] ?? result.titleId
@@ -223,12 +490,7 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
             <Cover
               src={result.coverImageUrl}
               alt={result.title}
-              onStatusChange={(status) => {
-                setCoverStatus((prev) => {
-                  if (prev[resultKey] === status) return prev
-                  return { ...prev, [resultKey]: status }
-                })
-              }}
+              onStatusChange={() => {}}
             />
 
             <div className="flex flex-col flex-1">
@@ -237,6 +499,16 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
                   <div>
                     <h3 className="font-semibold text-xl mb-1">{result.title}</h3>
                     <p className="text-muted-foreground mb-3">by {result.author}</p>
+                    {result.source === "local" && normalizeGenres(result.genres).length > 0 ? (
+                      <div className="flex items-center gap-1.5 mb-3">
+                        {normalizeGenres(result.genres).map((genre) => (
+                          <span
+                            key={genre}
+                            className={cn("h-2.5 w-2.5 shrink-0 rounded-full", GENRE_BG_CLASS[genre])}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                   {result.engagement > 0 ? (
                     <div className="text-xs text-muted-foreground">
@@ -255,7 +527,7 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
 
               {showIngest ? (
                 <CardFooter className="p-6 pt-0 flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => ingestExternal(result)}>
+                  <Button variant="outline" onClick={() => openIngestDialog(result)}>
                     Ingest
                   </Button>
                 </CardFooter>
@@ -264,6 +536,7 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
           </Card>
         )
       })}
-    </div>
+      </div>
+    </>
   )
 }

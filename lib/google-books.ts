@@ -4,12 +4,22 @@ export interface RawGoogleBook {
     title?: string
     authors?: string[]
     description?: string
+    mainCategory?: string
+    categories?: string[]
+    dimensions?: {
+      height?: string
+      width?: string
+      thickness?: string
+    }
     imageLinks?: {
       thumbnail?: string
       smallThumbnail?: string
     }
     publishedDate?: string
     industryIdentifiers?: Array<{ type?: string; identifier?: string }>
+  }
+  saleInfo?: {
+    saleability?: string
   }
 }
 
@@ -19,6 +29,8 @@ export interface RefinedBook {
   title: string
   authors: string[]
   description: string | null
+  mainCategory: string | null
+  categories: string[]
   thumbnailUrl: string | null
   publishedYear: number | null
   isbn: string | null
@@ -39,7 +51,11 @@ export type MergedWork = {
   thumbnailUrl: string | null
   identifiers: string[]
   isbn: string | null
+  mainCategory: string | null
+  categories: string[]
 }
+
+type GoogleDimensions = NonNullable<RawGoogleBook["volumeInfo"]>["dimensions"]
 
 type StructuredQueryParts = {
   title: string
@@ -66,9 +82,18 @@ function pickIsbn(identifiers?: Array<{ type?: string; identifier?: string }>): 
   return any ?? null
 }
 
-function extractIsbns(identifiers?: Array<{ type?: string; identifier?: string }>): string[] {
+export function extractIsbns(identifiers?: Array<{ type?: string; identifier?: string }>): string[] {
   if (!identifiers || identifiers.length === 0) return []
   const values = identifiers
+    .map((entry) => entry?.identifier?.replace(/\s+/g, ""))
+    .filter(Boolean) as string[]
+  return Array.from(new Set(values))
+}
+
+export function extractAsins(identifiers?: Array<{ type?: string; identifier?: string }>): string[] {
+  if (!identifiers || identifiers.length === 0) return []
+  const values = identifiers
+    .filter((entry) => entry?.type?.toUpperCase() === "ASIN")
     .map((entry) => entry?.identifier?.replace(/\s+/g, ""))
     .filter(Boolean) as string[]
   return Array.from(new Set(values))
@@ -235,6 +260,8 @@ function mapVolume(item: RawGoogleBook): RefinedBook | null {
     title,
     authors: info?.authors?.filter(Boolean) ?? [],
     description: info?.description ?? null,
+    mainCategory: info?.mainCategory ?? null,
+    categories: info?.categories?.filter(Boolean) ?? [],
     thumbnailUrl,
     publishedYear: parsePublishedYear(info?.publishedDate),
     isbn: pickIsbn(info?.industryIdentifiers),
@@ -310,11 +337,11 @@ function normalizeAuthorOlid(authorId?: string | null): string | null {
   return trimmed
 }
 
-function isIsbn13(value: string): boolean {
+export function isIsbn13(value: string): boolean {
   return /^\d{13}$/.test(value)
 }
 
-function isIsbn10(value: string): boolean {
+export function isIsbn10(value: string): boolean {
   return /^\d{9}[\dXx]$/.test(value)
 }
 
@@ -469,6 +496,14 @@ export async function searchGoogleBooks(query: string): Promise<GoogleBook[]> {
   return collapseGoogleBooksItems(items)
 }
 
+export type GoogleBookDetails = {
+  refined: GoogleBook
+  raw: RawGoogleBook
+  identifiers: string[]
+  dimensions: GoogleDimensions | null
+  saleability: string | null
+}
+
 export async function searchGoogleBooksWithOpenLibrary(
   query: string,
   options?: { topResults?: number }
@@ -575,6 +610,8 @@ export async function searchGoogleBooksWithOpenLibrary(
       thumbnailUrl: refined.thumbnailUrl ?? openLibraryCoverUrl,
       identifiers,
       isbn: refined.isbn ?? identifiers[0] ?? null,
+      mainCategory: refined.mainCategory ?? null,
+      categories: refined.categories ?? [],
     })
   }
 
@@ -596,6 +633,8 @@ export async function searchGoogleBooksWithOpenLibrary(
         thumbnailUrl: item.thumbnailUrl ?? fallbackCoverUrl,
         identifiers,
         isbn: item.isbn ?? null,
+        mainCategory: item.mainCategory ?? null,
+        categories: item.categories ?? [],
       })
     }
   }
@@ -611,6 +650,7 @@ export async function getGoogleBook(volumeId: string): Promise<GoogleBook | null
 
   const url = new URL(`https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(id)}`)
   if (apiKey) url.searchParams.set("key", apiKey)
+  url.searchParams.set("projection", "full")
 
   try {
     const res = await fetch(url.toString(), { cache: "no-store" })
@@ -621,6 +661,39 @@ export async function getGoogleBook(volumeId: string): Promise<GoogleBook | null
 
     const json = (await res.json()) as RawGoogleBook
     return mapVolume(json)
+  } catch (error) {
+    console.warn("Google Books volume fetch failed (network/parse)", error)
+    return null
+  }
+}
+
+export async function getGoogleBookDetails(volumeId: string): Promise<GoogleBookDetails | null> {
+  const id = volumeId.trim()
+  if (!id) return null
+
+  const apiKey = process.env.GOOGLE_BOOKS_API_KEY
+  const url = new URL(`https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(id)}`)
+  if (apiKey) url.searchParams.set("key", apiKey)
+  url.searchParams.set("projection", "full")
+
+  try {
+    const res = await fetch(url.toString(), { cache: "no-store" })
+    if (!res.ok) {
+      console.warn("Google Books volume fetch failed", res.status)
+      return null
+    }
+
+    const raw = (await res.json()) as RawGoogleBook
+    const refined = mapVolume(raw)
+    if (!refined) return null
+
+    return {
+      refined,
+      raw,
+      identifiers: extractIsbns(raw.volumeInfo?.industryIdentifiers),
+      dimensions: raw.volumeInfo?.dimensions ?? null,
+      saleability: raw.saleInfo?.saleability ?? null,
+    }
   } catch (error) {
     console.warn("Google Books volume fetch failed (network/parse)", error)
     return null

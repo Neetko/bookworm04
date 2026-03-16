@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Search } from "lucide-react"
+import { GenreToggleButton } from "@/components/genre-toggle-button"
+import { GENRES, isGenre, type Genre } from "@/lib/types"
 
 type Suggestion = { id: string; title: string; author: string }
 
@@ -18,6 +20,7 @@ function TrackReadingSearchContent() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [open, setOpen] = useState(false)
   const [includeExternal, setIncludeExternal] = useState(false)
+  const [selectedGenres, setSelectedGenres] = useState<Genre[]>([])
 
   const abortRef = useRef<AbortController | null>(null)
 
@@ -25,9 +28,17 @@ function TrackReadingSearchContent() {
     const titleParam = searchParams.get("title") ?? searchParams.get("q") ?? ""
     const authorParam = searchParams.get("author") ?? ""
     const includeExternalParam = searchParams.get("includeExternal")
+    const genresParam = searchParams.get("genres")
     setTitle(titleParam)
     setAuthor(authorParam)
     setIncludeExternal(includeExternalParam === "1" || includeExternalParam === "true")
+    const nextGenres = genresParam
+      ? genresParam
+          .split(",")
+          .map((value) => value.trim())
+          .filter(isGenre)
+      : []
+    setSelectedGenres(nextGenres)
   }, [searchParams])
 
   const titleQuery = useMemo(() => title.trim(), [title])
@@ -49,6 +60,7 @@ function TrackReadingSearchContent() {
         const params = new URLSearchParams()
         if (titleQuery) params.set("title", titleQuery)
         if (authorQuery) params.set("author", authorQuery)
+        if (!includeExternal && selectedGenres.length > 0) params.set("genres", selectedGenres.join(","))
 
         const res = await fetch(`/api/track-reading/suggestions?${params.toString()}`, {
           signal: controller.signal,
@@ -66,13 +78,14 @@ function TrackReadingSearchContent() {
       clearTimeout(handle)
       controller.abort()
     }
-  }, [titleQuery, authorQuery])
+  }, [titleQuery, authorQuery, selectedGenres, includeExternal])
 
   const submit = () => {
     const params = new URLSearchParams()
     if (titleQuery) params.set("title", titleQuery)
     if (authorQuery) params.set("author", authorQuery)
     if (includeExternal) params.set("includeExternal", "1")
+    if (!includeExternal && selectedGenres.length > 0) params.set("genres", selectedGenres.join(","))
     router.push(`/search-titles?${params.toString()}`)
     setOpen(false)
   }
@@ -85,6 +98,12 @@ function TrackReadingSearchContent() {
   const pick = (s: Suggestion) => {
     setOpen(false)
     router.push(`/titles/${s.id}`)
+  }
+
+  const toggleGenre = (genre: Genre) => {
+    setSelectedGenres((prev) =>
+      prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]
+    )
   }
 
   return (
@@ -123,6 +142,18 @@ function TrackReadingSearchContent() {
         <Label htmlFor="includeExternal" className="text-sm text-muted-foreground">
           Include external results
         </Label>
+      </div>
+
+      <div className="mt-3 flex flex-nowrap gap-2 w-full overflow-x-auto pb-1">
+        {GENRES.map((genre) => (
+          <GenreToggleButton
+            key={genre}
+            genre={genre}
+            selected={selectedGenres.includes(genre)}
+            onToggle={toggleGenre}
+            className={includeExternal ? "opacity-50 pointer-events-none" : undefined}
+          />
+        ))}
       </div>
 
       {open && suggestions.length > 0 ? (

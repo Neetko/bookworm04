@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { BookOpen, MessageCircle, Star, Award, Calendar, TrendingUp, Loader2, User } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,13 +15,23 @@ import { setTitleReadStatus } from "@/app/actions/title"
 import { EditProfileDialog } from "@/components/edit-profile-dialog"
 import { supabase } from "@/lib/supabase-browser"
 import { formatDistanceToNow } from "date-fns"
+import { GENRES, GENRE_BG_CLASS } from "@/lib/types"
 
 // Mock badges for now, could be calculated from stats
 const badgesList = [
   { id: 1, name: "Early Bird", description: "Joined in first month", icon: "🌅", condition: (stats: any) => true }, // Simplified
   { id: 2, name: "Bookworm", description: "Read 10 books", icon: "📚", condition: (stats: any) => stats.booksRead >= 10 },
   { id: 3, name: "Critic", description: "Written 20 reviews", icon: "✍️", condition: (stats: any) => stats.reviewsWritten >= 20 },
-  { id: 4, name: "Genre Explorer", description: "Read 5 different genres", icon: "🗺️", condition: (stats: any) => false }, // Need genre data
+  {
+    id: 4,
+    name: "Genre Explorer",
+    description: "Read 5 different genres",
+    icon: "🗺️",
+    condition: (stats: any) => {
+      const points = stats?.genrePoints ?? {}
+      return GENRES.filter((genre) => (points[genre] ?? 0) > 0).length >= 5
+    },
+  },
   { id: 5, name: "Night Owl", description: "Active after midnight", icon: "🦉", condition: (stats: any) => false },
   { id: 6, name: "Speed Reader", description: "Finish 5 books in a month", icon: "⚡", condition: (stats: any) => false },
   { id: 7, name: "Community Star", description: "50 helpful reviews", icon: "⭐", condition: (stats: any) => false },
@@ -94,7 +105,7 @@ export default function ProfilePage() {
     )
   }
 
-  const { profile, stats } = profileData
+  const { profile, stats, pointsByGenre } = profileData
   const readTitles = profileData.readTitles || []
 
   // Calculate badges
@@ -158,6 +169,19 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
                   <span>Member since {new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+                </div>
+
+                <div className="pt-2">
+                  <div className="grid grid-cols-7 gap-3 text-center">
+                    {GENRES.map((genre) => (
+                      <div key={genre} className="flex flex-col items-center gap-2">
+                        <span className={`h-3 w-3 rounded-full ${GENRE_BG_CLASS[genre]}`} />
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {pointsByGenre?.[genre] ?? 0}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -224,7 +248,12 @@ export default function ProfilePage() {
                         <AvatarFallback>{entry.titles?.title?.[0] ?? "T"}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{entry.titles?.title ?? "Untitled"}</p>
+                        <Link
+                          href={`/titles/${entry.titles?.id ?? entry.title_id}`}
+                          className="font-medium truncate hover:underline"
+                        >
+                          {entry.titles?.title ?? "Untitled"}
+                        </Link>
                         <p className="text-sm text-muted-foreground truncate">{entry.titles?.author ?? "Unknown author"}</p>
                       </div>
                       <Button

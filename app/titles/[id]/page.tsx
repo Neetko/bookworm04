@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Star, BookOpenText, BookOpen } from "lucide-react"
 import { createServerClient } from "@/lib/supabase-server"
@@ -11,6 +12,12 @@ import { CoverImage } from "@/components/cover-image"
 import { sanitizeDescriptionHtml } from "@/lib/sanitize"
 import { getTitleReadStatus } from "@/app/actions/title"
 import { TitleTrackProgressButton } from "@/components/title-track-progress-button"
+import { TitleEditionsDialog } from "@/components/title-editions-dialog"
+import { TitleDedupeDialog } from "@/components/title-dedupe-dialog"
+import { GENRE_BG_CLASS, isGenre, normalizeGenres } from "@/lib/types"
+import { enforceGenreRulesFromList, genresFromWeights as genresFromWeightArray } from "@/lib/book-tagging"
+import { cn } from "@/lib/utils"
+import { buildAmazonProductUrl, buildAmazonSearchUrl } from "@/lib/amazon"
 
 type TitleRow = {
   id: string
@@ -20,8 +27,19 @@ type TitleRow = {
   cover_image_url: string | null
   published_year: number | null
   isbn: string | null
+  work_id: string | null
+  dupe_work_ids: string[] | null
   created_at: string
   updated_at: string
+}
+
+type EditionRow = {
+  work_id: string
+  isbn_10: string | null
+  isbn_13: string | null
+  asin: string | null
+  format: string | null
+  saleability: string | null
 }
 
 function normalizeCoverUrl(url: string | null): string | null {
@@ -71,6 +89,73 @@ async function getTrackedBookIdForTitle(titleId: string): Promise<string | null>
   return (data?.id as string | undefined) ?? null
 }
 
+async function getEditionsForTitle(title: TitleRow): Promise<EditionRow[]> {
+  const supabase = await createServerClient()
+  const workIds = [title.work_id, ...(title.dupe_work_ids ?? [])].filter(Boolean) as string[]
+  if (workIds.length === 0) return []
+
+  const { data, error } = await supabase
+    .from("editions")
+    .select("work_id,isbn_10,isbn_13,asin,format,saleability")
+    .in("work_id", workIds)
+
+  if (error) {
+    console.error("Error fetching editions:", error)
+    return []
+  }
+
+  return (data ?? []) as EditionRow[]
+}
+
+function isAudibleAsin(asin: string | null): boolean {
+  return Boolean(asin && asin.startsWith("B0"))
+}
+
+function pickFeaturedEditions(editions: EditionRow[]): EditionRow[] {
+  return editions.filter(
+    (edition) =>
+      edition.saleability === "FOR_SALE" &&
+      (Boolean(edition.asin) || Boolean(edition.isbn_10))
+  )
+}
+
+function uniqueGenres(genres: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const genre of genres) {
+    if (seen.has(genre)) continue
+    seen.add(genre)
+    result.push(genre)
+  }
+  return result
+}
+
+async function getGenresForTitle(titleId: string): Promise<string[]> {
+  const supabase = await createServerClient()
+  const [bookRow, trackedRow, trackedByIdRow] = await Promise.all([
+    supabase.from("books").select("genre,genre_weights").eq("title_id", titleId).maybeSingle(),
+    supabase.from("tracked_books").select("genre,genre_weights").eq("title_id", titleId).maybeSingle(),
+    supabase.from("tracked_books").select("genre,genre_weights").eq("id", titleId).maybeSingle(),
+  ])
+
+  const weightedFromBook = genresFromWeightArray(bookRow.data?.genre_weights)
+  if (weightedFromBook.length > 0) return weightedFromBook
+
+  const weightedFromTracked = genresFromWeightArray(trackedRow.data?.genre_weights)
+  if (weightedFromTracked.length > 0) return weightedFromTracked
+
+  const weightedFromTrackedId = genresFromWeightArray(trackedByIdRow.data?.genre_weights)
+  if (weightedFromTrackedId.length > 0) return weightedFromTrackedId
+
+  const fallback = uniqueGenres([
+    ...((bookRow.data?.genre ?? []).filter(isGenre)),
+    ...((trackedRow.data?.genre ?? []).filter(isGenre)),
+    ...((trackedByIdRow.data?.genre ?? []).filter(isGenre)),
+  ])
+
+  return enforceGenreRulesFromList(fallback)
+}
+
 export default async function TitlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const title = await getTitle(id)
@@ -81,8 +166,14 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
 
   const libraryBookId = await getLibraryBookIdForTitle(title.id)
   const trackedBookId = await getTrackedBookIdForTitle(title.id)
+  const genres = normalizeGenres(await getGenresForTitle(title.id))
   const reviews = await getReviews(title.id)
   const canRead = await getTitleReadStatus(title.id)
+  const editions = await getEditionsForTitle(title)
+  const featuredEditions = pickFeaturedEditions(editions)
+
+  const amazonSearchUrl = buildAmazonSearchUrl(`${title.title} ${title.author}`)
+  const audibleSearchUrl = buildAmazonSearchUrl(`${title.title} ${title.author} Audible`)
 
   const averageRating = reviews.length > 0
     ? (reviews.reduce((acc: number, review: any) => acc + review.rating, 0) / reviews.length).toFixed(1)
@@ -115,6 +206,20 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                 <h1 className="text-3xl font-bold mb-2">{title.title}</h1>
                 <p className="text-xl text-muted-foreground mb-4">by {title.author}</p>
 
+                {genres.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {genres.map((genre) => (
+                      <Badge
+                        key={genre}
+                        variant="outline"
+                        className={cn("border-transparent", GENRE_BG_CLASS[genre])}
+                      >
+                        {genre}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+
                 <div className="flex items-center gap-4 mb-6">
                   <div className="flex items-center gap-1">
                     <Star className="h-5 w-5 fill-primary text-primary" />
@@ -128,6 +233,57 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                     className="text-foreground leading-relaxed mb-6 [&_p]:mb-3 last:[&_p]:mb-0"
                     dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(title.description) }}
                   />
+                ) : null}
+
+                <div className="mb-6 flex flex-wrap gap-2">
+                  <Button variant="outline" asChild>
+                    <a href={amazonSearchUrl} target="_blank" rel="noreferrer">
+                      Search Amazon
+                    </a>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <a href={audibleSearchUrl} target="_blank" rel="noreferrer">
+                      Search Audible
+                    </a>
+                  </Button>
+                </div>
+
+                {featuredEditions.length > 0 ? (
+                  <div className="mb-6 rounded-lg border border-border p-3 space-y-3">
+                    <div className="text-sm font-medium">Featured editions for sale</div>
+                    <div className="space-y-2">
+                      {featuredEditions.map((edition, index) => {
+                        const productId = edition.asin ?? edition.isbn_10 ?? ""
+                        const amazonUrl = productId ? buildAmazonProductUrl(productId) : null
+                        const showAudible = isAudibleAsin(edition.asin)
+                        return (
+                          <div key={`${edition.work_id}-${edition.asin ?? edition.isbn_10 ?? index}`} className="flex flex-wrap items-center gap-3">
+                            <div className="text-xs text-muted-foreground">
+                              {edition.asin ? `ASIN: ${edition.asin}` : null}
+                              {!edition.asin && edition.isbn_10 ? `ISBN-10: ${edition.isbn_10}` : null}
+                              {edition.format ? ` • ${edition.format}` : ""}
+                            </div>
+                            <div className="flex gap-2">
+                              {amazonUrl ? (
+                                <Button size="sm" asChild>
+                                  <a href={amazonUrl} target="_blank" rel="noreferrer">
+                                    Buy on Amazon
+                                  </a>
+                                </Button>
+                              ) : null}
+                              {showAudible && edition.asin ? (
+                                <Button size="sm" variant="outline" asChild>
+                                  <a href={buildAmazonProductUrl(edition.asin)} target="_blank" rel="noreferrer">
+                                    Buy on Audible
+                                  </a>
+                                </Button>
+                              ) : null}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
                 ) : null}
 
                 <div className="flex flex-wrap gap-3">
@@ -147,6 +303,8 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                     bookId={libraryBookId}
                     trackedBookId={trackedBookId}
                   />
+                  <TitleEditionsDialog titleId={title.id} />
+                  <TitleDedupeDialog titleId={title.id} />
                 </div>
               </div>
             </div>
