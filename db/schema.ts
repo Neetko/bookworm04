@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean, check } from "drizzle-orm/pg-core"
+import { pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean, check, jsonb } from "drizzle-orm/pg-core"
 
 export const books = pgTable("books", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -11,6 +11,7 @@ export const books = pgTable("books", {
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
   genre: text("genre").array(),
+  genreWeights: jsonb("genre_weights"),
   publishedYear: integer("published_year"),
   isbn: varchar("isbn", { length: 20 }),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
@@ -23,11 +24,37 @@ export const titles = pgTable("titles", {
   author: text("author").notNull(),
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
+  genreWeights: jsonb("genre_weights"),
+  workId: text("work_id"),
+  isbnList: jsonb("isbn_list"),
+  dupeWorkIds: jsonb("dupe_work_ids"),
   publishedYear: integer("published_year"),
   isbn: text("isbn"),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
 })
+
+export const editions = pgTable(
+  "editions",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workId: text("work_id").notNull(),
+    isbn10: text("isbn_10"),
+    isbn13: text("isbn_13"),
+    asin: text("asin"),
+    volumeId: text("volume_id"),
+    format: text("format"),
+    saleability: text("saleability"),
+    rawGoogleData: jsonb("raw_google_data"),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqIsbn10: uniqueIndex("editions_isbn_10_unique").on(t.isbn10),
+    uniqIsbn13: uniqueIndex("editions_isbn_13_unique").on(t.isbn13),
+    uniqVolumeId: uniqueIndex("editions_volume_id_unique").on(t.volumeId),
+  })
+)
 
 export const titleReads = pgTable(
   "title_reads",
@@ -44,6 +71,42 @@ export const titleReads = pgTable(
     uniqUserTitleRead: uniqueIndex("title_reads_user_title_unique").on(t.userProfileId, t.titleId),
   })
 )
+
+export const userGenrePoints = pgTable(
+  "user_genre_points",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userProfileId: uuid("user_profile_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    titleId: uuid("title_id").references(() => titles.id, { onDelete: "set null" }),
+    genre: text("genre").notNull(),
+    points: integer("points").notNull(),
+    sourceType: text("source_type").notNull(),
+    sourceId: uuid("source_id").notNull(),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqUserSourceGenreReason: uniqueIndex("user_genre_points_user_source_genre_reason_unique").on(
+      t.userProfileId,
+      t.sourceType,
+      t.sourceId,
+      t.genre,
+      t.reason
+    ),
+  })
+)
+
+export const userExperience = pgTable("user_experience", {
+  userProfileId: uuid("user_profile_id")
+    .primaryKey()
+    .references(() => userProfiles.id, { onDelete: "cascade" }),
+  totalExperience: integer("total_experience").default(0).notNull(),
+  level: integer("level").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+})
 
 export const titleSources = pgTable(
   "title_sources",
@@ -70,6 +133,10 @@ export const trackedBooks = pgTable("tracked_books", {
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
   genre: text("genre").array(),
+  genreWeights: jsonb("genre_weights"),
+  workId: text("work_id"),
+  isbnList: jsonb("isbn_list"),
+  dupeWorkIds: jsonb("dupe_work_ids"),
   publishedYear: integer("published_year"),
   isbn: varchar("isbn", { length: 20 }),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),

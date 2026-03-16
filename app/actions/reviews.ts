@@ -3,6 +3,7 @@
 import { createServerClient } from "@/lib/supabase-server"
 import { sanitizeRichTextHtml } from "@/lib/sanitize"
 import { revalidatePath } from "next/cache"
+import { awardPointsForTitleAction } from "@/app/actions/rewards"
 
 async function requireAuthedProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
   const {
@@ -95,7 +96,7 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
     if (error) throw new Error("Failed to update review")
   } else {
     // Insert new review
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("reviews")
       .insert({
         user_id: profileId,
@@ -104,8 +105,22 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
         rating,
         review_text: cleanedReview,
       })
+      .select("id")
+      .single()
 
     if (error) throw new Error("Failed to submit review")
+
+    if (data?.id) {
+      await awardPointsForTitleAction({
+        supabase,
+        profileId,
+        titleId,
+        sourceType: "review",
+        sourceId: data.id,
+        basePoints: 1,
+        reason: "review_submitted",
+      })
+    }
   }
 
   revalidatePath(`/titles/${titleId}`)

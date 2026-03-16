@@ -2,7 +2,9 @@
 
 import { createServerClient } from "@/lib/supabase-server"
 import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
+import { fetchOpenLibraryWorkCandidatesByTitleAuthor, type OpenLibraryWorkCandidate } from "@/lib/open-library"
 import { revalidatePath } from "next/cache"
+import { awardPointsForTitleAction } from "@/app/actions/rewards"
 
 async function requireAuthedProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
   const {
@@ -75,13 +77,37 @@ export async function setTitleReadStatus(titleId: string, isRead: boolean) {
   const profileId = await requireAuthedProfileId(supabase)
 
   if (isRead) {
-    const { error } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from("title_reads")
-      .upsert({ user_profile_id: profileId, title_id: titleId }, { onConflict: "user_profile_id,title_id" })
+      .select("title_id")
+      .eq("user_profile_id", profileId)
+      .eq("title_id", titleId)
+      .maybeSingle()
 
-    if (error) {
-      console.error("Failed to mark title as read", error)
+    if (existingError) {
+      console.error("Failed to check title read status", existingError)
       throw new Error("Failed to update read status")
+    }
+
+    if (!existing?.title_id) {
+      const { error } = await supabase
+        .from("title_reads")
+        .insert({ user_profile_id: profileId, title_id: titleId })
+
+      if (error) {
+        console.error("Failed to mark title as read", error)
+        throw new Error("Failed to update read status")
+      }
+
+      await awardPointsForTitleAction({
+        supabase,
+        profileId,
+        titleId,
+        sourceType: "title_read",
+        sourceId: titleId,
+        basePoints: 3,
+        reason: "completed_reading",
+      })
     }
   } else {
     const { error } = await supabase
@@ -165,16 +191,202 @@ export async function createDiscussionPost(titleId: string, content: string) {
   const plain = extractPlainTextFromHtml(cleaned)
   if (!plain) throw new Error("Message cannot be empty")
 
-  const { error } = await supabase.from("discussion_posts").insert({
+  const { data, error } = await supabase
+    .from("discussion_posts")
+    .insert({
     title_id: titleId,
     user_id: profileId,
     content: cleaned,
     likes_count: 0,
-  })
+    })
+    .select("id")
+    .single()
 
   if (error) {
     console.error("Failed to create discussion post", error)
     throw new Error("Failed to publish post")
+  }
+
+  if (data?.id) {
+    await awardPointsForTitleAction({
+      supabase,
+      profileId,
+      titleId,
+      sourceType: "discussion_post",
+      sourceId: data.id,
+      basePoints: 2,
+      reason: "discussion_post",
+    })
+  }
+
+  revalidatePath(`/titles/${titleId}`)
+  return { titleId }
+}
+
+export type TitleEditionRow = {
+  workId: string
+  isbn10: string | null
+  isbn13: string | null
+  asin: string | null
+  format: string | null
+  saleability: string | null
+}
+
+export type TitleDedupeCandidate = OpenLibraryWorkCandidate
+
+async function getTitleCore(titleId: string) {
+  const supabase = await createServerClient()
+  const { data, error } = await supabase
+    .from("titles")
+    .select("id,title,author,work_id,dupe_work_ids")
+    .eq("id", titleId)
+    .maybeSingle()
+
+  if (error || !data) {
+    console.error("Error fetching title core:", error)
+    return null
+  }
+
+  return data as {
+    id: string
+    title: string
+    author: string
+    work_id: string | null
+    dupe_work_ids: string[] | null
+  }
+}
+
+async function filterDedupedWorkCandidates(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  candidates: OpenLibraryWorkCandidate[]
+) {
+  if (candidates.length === 0) return []
+  const workIds = candidates.map((candidate) => candidate.workId)
+  const orFilter = workIds.map((id) => `dupe_work_ids.cs.{${id}}`).join(",")
+
+  const [{ data: titleWorkMatches }, { data: trackedWorkMatches }, { data: titleDupes }, { data: trackedDupes }] =
+    await Promise.all([
+      supabase.from("titles").select("work_id").in("work_id", workIds),
+      supabase.from("tracked_books").select("work_id").in("work_id", workIds),
+      orFilter
+        ? supabase.from("titles").select("dupe_work_ids").or(orFilter)
+        : Promise.resolve({ data: [] as any[] } as any),
+      orFilter
+        ? supabase.from("tracked_books").select("dupe_work_ids").or(orFilter)
+        : Promise.resolve({ data: [] as any[] } as any),
+    ])
+
+  const deduped = new Set<string>()
+  for (const row of titleWorkMatches ?? []) {
+    if ((row as any).work_id) deduped.add((row as any).work_id as string)
+  }
+  for (const row of trackedWorkMatches ?? []) {
+    if ((row as any).work_id) deduped.add((row as any).work_id as string)
+  }
+
+  const dupeRows = [...(titleDupes ?? []), ...(trackedDupes ?? [])]
+  for (const row of dupeRows) {
+    const values = (row as any).dupe_work_ids
+    if (Array.isArray(values)) {
+      for (const id of values) {
+        if (typeof id === "string") deduped.add(id)
+      }
+    }
+  }
+
+  return candidates.filter((candidate) => !deduped.has(candidate.workId))
+}
+
+export async function getTitleEditionsAction(titleId: string): Promise<TitleEditionRow[]> {
+  const supabase = await createServerClient()
+  const core = await getTitleCore(titleId)
+  if (!core) return []
+
+  const workIds = [core.work_id, ...(core.dupe_work_ids ?? [])].filter(Boolean) as string[]
+  if (workIds.length === 0) return []
+
+  const { data, error } = await supabase
+    .from("editions")
+    .select("work_id,isbn_10,isbn_13,asin,format,saleability")
+    .in("work_id", workIds)
+
+  if (error) {
+    console.error("Error fetching editions:", error)
+    return []
+  }
+
+  const rows = (data ?? []) as any[]
+  return rows
+    .map((row) => ({
+      workId: row.work_id as string,
+      isbn10: row.isbn_10 ?? null,
+      isbn13: row.isbn_13 ?? null,
+      asin: row.asin ?? null,
+      format: row.format ?? null,
+      saleability: row.saleability ?? null,
+    }))
+    .sort((a, b) => {
+      const aSale = a.saleability === "FOR_SALE" ? 1 : 0
+      const bSale = b.saleability === "FOR_SALE" ? 1 : 0
+      return bSale - aSale
+    })
+}
+
+export async function getTitleDedupeCandidatesAction(titleId: string): Promise<{
+  candidates: TitleDedupeCandidate[]
+  selected: string[]
+}> {
+  const supabase = await createServerClient()
+  const core = await getTitleCore(titleId)
+  if (!core) return { candidates: [], selected: [] }
+
+  const baseCandidates = await fetchOpenLibraryWorkCandidatesByTitleAuthor({
+    title: core.title,
+    author: core.author,
+    limit: 15,
+  })
+
+  const candidates = await filterDedupedWorkCandidates(supabase, baseCandidates)
+  const selected = (core.dupe_work_ids ?? []).filter((id) => id && id !== core.work_id)
+
+  return { candidates, selected }
+}
+
+export async function updateTitleDedupeAction(titleId: string, dupeWorkIds: string[]) {
+  const supabase = await createServerClient()
+  await requireAuthedProfileId(supabase)
+
+  const core = await getTitleCore(titleId)
+  if (!core) throw new Error("Title not found")
+
+  const normalized = Array.from(new Set(dupeWorkIds.filter(Boolean))).filter(
+    (id) => id !== core.work_id
+  )
+
+  const { error: titleError } = await supabase
+    .from("titles")
+    .update({
+      dupe_work_ids: normalized,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", titleId)
+
+  if (titleError) {
+    console.error("Failed to update title dupes", titleError)
+    throw new Error("Failed to update dedupe list")
+  }
+
+  const { error: trackedError } = await supabase
+    .from("tracked_books")
+    .update({
+      dupe_work_ids: normalized,
+      updated_at: new Date().toISOString(),
+    })
+    .or(`title_id.eq.${titleId},id.eq.${titleId}`)
+
+  if (trackedError) {
+    console.error("Failed to update tracked dupes", trackedError)
+    throw new Error("Failed to update dedupe list")
   }
 
   revalidatePath(`/titles/${titleId}`)

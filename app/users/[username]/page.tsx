@@ -1,8 +1,11 @@
+import Link from "next/link"
 import { Navigation } from "@/components/navigation"
 import { createServerClient } from "@/lib/supabase-server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BookOpen } from "lucide-react"
+import { BookOpen, TrendingUp } from "lucide-react"
+import { GENRES, GENRE_BG_CLASS, type Genre } from "@/lib/types"
+import { summarizeGenrePoints } from "@/app/actions/rewards"
 
 async function getUserProfile(username: string) {
   const supabase = await createServerClient()
@@ -36,6 +39,28 @@ async function getReadTitles(userProfileId: string) {
   return data ?? []
 }
 
+async function getGenrePoints(userProfileId: string) {
+  const supabase = await createServerClient()
+  const { data, error } = await supabase
+    .from("user_genre_points")
+    .select("genre, points")
+    .eq("user_profile_id", userProfileId)
+
+  if (error) {
+    console.error("Failed to load user points", error)
+    return GENRES.reduce<Record<Genre, number>>((acc, genre) => {
+      acc[genre] = 0
+      return acc
+    }, {} as Record<Genre, number>)
+  }
+
+  const totals = await summarizeGenrePoints((data ?? []) as Array<{ genre: string | null; points: number | null }>)
+  return GENRES.reduce<Record<Genre, number>>((acc, genre) => {
+    acc[genre] = totals.get(genre) ?? 0
+    return acc
+  }, {} as Record<Genre, number>)
+}
+
 export default async function UserReadListPage({
   params,
 }: {
@@ -60,6 +85,7 @@ export default async function UserReadListPage({
   }
 
   const readTitles = await getReadTitles(profile.id)
+  const pointsByGenre = await getGenrePoints(profile.id)
 
   return (
     <div className="min-h-screen bg-background">
@@ -74,6 +100,27 @@ export default async function UserReadListPage({
             <div>
               <p className="text-2xl font-bold">{profile.username ?? "Anonymous"}</p>
               {profile.bio ? <p className="text-sm text-muted-foreground">{profile.bio}</p> : null}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Points by Genre
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-7 gap-3 text-center">
+              {GENRES.map((genre) => (
+                <div key={genre} className="flex flex-col items-center gap-2">
+                  <span className={`h-3 w-3 rounded-full ${GENRE_BG_CLASS[genre]}`} />
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {pointsByGenre?.[genre] ?? 0}
+                  </span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -97,7 +144,12 @@ export default async function UserReadListPage({
                       <AvatarFallback>{entry.titles?.title?.[0] ?? "T"}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="font-medium truncate">{entry.titles?.title ?? "Untitled"}</p>
+                      <Link
+                        href={`/titles/${entry.titles?.id ?? entry.title_id}`}
+                        className="font-medium truncate hover:underline"
+                      >
+                        {entry.titles?.title ?? "Untitled"}
+                      </Link>
                       <p className="text-sm text-muted-foreground truncate">{entry.titles?.author ?? "Unknown author"}</p>
                     </div>
                   </div>
