@@ -12,12 +12,14 @@ create table if not exists titles (
   updated_at timestamptz not null default now()
 );
 
--- Per-user read marker (spoiler gate)
-create table if not exists title_reads (
+-- Activity feed events (future user activity stream)
+create table if not exists activity_events (
+  id uuid primary key default gen_random_uuid(),
   user_profile_id uuid not null references user_profiles(id) on delete cascade,
-  title_id uuid not null references titles(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  primary key (user_profile_id, title_id)
+  title_id uuid references titles(id) on delete set null,
+  event_type text not null,
+  metadata jsonb,
+  created_at timestamptz not null default now()
 );
 
 -- External source mapping (Google volume id -> canonical title)
@@ -76,19 +78,19 @@ from external_books eb
 join tracked_books tb on tb.id = eb.tracked_book_id
 on conflict (source, external_id) do nothing;
 
--- Backfill read markers from existing progress tables
-insert into title_reads (user_profile_id, title_id)
+-- Backfill activity events for completed reads
+insert into activity_events (user_profile_id, title_id, event_type)
 select up.user_profile_id, up.book_id
 from user_progress up
 where up.is_completed = true
-on conflict do nothing;
+;
 
-insert into title_reads (user_profile_id, title_id)
+insert into activity_events (user_profile_id, title_id, event_type)
 select tup.user_profile_id, tb.title_id
 from tracked_user_progress tup
 join tracked_books tb on tb.id = tup.tracked_book_id
 where tup.is_completed = true
-on conflict do nothing;
+;
 
 -- Reviews: add title_id and backfill from book_id
 alter table reviews add column if not exists title_id uuid references titles(id) on delete cascade;

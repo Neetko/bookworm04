@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BookOpen } from "lucide-react"
+import { BookOpen, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { GENRES, type Genre, GENRE_BG_CLASS, normalizeGenres } from "@/lib/types"
 import type { SearchTitleResult } from "@/lib/types"
@@ -77,14 +77,29 @@ function Cover({
   )
 }
 
-export function TrackReadingResultList({ results }: { results: SearchTitleResult[] }) {
+type TrackReadingResultListProps = {
+  results: SearchTitleResult[]
+  actionLabel?: string
+  actionDisabledLabel?: string
+  actionLoadingId?: string | null
+  onAction?: (titleId: string, result: SearchTitleResult) => void | Promise<void>
+  isActionDisabled?: (titleId: string, result: SearchTitleResult) => boolean
+}
+
+export function TrackReadingResultList({
+  results,
+  actionLabel = "Add to list",
+  actionDisabledLabel = "Added",
+  actionLoadingId = null,
+  onAction,
+  isActionDisabled,
+}: TrackReadingResultListProps) {
   const router = useRouter()
   const [googleTitleIds, setGoogleTitleIds] = useState<Record<string, string>>({})
   const [ingestedVolumeIds, setIngestedVolumeIds] = useState<Set<string>>(new Set())
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogResult, setDialogResult] = useState<SearchTitleResult | null>(null)
-  const [readAnswer, setReadAnswer] = useState<boolean | null>(null)
   const [loadingSuggestion, setLoadingSuggestion] = useState(false)
   const [submittingIngest, setSubmittingIngest] = useState(false)
   const [suggestedGenres, setSuggestedGenres] = useState<Genre[]>([])
@@ -99,7 +114,6 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
     subjects: string[]
   }>>([])
   const [selectedWorkIds, setSelectedWorkIds] = useState<string[]>([])
-  const [showAllCandidates, setShowAllCandidates] = useState(false)
   const [localDuplicates, setLocalDuplicates] = useState<Array<{
     id: string
     title: string
@@ -126,12 +140,10 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
 
     setDialogResult(result)
     setDialogOpen(true)
-    setReadAnswer(null)
     setSuggestedGenres([])
     setSelectedGenres([])
     setWorkCandidates([])
     setSelectedWorkIds([])
-    setShowAllCandidates(false)
     setLocalDuplicates([])
     setRequiresWorkConfirmation(false)
     setShowAllDuplicates(false)
@@ -161,7 +173,7 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
   }
 
   const confirmIngest = async () => {
-    if (!dialogResult?.volumeId || readAnswer === null) return
+    if (!dialogResult?.volumeId) return
     if (selectedGenres.length === 0) {
       toast.error("Select at least one genre")
       return
@@ -176,7 +188,6 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
     try {
       const res = await confirmGoogleBookIngest({
         volumeId: dialogResult.volumeId,
-        hasRead: readAnswer,
         selectedGenres,
         selectedWorkIds,
         requiresWorkSelection: requiresWorkConfirmation,
@@ -218,12 +229,10 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
     if (submittingIngest) return
     setDialogOpen(false)
     setDialogResult(null)
-    setReadAnswer(null)
     setSuggestedGenres([])
     setSelectedGenres([])
     setWorkCandidates([])
     setSelectedWorkIds([])
-    setShowAllCandidates(false)
     setLocalDuplicates([])
     setRequiresWorkConfirmation(false)
     setShowAllDuplicates(false)
@@ -256,27 +265,16 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
                 {dialogResult.title} — {dialogResult.author}
               </div>
 
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Have you already read this book?</p>
-                <div className="flex gap-2">
-                  <Button
-                    variant={readAnswer === true ? "default" : "outline"}
-                    onClick={() => setReadAnswer(true)}
-                    disabled={loadingSuggestion || submittingIngest}
-                  >
-                    Yes
-                  </Button>
-                  <Button
-                    variant={readAnswer === false ? "default" : "outline"}
-                    onClick={() => setReadAnswer(false)}
-                    disabled={loadingSuggestion || submittingIngest}
-                  >
-                    No
-                  </Button>
+              {loadingSuggestion ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Loading suggestions...</p>
+                  <p className="text-xs text-muted-foreground">
+                    Fetching genre tags and duplicate matches.
+                  </p>
                 </div>
-              </div>
+              ) : null}
 
-              {readAnswer !== null ? (
+              {!loadingSuggestion ? (
                 <div className="space-y-3">
                   {localDuplicates.length > 0 ? (
                     <div className="space-y-2 rounded-lg border border-border p-3">
@@ -334,8 +332,8 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
                       <p className="text-xs text-muted-foreground">
                         Select the work that best matches this title.
                       </p>
-                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                        {(showAllCandidates ? workCandidates.slice(0, 15) : workCandidates.slice(0, 5)).map((candidate) => (
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        {workCandidates.map((candidate) => (
                           <div
                             key={candidate.workId}
                             className={cn(
@@ -357,7 +355,6 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
                             <div className="flex-1 space-y-1">
                               <div className="text-sm font-medium">{candidate.title || "Untitled"}</div>
                               <div className="text-xs text-muted-foreground">{candidate.author || "Unknown author"}</div>
-                              <div className="text-xs text-muted-foreground">{candidate.workId}</div>
                               <div className="text-xs">First publish: {candidate.firstPublishYear ?? "Unknown"}</div>
                               <div className="text-xs">Editions: {candidate.editionCount ?? "Unknown"}</div>
                               <div className="text-xs text-muted-foreground line-clamp-2">
@@ -387,44 +384,30 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
                           </div>
                         ))}
                       </div>
-                      {workCandidates.length > 5 ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowAllCandidates((prev) => !prev)}
-                        >
-                          {showAllCandidates ? "Show less" : "Show more"}
-                        </Button>
-                      ) : null}
                     </div>
                   ) : null}
 
                   <p className="text-sm font-medium">Review suggested tags and adjust if needed</p>
-                  {loadingSuggestion ? (
-                    <p className="text-sm text-muted-foreground">Loading suggestions...</p>
+                  {suggestedGenres.length > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Suggested: {suggestedGenres.join(", ")}
+                    </p>
                   ) : (
-                    <>
-                      {suggestedGenres.length > 0 ? (
-                        <p className="text-xs text-muted-foreground">
-                          Suggested: {suggestedGenres.join(", ")}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">No suggested tags found. Please select at least one.</p>
-                      )}
-                      <div className="flex flex-wrap gap-2">
-                        {GENRES.map((genre) => (
-                          <GenreToggleButton
-                            key={genre}
-                            genre={genre}
-                            selected={selectedGenres.includes(genre)}
-                            onToggle={toggleGenre}
-                          />
-                        ))}
-                      </div>
-                    </>
+                    <p className="text-xs text-muted-foreground">No suggested tags found. Please select at least one.</p>
                   )}
+                  <div className="flex flex-wrap gap-2">
+                    {GENRES.map((genre) => (
+                      <GenreToggleButton
+                        key={genre}
+                        genre={genre}
+                        selected={selectedGenres.includes(genre)}
+                        onToggle={toggleGenre}
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : null}
+              
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={closeDialog} disabled={submittingIngest}>
@@ -435,7 +418,6 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
                   disabled={
                     loadingSuggestion ||
                     submittingIngest ||
-                    readAnswer === null ||
                     selectedGenres.length === 0 ||
                     (requiresWorkConfirmation && selectedWorkIds.length === 0)
                   }
@@ -461,6 +443,11 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
           result.claimed ||
           (result.volumeId ? ingestedVolumeIds.has(result.volumeId) : false)
         const showIngest = result.source === "google" && !isIngested
+        const canTakeAction = Boolean(onAction && resolvedTitleId && !showIngest)
+        const isActionLoading = Boolean(actionLoadingId && resolvedTitleId && actionLoadingId === resolvedTitleId)
+        const actionDisabled = Boolean(
+          isActionDisabled && resolvedTitleId && isActionDisabled(resolvedTitleId, result)
+        )
         const descriptionHtml = sanitizeDescriptionHtml(result.description)
 
         return (
@@ -525,11 +512,30 @@ export function TrackReadingResultList({ results }: { results: SearchTitleResult
                 ) : null}
               </CardContent>
 
-              {showIngest ? (
+              {showIngest || canTakeAction ? (
                 <CardFooter className="p-6 pt-0 flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => openIngestDialog(result)}>
-                    Ingest
-                  </Button>
+                  {showIngest ? (
+                    <Button variant="outline" onClick={() => openIngestDialog(result)}>
+                      Ingest
+                    </Button>
+                  ) : null}
+                  {canTakeAction && resolvedTitleId ? (
+                    <Button
+                      onClick={() => onAction?.(resolvedTitleId, result)}
+                      disabled={isActionLoading || actionDisabled}
+                    >
+                      {isActionLoading ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Adding...
+                        </span>
+                      ) : actionDisabled ? (
+                        actionDisabledLabel
+                      ) : (
+                        actionLabel
+                      )}
+                    </Button>
+                  ) : null}
                 </CardFooter>
               ) : null}
             </div>

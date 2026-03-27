@@ -25,10 +25,24 @@ async function getUserProfile(username: string) {
 
 async function getReadTitles(userProfileId: string) {
   const supabase = await createServerClient()
-  const { data, error } = await supabase
-    .from("title_reads")
-    .select("title_id, created_at, titles ( id, title, author, cover_image_url )")
+  const { data: finishedList, error: listError } = await supabase
+    .from("title_lists")
+    .select("id")
     .eq("user_profile_id", userProfileId)
+    .eq("list_type", "finished-reading")
+    .maybeSingle()
+
+  if (listError) {
+    console.error("Failed to load finished reading list", listError)
+    return []
+  }
+
+  if (!finishedList?.id) return []
+
+  const { data, error } = await supabase
+    .from("title_list_items")
+    .select("title_id, created_at, titles ( id, title, author, cover_image_url )")
+    .eq("list_id", finishedList.id)
     .order("created_at", { ascending: false })
 
   if (error) {

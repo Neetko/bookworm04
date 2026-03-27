@@ -29,10 +29,12 @@ async function requireTitleRead(
   profileId: string,
   titleId: string
 ) {
+  const finishedListId = await ensureFinishedReadingListForProfile(supabase, profileId)
+  if (!finishedListId) throw new Error("Forbidden")
   const { data, error } = await supabase
-    .from("title_reads")
+    .from("title_list_items")
     .select("title_id")
-    .eq("user_profile_id", profileId)
+    .eq("list_id", finishedListId)
     .eq("title_id", titleId)
     .maybeSingle()
 
@@ -42,6 +44,39 @@ async function requireTitleRead(
   }
 
   if (!data?.title_id) throw new Error("Forbidden")
+}
+
+async function ensureFinishedReadingListForProfile(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string
+) {
+  const { data: existing } = await supabase
+    .from("title_lists")
+    .select("id")
+    .eq("user_profile_id", profileId)
+    .eq("list_type", "finished-reading")
+    .maybeSingle()
+
+  if (existing?.id) return existing.id as string
+
+  const { data: created, error } = await supabase
+    .from("title_lists")
+    .insert({
+      user_profile_id: profileId,
+      name: "Finished Reading",
+      list_type: "finished-reading",
+      is_public: false,
+      is_default: true,
+    })
+    .select("id")
+    .single()
+
+  if (error || !created?.id) {
+    console.error("Failed to create finished reading list", error)
+    return null
+  }
+
+  return created.id as string
 }
 
 export async function getReviews(titleId: string) {

@@ -122,11 +122,6 @@ export async function getProfileData(token: string) {
     .select("*", { count: "exact", head: true })
     .eq("user_id", profile.id)
 
-  const { count: booksReadCount } = await supabase
-    .from("title_reads")
-    .select("*", { count: "exact", head: true })
-    .eq("user_profile_id", profile.id)
-
   // Fetch recent reviews
   const { data: recentReviews } = await supabase
     .from("reviews")
@@ -135,11 +130,141 @@ export async function getProfileData(token: string) {
     .order("created_at", { ascending: false })
     .limit(10)
 
-  const { data: readTitles } = await supabase
-    .from("title_reads")
+  const ensureToReadList = async () => {
+    const { data: existing } = await supabase
+      .from("title_lists")
+      .select("id")
+      .eq("user_profile_id", profile.id)
+      .eq("list_type", "to-read")
+      .maybeSingle()
+
+    if (existing?.id) return existing.id as string
+
+    const { data: created } = await supabase
+      .from("title_lists")
+      .insert({
+        user_profile_id: profile.id,
+        name: "Planned Reading",
+        list_type: "to-read",
+        is_public: false,
+        is_default: true,
+      })
+      .select("id")
+      .single()
+
+    return created?.id ?? null
+  }
+
+  const ensureCurrentReadingList = async () => {
+    const { data: existing } = await supabase
+      .from("title_lists")
+      .select("id")
+      .eq("user_profile_id", profile.id)
+      .eq("list_type", "current-reading")
+      .maybeSingle()
+
+    if (existing?.id) return existing.id as string
+
+    const { data: created } = await supabase
+      .from("title_lists")
+      .insert({
+        user_profile_id: profile.id,
+        name: "Current Reading",
+        list_type: "current-reading",
+        is_public: false,
+        is_default: true,
+      })
+      .select("id")
+      .single()
+
+    return created?.id ?? null
+  }
+
+  const ensureFinishedReadingList = async () => {
+    const { data: existing } = await supabase
+      .from("title_lists")
+      .select("id")
+      .eq("user_profile_id", profile.id)
+      .eq("list_type", "finished-reading")
+      .maybeSingle()
+
+    if (existing?.id) return existing.id as string
+
+    const { data: created } = await supabase
+      .from("title_lists")
+      .insert({
+        user_profile_id: profile.id,
+        name: "Finished Reading",
+        list_type: "finished-reading",
+        is_public: false,
+        is_default: true,
+      })
+      .select("id")
+      .single()
+
+    return created?.id ?? null
+  }
+
+  const toReadListId = await ensureToReadList()
+  const currentReadingListId = await ensureCurrentReadingList()
+  const finishedReadingListId = await ensureFinishedReadingList()
+
+  const { count: booksReadCount } = await supabase
+    .from("title_list_items")
+    .select("*", { count: "exact", head: true })
+    .eq("list_id", finishedReadingListId)
+  const { data: toReadItems } = await supabase
+    .from("title_list_items")
     .select("title_id, created_at, titles ( id, title, author, cover_image_url )")
-    .eq("user_profile_id", profile.id)
+    .eq("list_id", toReadListId)
     .order("created_at", { ascending: false })
+
+  const { data: currentReadingItems } = await supabase
+    .from("title_list_items")
+    .select("title_id, created_at, titles ( id, title, author, cover_image_url )")
+    .eq("list_id", currentReadingListId)
+    .order("created_at", { ascending: false })
+
+  const { data: finishedReadingItems } = await supabase
+    .from("title_list_items")
+    .select("title_id, created_at, titles ( id, title, author, cover_image_url )")
+    .eq("list_id", finishedReadingListId)
+    .order("created_at", { ascending: false })
+
+  const { data: customLists } = await supabase
+    .from("title_lists")
+    .select("id,name,is_public,is_default,list_type")
+    .eq("user_profile_id", profile.id)
+    .eq("list_type", "custom")
+    .order("created_at", { ascending: false })
+
+  const customListIds = (customLists ?? []).map((list) => list.id)
+  const { data: customItems } = await supabase
+    .from("title_list_items")
+    .select("list_id, title_id, titles ( id, title, author, cover_image_url )")
+    .in("list_id", customListIds)
+
+  const { data: customLikes } = await supabase
+    .from("title_list_likes")
+    .select("list_id")
+    .in("list_id", customListIds)
+
+  const likesCountMap = new Map<string, number>()
+  for (const row of customLikes ?? []) {
+    const listId = (row as any).list_id as string
+    likesCountMap.set(listId, (likesCountMap.get(listId) ?? 0) + 1)
+  }
+
+  const itemsByList = new Map<string, Array<any>>()
+  for (const row of customItems ?? []) {
+    const listId = (row as any).list_id as string
+    const title = (row as any).titles
+    if (!itemsByList.has(listId)) itemsByList.set(listId, [])
+    itemsByList.get(listId)!.push({
+      title_id: title?.id ?? (row as any).title_id,
+      titles: title,
+    })
+  }
 
   const { data: pointRows } = await supabase
     .from("user_genre_points")
@@ -171,7 +296,19 @@ export async function getProfileData(token: string) {
       genrePoints: pointsByGenre,
     },
     recentReviews: recentReviews || [],
-    readTitles: readTitles || [],
+    finishedReadingTitles: finishedReadingItems || [],
+    toReadTitles: toReadItems || [],
+    toReadListId,
+    currentReadingTitles: currentReadingItems || [],
+    currentReadingListId,
+    finishedReadingListId,
+    customLists: (customLists ?? []).map((list) => ({
+      id: list.id as string,
+      name: list.name as string,
+      isPublic: Boolean((list as any).is_public),
+      likesCount: likesCountMap.get(list.id) ?? 0,
+      items: itemsByList.get(list.id) ?? [],
+    })),
     pointsByGenre,
   }
 }

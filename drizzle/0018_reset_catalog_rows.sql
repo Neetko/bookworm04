@@ -7,9 +7,12 @@ delete from tracked_user_progress;
 delete from external_books;
 delete from tracked_books;
 
--- Title mappings and read gates
+-- Title mappings and activity events
 delete from title_sources;
-delete from title_reads;
+delete from activity_events;
+
+-- Finished reading list items
+delete from title_list_items;
 
 -- Title-linked community content
 delete from club_reading_comments;

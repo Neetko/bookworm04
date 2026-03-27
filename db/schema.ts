@@ -56,11 +56,42 @@ export const editions = pgTable(
   })
 )
 
-export const titleReads = pgTable(
-  "title_reads",
+export const activityEvents = pgTable("activity_events", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userProfileId: uuid("user_profile_id")
+    .references(() => userProfiles.id, { onDelete: "cascade" })
+    .notNull(),
+  titleId: uuid("title_id").references(() => titles.id, { onDelete: "set null" }),
+  eventType: text("event_type").notNull(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+})
+
+export const titleLists = pgTable(
+  "title_lists",
   {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     userProfileId: uuid("user_profile_id")
       .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    name: text("name").notNull(),
+    listType: text("list_type").default("custom").notNull(),
+    isPublic: boolean("is_public").default(true).notNull(),
+    isDefault: boolean("is_default").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqUserListType: uniqueIndex("title_lists_user_type_unique").on(t.userProfileId, t.listType),
+  })
+)
+
+export const titleListItems = pgTable(
+  "title_list_items",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    listId: uuid("list_id")
+      .references(() => titleLists.id, { onDelete: "cascade" })
       .notNull(),
     titleId: uuid("title_id")
       .references(() => titles.id, { onDelete: "cascade" })
@@ -68,7 +99,24 @@ export const titleReads = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   },
   (t: any) => ({
-    uniqUserTitleRead: uniqueIndex("title_reads_user_title_unique").on(t.userProfileId, t.titleId),
+    uniqListTitle: uniqueIndex("title_list_items_list_title_unique").on(t.listId, t.titleId),
+  })
+)
+
+export const titleListLikes = pgTable(
+  "title_list_likes",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    listId: uuid("list_id")
+      .references(() => titleLists.id, { onDelete: "cascade" })
+      .notNull(),
+    userProfileId: uuid("user_profile_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqListLike: uniqueIndex("title_list_likes_user_list_unique").on(t.userProfileId, t.listId),
   })
 )
 

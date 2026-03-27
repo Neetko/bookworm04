@@ -30,10 +30,12 @@ async function requireTitleRead(
   profileId: string,
   titleId: string
 ) {
+  const finishedListId = await ensureFinishedReadingListForProfile(supabase, profileId)
+  if (!finishedListId) throw new Error("Forbidden")
   const { data, error } = await supabase
-    .from("title_reads")
+    .from("title_list_items")
     .select("title_id")
-    .eq("user_profile_id", profileId)
+    .eq("list_id", finishedListId)
     .eq("title_id", titleId)
     .maybeSingle()
 
@@ -43,6 +45,133 @@ async function requireTitleRead(
   }
 
   if (!data?.title_id) throw new Error("Forbidden")
+}
+
+async function ensureToReadListForProfile(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string
+) {
+  const { data: existing } = await supabase
+    .from("title_lists")
+    .select("id")
+    .eq("user_profile_id", profileId)
+    .eq("list_type", "to-read")
+    .maybeSingle()
+
+  if (existing?.id) return existing.id as string
+
+  const { data: created, error } = await supabase
+    .from("title_lists")
+    .insert({
+      user_profile_id: profileId,
+      name: "Planned Reading",
+      list_type: "to-read",
+      is_public: false,
+      is_default: true,
+    })
+    .select("id")
+    .single()
+
+  if (error || !created?.id) {
+    console.error("Failed to create to-read list", error)
+    return null
+  }
+
+  return created.id as string
+}
+
+async function ensureCurrentReadingListForProfile(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string
+) {
+  const { data: existing } = await supabase
+    .from("title_lists")
+    .select("id")
+    .eq("user_profile_id", profileId)
+    .eq("list_type", "current-reading")
+    .maybeSingle()
+
+  if (existing?.id) return existing.id as string
+
+  const { data: created, error } = await supabase
+    .from("title_lists")
+    .insert({
+      user_profile_id: profileId,
+      name: "Current Reading",
+      list_type: "current-reading",
+      is_public: false,
+      is_default: true,
+    })
+    .select("id")
+    .single()
+
+  if (error || !created?.id) {
+    console.error("Failed to create current reading list", error)
+    return null
+  }
+
+  return created.id as string
+}
+
+async function ensureFinishedReadingListForProfile(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string
+) {
+  const { data: existing } = await supabase
+    .from("title_lists")
+    .select("id")
+    .eq("user_profile_id", profileId)
+    .eq("list_type", "finished-reading")
+    .maybeSingle()
+
+  if (existing?.id) return existing.id as string
+
+  const { data: created, error } = await supabase
+    .from("title_lists")
+    .insert({
+      user_profile_id: profileId,
+      name: "Finished Reading",
+      list_type: "finished-reading",
+      is_public: false,
+      is_default: true,
+    })
+    .select("id")
+    .single()
+
+  if (error || !created?.id) {
+    console.error("Failed to create finished reading list", error)
+    return null
+  }
+
+  return created.id as string
+}
+
+async function removeFromToReadList(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string,
+  titleId: string
+) {
+  const listId = await ensureToReadListForProfile(supabase, profileId)
+  if (!listId) return
+  await supabase
+    .from("title_list_items")
+    .delete()
+    .eq("list_id", listId)
+    .eq("title_id", titleId)
+}
+
+async function removeFromCurrentReadingList(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string,
+  titleId: string
+) {
+  const listId = await ensureCurrentReadingListForProfile(supabase, profileId)
+  if (!listId) return
+  await supabase
+    .from("title_list_items")
+    .delete()
+    .eq("list_id", listId)
+    .eq("title_id", titleId)
 }
 
 export async function getTitleReadStatus(titleId: string) {
@@ -62,10 +191,13 @@ export async function getTitleReadStatus(titleId: string) {
 
   if (!profile?.id) return false
 
+  const finishedListId = await ensureFinishedReadingListForProfile(supabase, profile.id)
+  if (!finishedListId) return false
+
   const { data } = await supabase
-    .from("title_reads")
+    .from("title_list_items")
     .select("title_id")
-    .eq("user_profile_id", profile.id)
+    .eq("list_id", finishedListId)
     .eq("title_id", titleId)
     .maybeSingle()
 
@@ -76,11 +208,14 @@ export async function setTitleReadStatus(titleId: string, isRead: boolean) {
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
 
+  const finishedListId = await ensureFinishedReadingListForProfile(supabase, profileId)
+  if (!finishedListId) throw new Error("Failed to update read status")
+
   if (isRead) {
     const { data: existing, error: existingError } = await supabase
-      .from("title_reads")
+      .from("title_list_items")
       .select("title_id")
-      .eq("user_profile_id", profileId)
+      .eq("list_id", finishedListId)
       .eq("title_id", titleId)
       .maybeSingle()
 
@@ -91,8 +226,8 @@ export async function setTitleReadStatus(titleId: string, isRead: boolean) {
 
     if (!existing?.title_id) {
       const { error } = await supabase
-        .from("title_reads")
-        .insert({ user_profile_id: profileId, title_id: titleId })
+        .from("title_list_items")
+        .insert({ list_id: finishedListId, title_id: titleId })
 
       if (error) {
         console.error("Failed to mark title as read", error)
@@ -108,12 +243,16 @@ export async function setTitleReadStatus(titleId: string, isRead: boolean) {
         basePoints: 3,
         reason: "completed_reading",
       })
+
     }
+
+    await removeFromCurrentReadingList(supabase, profileId, titleId)
+    await removeFromToReadList(supabase, profileId, titleId)
   } else {
     const { error } = await supabase
-      .from("title_reads")
+      .from("title_list_items")
       .delete()
-      .eq("user_profile_id", profileId)
+      .eq("list_id", finishedListId)
       .eq("title_id", titleId)
 
     if (error) {

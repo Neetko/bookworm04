@@ -415,7 +415,7 @@ async function ensureBookFromGoogleVolume(
   if (mappedBookId && (workId || identifiers.length > 0)) {
     const { data: existingTracked } = await supabase
       .from("tracked_books")
-      .select("isbn_list")
+      .select("isbn_list, dupe_work_ids")
       .eq("id", mappedBookId)
       .maybeSingle()
 
@@ -536,7 +536,6 @@ export async function getGoogleIngestSuggestion(volumeId: string): Promise<{
 
 export async function confirmGoogleBookIngest(input: {
   volumeId: string
-  hasRead: boolean
   selectedGenres: Genre[]
   selectedWorkIds?: string[]
   requiresWorkSelection?: boolean
@@ -581,27 +580,6 @@ export async function confirmGoogleBookIngest(input: {
   if (titleUpdateError) {
     console.error("Failed to save title genres", titleUpdateError)
     throw new Error("Failed to save genres")
-  }
-
-  if (input.hasRead) {
-    const { error: progressError } = await supabase.from("tracked_user_progress").upsert(
-      {
-        user_profile_id: profileId,
-        tracked_book_id: ensured.bookId,
-        current_page: 0,
-        progress_percent: 100,
-        is_completed: true,
-        last_read_at: new Date().toISOString(),
-      },
-      { onConflict: "user_profile_id,tracked_book_id" }
-    )
-
-    if (progressError) {
-      console.error("Failed to mark progress complete", progressError)
-      throw new Error("Failed to save progress")
-    }
-
-    await ensureTitleReadAndReward(supabase, profileId, ensured.titleId)
   }
 
   revalidatePath("/search-titles")
@@ -873,10 +851,13 @@ async function ensureTitleReadAndReward(
   profileId: string,
   titleId: string
 ) {
+  const finishedListId = await ensureFinishedReadingListForProfile(supabase, profileId)
+  if (!finishedListId) throw new Error("Failed to mark title as read")
+
   const { data: existing, error: existingError } = await supabase
-    .from("title_reads")
+    .from("title_list_items")
     .select("title_id")
-    .eq("user_profile_id", profileId)
+    .eq("list_id", finishedListId)
     .eq("title_id", titleId)
     .maybeSingle()
 
@@ -888,8 +869,8 @@ async function ensureTitleReadAndReward(
   if (existing?.title_id) return
 
   const { error } = await supabase
-    .from("title_reads")
-    .insert({ user_profile_id: profileId, title_id: titleId })
+    .from("title_list_items")
+    .insert({ list_id: finishedListId, title_id: titleId })
 
   if (error) {
     console.error("Failed to mark title as read", error)
@@ -905,6 +886,133 @@ async function ensureTitleReadAndReward(
     basePoints: 3,
     reason: "completed_reading",
   })
+
+  await removeFromCurrentReadingList(supabase, profileId, titleId)
+  await removeFromToReadList(supabase, profileId, titleId)
+}
+
+async function ensureToReadListForProfile(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string
+) {
+  const { data: existing } = await supabase
+    .from("title_lists")
+    .select("id")
+    .eq("user_profile_id", profileId)
+    .eq("list_type", "to-read")
+    .maybeSingle()
+
+  if (existing?.id) return existing.id as string
+
+  const { data: created } = await supabase
+    .from("title_lists")
+    .insert({
+      user_profile_id: profileId,
+      name: "Planned Reading",
+      list_type: "to-read",
+      is_public: false,
+      is_default: true,
+    })
+    .select("id")
+    .single()
+
+  return created?.id ?? null
+}
+
+async function ensureCurrentReadingListForProfile(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string
+) {
+  const { data: existing } = await supabase
+    .from("title_lists")
+    .select("id")
+    .eq("user_profile_id", profileId)
+    .eq("list_type", "current-reading")
+    .maybeSingle()
+
+  if (existing?.id) return existing.id as string
+
+  const { data: created } = await supabase
+    .from("title_lists")
+    .insert({
+      user_profile_id: profileId,
+      name: "Current Reading",
+      list_type: "current-reading",
+      is_public: false,
+      is_default: true,
+    })
+    .select("id")
+    .single()
+
+  return created?.id ?? null
+}
+
+async function ensureFinishedReadingListForProfile(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string
+) {
+  const { data: existing } = await supabase
+    .from("title_lists")
+    .select("id")
+    .eq("user_profile_id", profileId)
+    .eq("list_type", "finished-reading")
+    .maybeSingle()
+
+  if (existing?.id) return existing.id as string
+
+  const { data: created } = await supabase
+    .from("title_lists")
+    .insert({
+      user_profile_id: profileId,
+      name: "Finished Reading",
+      list_type: "finished-reading",
+      is_public: false,
+      is_default: true,
+    })
+    .select("id")
+    .single()
+
+  return created?.id ?? null
+}
+
+async function removeFromToReadList(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string,
+  titleId: string
+) {
+  const listId = await ensureToReadListForProfile(supabase, profileId)
+  if (!listId) return
+  await supabase
+    .from("title_list_items")
+    .delete()
+    .eq("list_id", listId)
+    .eq("title_id", titleId)
+}
+
+async function addToCurrentReadingList(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string,
+  titleId: string
+) {
+  const listId = await ensureCurrentReadingListForProfile(supabase, profileId)
+  if (!listId) return
+  await supabase
+    .from("title_list_items")
+    .upsert({ list_id: listId, title_id: titleId }, { onConflict: "list_id,title_id" })
+}
+
+async function removeFromCurrentReadingList(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string,
+  titleId: string
+) {
+  const listId = await ensureCurrentReadingListForProfile(supabase, profileId)
+  if (!listId) return
+  await supabase
+    .from("title_list_items")
+    .delete()
+    .eq("list_id", listId)
+    .eq("title_id", titleId)
 }
 
 export async function trackTitleProgress(input: {
@@ -927,6 +1035,7 @@ export async function trackTitleProgress(input: {
     last_read_at: new Date().toISOString(),
   }
   let isCompleted = false
+  let progressPercent = 0
 
   if (progress.mode === "pages") {
     const totalPages = Math.max(1, Math.floor(progress.totalPages))
@@ -939,6 +1048,7 @@ export async function trackTitleProgress(input: {
     update.minutes_listened = null
     update.total_minutes = null
     isCompleted = percent >= 100
+    progressPercent = percent
   } else {
     const totalMinutes = Math.max(1, Math.floor(progress.totalMinutes))
     const minutesListened = clamp(Math.floor(progress.minutesListened), 0, totalMinutes)
@@ -949,6 +1059,7 @@ export async function trackTitleProgress(input: {
     update.progress_percent = percent
     update.total_pages = null
     isCompleted = percent >= 100
+    progressPercent = percent
   }
 
   update.is_completed = isCompleted
@@ -962,6 +1073,13 @@ export async function trackTitleProgress(input: {
     if (error) {
       console.error("Failed to upsert progress", error)
       throw new Error("Failed to save progress")
+    }
+
+    if (progressPercent > 0 && progressPercent < 100) {
+      await addToCurrentReadingList(supabase, profileId, titleId)
+      await removeFromToReadList(supabase, profileId, titleId)
+    } else if (progressPercent === 0) {
+      await removeFromCurrentReadingList(supabase, profileId, titleId)
     }
 
     if (isCompleted) {
@@ -982,6 +1100,13 @@ export async function trackTitleProgress(input: {
     throw new Error("Failed to save progress")
   }
 
+  if (progressPercent > 0 && progressPercent < 100) {
+    await addToCurrentReadingList(supabase, profileId, titleId)
+    await removeFromToReadList(supabase, profileId, titleId)
+  } else if (progressPercent === 0) {
+    await removeFromCurrentReadingList(supabase, profileId, titleId)
+  }
+
   if (isCompleted) {
     await ensureTitleReadAndReward(supabase, profileId, titleId)
   }
@@ -1000,6 +1125,7 @@ export async function claimAndTrackLocalBook(bookId: string, progress: TrackProg
     last_read_at: new Date().toISOString(),
   }
   let isCompleted = false
+  let progressPercent = 0
 
   if (progress.mode === "pages") {
     const totalPages = Math.max(1, Math.floor(progress.totalPages))
@@ -1010,6 +1136,7 @@ export async function claimAndTrackLocalBook(bookId: string, progress: TrackProg
     update.total_pages = totalPages
     update.progress_percent = percent
     isCompleted = percent >= 100
+    progressPercent = percent
 
     // Clear audio fields
     update.minutes_listened = null
@@ -1023,6 +1150,7 @@ export async function claimAndTrackLocalBook(bookId: string, progress: TrackProg
     update.total_minutes = totalMinutes
     update.progress_percent = percent
     isCompleted = percent >= 100
+    progressPercent = percent
 
     // Keep current_page but clear page totals
     update.total_pages = null
@@ -1039,6 +1167,13 @@ export async function claimAndTrackLocalBook(bookId: string, progress: TrackProg
     throw new Error("Failed to save progress")
   }
 
+  if (progressPercent > 0 && progressPercent < 100) {
+    await addToCurrentReadingList(supabase, profileId, bookId)
+    await removeFromToReadList(supabase, profileId, bookId)
+  } else if (progressPercent === 0) {
+    await removeFromCurrentReadingList(supabase, profileId, bookId)
+  }
+
   if (isCompleted) {
     await ensureTitleReadAndReward(supabase, profileId, bookId)
   }
@@ -1051,7 +1186,7 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
 
-  const ensured = await ensureBookFromGoogleVolume(volumeId)
+  const ensured = await ensureBookFromGoogleVolume(volumeId, [])
 
   const update: Record<string, any> = {
     user_profile_id: profileId,
@@ -1059,6 +1194,7 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
     last_read_at: new Date().toISOString(),
   }
   let isCompleted = false
+  let progressPercent = 0
 
   if (progress.mode === "pages") {
     const totalPages = Math.max(1, Math.floor(progress.totalPages))
@@ -1069,6 +1205,7 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
     update.total_pages = totalPages
     update.progress_percent = percent
     isCompleted = percent >= 100
+    progressPercent = percent
     update.minutes_listened = null
     update.total_minutes = null
   } else {
@@ -1080,6 +1217,7 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
     update.total_minutes = totalMinutes
     update.progress_percent = percent
     isCompleted = percent >= 100
+    progressPercent = percent
     update.total_pages = null
   }
 
@@ -1092,6 +1230,13 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
   if (error) {
     console.error("Failed to upsert progress", error)
     throw new Error("Failed to save progress")
+  }
+
+  if (progressPercent > 0 && progressPercent < 100) {
+    await addToCurrentReadingList(supabase, profileId, ensured.titleId)
+    await removeFromToReadList(supabase, profileId, ensured.titleId)
+  } else if (progressPercent === 0) {
+    await removeFromCurrentReadingList(supabase, profileId, ensured.titleId)
   }
 
   if (isCompleted) {

@@ -12,11 +12,13 @@ create table if not exists public.titles (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.title_reads (
+create table if not exists public.activity_events (
+  id uuid primary key default gen_random_uuid(),
   user_profile_id uuid not null references public.user_profiles(id) on delete cascade,
-  title_id uuid not null references public.titles(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  primary key (user_profile_id, title_id)
+  title_id uuid references public.titles(id) on delete set null,
+  event_type text not null,
+  metadata jsonb,
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.title_sources (
@@ -73,18 +75,18 @@ begin
   end if;
 end $$;
 
-insert into public.title_reads (user_profile_id, title_id)
+insert into public.activity_events (user_profile_id, title_id, event_type)
 select up.user_profile_id, up.book_id
 from public.user_progress up
 where up.is_completed = true
-on conflict do nothing;
+;
 
-insert into public.title_reads (user_profile_id, title_id)
+insert into public.activity_events (user_profile_id, title_id, event_type)
 select tup.user_profile_id, tb.title_id
 from public.tracked_user_progress tup
 join public.tracked_books tb on tb.id = tup.tracked_book_id
 where tup.is_completed = true
-on conflict do nothing;
+;
 
 alter table public.reviews add column if not exists title_id uuid references public.titles(id) on delete cascade;
 update public.reviews set title_id = book_id where title_id is null and book_id is not null;
