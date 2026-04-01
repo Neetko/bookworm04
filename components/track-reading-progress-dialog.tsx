@@ -1,28 +1,33 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { RichTextEditor } from "@/components/rich-text-editor"
 
 type Mode = "pages" | "audiobook"
 
 export type TrackReadingProgress =
-  | { mode: "pages"; currentPage: number; totalPages: number }
-  | { mode: "audiobook"; minutesListened: number; totalMinutes: number }
+  | { mode: "pages"; currentPage: number; totalPages: number; noteHtml: string; noteText: string }
+  | { mode: "audiobook"; minutesListened: number; totalMinutes: number; noteHtml: string; noteText: string }
 
 export function TrackReadingProgressDialog({
   open,
   onOpenChange,
   onSubmit,
   title,
+  initialNoteHtml,
+  initialNoteText,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSubmit: (progress: TrackReadingProgress) => Promise<void>
   title: string
+  initialNoteHtml?: string | null
+  initialNoteText?: string | null
 }) {
   const [mode, setMode] = useState<Mode>("pages")
   const [submitting, setSubmitting] = useState(false)
@@ -32,6 +37,14 @@ export function TrackReadingProgressDialog({
 
   const [totalMinutes, setTotalMinutes] = useState(600)
   const [minutesListened, setMinutesListened] = useState(0)
+  const [noteHtml, setNoteHtml] = useState("")
+  const [noteText, setNoteText] = useState("")
+
+  useEffect(() => {
+    if (!open) return
+    setNoteHtml(initialNoteHtml ?? "")
+    setNoteText(initialNoteText ?? "")
+  }, [open, initialNoteHtml, initialNoteText])
 
   const canSubmit = useMemo(() => {
     if (mode === "pages") {
@@ -46,9 +59,9 @@ export function TrackReadingProgressDialog({
     setSubmitting(true)
     try {
       if (mode === "pages") {
-        await onSubmit({ mode: "pages", currentPage, totalPages })
+        await onSubmit({ mode: "pages", currentPage, totalPages, noteHtml, noteText })
       } else {
-        await onSubmit({ mode: "audiobook", minutesListened, totalMinutes })
+        await onSubmit({ mode: "audiobook", minutesListened, totalMinutes, noteHtml, noteText })
       }
       onOpenChange(false)
     } finally {
@@ -119,6 +132,18 @@ export function TrackReadingProgressDialog({
             </div>
           </TabsContent>
         </Tabs>
+
+        <div className="space-y-2">
+          <Label>Diary note</Label>
+          <RichTextEditor
+            value={noteHtml}
+            onChange={(html, text) => {
+              setNoteHtml(html)
+              setNoteText(text)
+            }}
+            placeholder="Add a note about this reading session..."
+          />
+        </div>
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>

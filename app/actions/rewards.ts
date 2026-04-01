@@ -1,6 +1,6 @@
 "use server"
 
-import { enforceGenreRulesFromList, genresFromWeights } from "@/lib/book-tagging"
+import { enforceGenreRulesFromList } from "@/lib/book-tagging"
 import { type Genre, isGenre, normalizeGenres } from "@/lib/types"
 
 const BONUS_POINTS = {
@@ -35,24 +35,11 @@ async function getTitleGenres(
   supabase: any,
   titleId: string
 ): Promise<Genre[]> {
-  const [titleRow, bookRow, trackedRow, trackedByIdRow] = await Promise.all([
-    supabase.from("titles").select("id,genre_weights").eq("id", titleId).maybeSingle(),
-    supabase.from("books").select("genre,genre_weights").eq("title_id", titleId).maybeSingle(),
-    supabase.from("tracked_books").select("genre,genre_weights").eq("title_id", titleId).maybeSingle(),
-    supabase.from("tracked_books").select("genre,genre_weights").eq("id", titleId).maybeSingle(),
+  const [bookRow, trackedRow, trackedByIdRow] = await Promise.all([
+    supabase.from("books").select("genre").eq("title_id", titleId).maybeSingle(),
+    supabase.from("tracked_books").select("genre").eq("title_id", titleId).maybeSingle(),
+    supabase.from("tracked_books").select("genre").eq("id", titleId).maybeSingle(),
   ])
-
-  const weightedFromTitle = genresFromWeights(titleRow.data?.genre_weights)
-  if (weightedFromTitle.length > 0) return weightedFromTitle
-
-  const weightedFromBook = genresFromWeights(bookRow.data?.genre_weights)
-  if (weightedFromBook.length > 0) return weightedFromBook
-
-  const weightedFromTracked = genresFromWeights(trackedRow.data?.genre_weights)
-  if (weightedFromTracked.length > 0) return weightedFromTracked
-
-  const weightedFromTrackedId = genresFromWeights(trackedByIdRow.data?.genre_weights)
-  if (weightedFromTrackedId.length > 0) return weightedFromTrackedId
 
   const fallback = uniqueGenres([
     ...normalizeGenres(bookRow.data?.genre),

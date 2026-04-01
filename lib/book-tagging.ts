@@ -1,12 +1,6 @@
 import { isGenre, type Genre } from "@/lib/types"
 import type { OpenLibraryMetadata } from "@/lib/open-library"
 
-export type WeightedTag = {
-  name: Genre
-  weight: number
-  source: string
-}
-
 export type TaggingInput = {
   title?: string | null
   googleMainCategory?: string | null
@@ -51,16 +45,6 @@ const FICTION_TOP_LEVEL_MARKERS = [
   "OCCULT",
 ]
 
-const TIER_WEIGHTS = {
-  bisacPrimary: 1.0,
-  bisacSecondary: 0.8,
-  olClassification: 0.9,
-  subject: 0.7,
-  description: 0.4,
-  crossover: 0.4,
-  boost: 0.2,
-} as const
-
 const KEYWORDS: Record<Genre, string[]> = {
   HORROR: ["occult", "slasher", "gothic", "monsters", "ghost", "splatterpunk"],
   ROMANCE: ["erotica", "relationships", "clean & wholesome", "billionaire"],
@@ -85,56 +69,36 @@ const KEYWORDS: Record<Genre, string[]> = {
     "quest",
     "magical",
     "legends",
+    "sword and sorcery",
+    "grimdark",
   ],
   "SCI-FI": [
     "science fiction",
     "sci fi",
     "sci-fi",
-    "hard science fiction",
     "space opera",
+    "dystopian",
     "cyberpunk",
     "steampunk",
-    "dystopian",
-    "afrofuturism",
+    "androids",
     "time travel",
-    "post apocalyptic",
-    "post-apocalyptic",
     "alien",
-    "aliens",
-    "robot",
-    "robots",
-    "artificial intelligence",
-    "ai",
-    "genetic engineering",
     "galactic empire",
-    "near future",
-    "futuristic",
-    "alternative history",
-    "speculative fiction",
-    "interstellar",
-    "space travel",
   ],
-  ADVENTURE: ["survival", "war", "military", "sea stories", "western", "exploration"],
-  MYSTERY: ["detective", "crime", "thriller", "noir", "procedural", "hardboiled"],
+  ADVENTURE: ["action & adventure", "survival", "war", "military", "sea stories", "westerns", "exploration"],
+  MYSTERY: ["mystery", "detective", "crime", "thriller", "suspense", "true crime", "noir", "procedural"],
   "NON-FICTION": [
-    "history",
+    "nonfiction",
     "biography",
-    "science",
+    "autobiography",
+    "history",
     "philosophy",
-    "travel",
-    "true crime",
     "psychology",
     "social science",
+    "science",
     "self-help",
     "business",
-    "memoir",
-    "essays",
-    "cooking",
-    "religion",
-    "political science",
-    "art",
-    "reference",
-    "study aids",
+    "true crime",
   ],
 }
 
@@ -197,6 +161,36 @@ const CROSSOVER_TRIGGERS: Array<{ phrase: string; tags: Genre[] }> = [
   { phrase: "space opera", tags: ["SCI-FI", "ADVENTURE"] },
   { phrase: "galactic empire", tags: ["SCI-FI", "ADVENTURE"] },
 ]
+
+function addGenresFromKeywords(target: Set<Genre>, text: string, keywords: Record<Genre, string[]>) {
+  const normalized = normalizeCategory(text)
+  if (!normalized) return
+
+  for (const [genre, list] of Object.entries(keywords) as Array<[Genre, string[]]>) {
+    if (list.some((keyword) => normalized.includes(normalizeCategory(keyword)))) {
+      target.add(genre)
+    }
+  }
+
+  if (normalized.includes("thriller") || normalized.includes("suspense")) {
+    target.add("MYSTERY")
+  }
+
+  if (normalized.includes("psychological") && normalized.includes("thriller")) {
+    target.add("HORROR")
+  }
+}
+
+function addCrossoverGenres(target: Set<Genre>, text: string) {
+  const normalized = normalizeCategory(text)
+  for (const trigger of CROSSOVER_TRIGGERS) {
+    if (normalized.includes(normalizeCategory(trigger.phrase))) {
+      for (const tag of trigger.tags) {
+        target.add(tag)
+      }
+    }
+  }
+}
 
 function normalizeCategory(value: string): string {
   return value
@@ -398,134 +392,6 @@ function hasFictionLcClassification(values: string[]): boolean {
   return values.some((value) => value.trim().toUpperCase().startsWith("P"))
 }
 
-export function computeWeightedTags(input: TaggingInput): WeightedTag[] {
-  const tagMap = new Map<Genre, { weight: number; sources: string[] }>()
-
-  const mainCategory = input.googleMainCategory?.trim()
-  const googleCategories = input.googleCategories?.filter(Boolean) ?? []
-  const hasGoogleCategories = googleCategories.length > 0
-  const titleText = input.title?.toString() ?? ""
-  const googleDescription = input.googleDescription ?? ""
-  const openLibrary = input.openLibrary
-  const olWeightMultiplier = hasGoogleCategories ? 0.5 : 1
-
-  if (mainCategory) {
-    const mapped = mapBisacToGenre(mainCategory)
-    if (mapped) {
-      addTagWeight(tagMap, mapped, TIER_WEIGHTS.bisacPrimary, "BISAC: mainCategory")
-    }
-  }
-
-  for (const [index, rawCategory] of googleCategories.entries()) {
-    const normalized = normalizeCategory(rawCategory)
-    const segments = splitBisacSegments(rawCategory)
-    const topLevel = segments[0] ?? rawCategory
-
-    if (beginsWithReliabilityNonFiction(rawCategory)) {
-      addTagWeight(tagMap, "NON-FICTION", TIER_WEIGHTS.bisacPrimary, "BISAC: reliability enforcement")
-    } else if (isNonFictionTopLevel(topLevel)) {
-      addTagWeight(tagMap, "NON-FICTION", TIER_WEIGHTS.bisacPrimary, "BISAC: non-fiction top-level")
-    }
-
-    const bisacWeight = index === 0
-      ? TIER_WEIGHTS.bisacPrimary
-      : segments.length <= 2
-        ? TIER_WEIGHTS.bisacPrimary
-        : TIER_WEIGHTS.bisacSecondary
-    applyKeywords(tagMap, normalized, bisacWeight, "BISAC", BISAC_KEYWORDS)
-    applyCrossover(tagMap, normalized, bisacWeight, "BISAC")
-
-    if (normalized.includes("drama")) {
-      if (normalized.includes("crime") || normalized.includes("murder")) {
-        addTagWeight(tagMap, "MYSTERY", TIER_WEIGHTS.bisacSecondary, "BISAC: drama crime rule")
-      } else if (normalized.includes("novel") || normalized.includes("prose")) {
-        addTagWeight(tagMap, "ADVENTURE", TIER_WEIGHTS.bisacSecondary, "BISAC: drama prose rule")
-      }
-    }
-  }
-
-  if (openLibrary?.lcClassifications?.length) {
-    for (const classification of openLibrary.lcClassifications) {
-      const normalized = classification.trim().toUpperCase()
-
-      if (normalized.startsWith("PZ")) {
-        addTagWeight(tagMap, "ADVENTURE", TIER_WEIGHTS.olClassification * olWeightMultiplier, "OL LC: PZ")
-        addTagWeight(tagMap, "FANTASY", TIER_WEIGHTS.boost * olWeightMultiplier, "OL LC: PZ boost")
-        continue
-      }
-
-      if (normalized.startsWith("P")) {
-        continue
-      }
-
-      if (/^[A-OQ-Z]/.test(normalized)) {
-        addTagWeight(tagMap, "NON-FICTION", TIER_WEIGHTS.olClassification * olWeightMultiplier, "OL LC: non-fiction")
-      }
-    }
-  }
-
-  if (openLibrary?.deweyDecimalClass?.length) {
-    for (const dewey of openLibrary.deweyDecimalClass) {
-      const numeric = parseDeweyRange(dewey)
-      if (numeric === null) continue
-      if (numeric >= 800 && numeric < 900) {
-        continue
-      }
-      addTagWeight(tagMap, "NON-FICTION", TIER_WEIGHTS.olClassification * olWeightMultiplier, "OL Dewey: non-fiction")
-    }
-  }
-
-  if (openLibrary?.subjects?.length) {
-    const normalizedSubjects = normalizeCategory(openLibrary.subjects.join(" "))
-    applyKeywords(tagMap, normalizedSubjects, TIER_WEIGHTS.subject * olWeightMultiplier, "OL Subject", KEYWORDS)
-    applyCrossover(tagMap, normalizedSubjects, TIER_WEIGHTS.subject * olWeightMultiplier, "OL Subject")
-  }
-
-  const descriptionText = normalizeCategory(
-    hasGoogleCategories ? googleDescription : `${googleDescription} ${openLibrary?.description ?? ""}`
-  )
-  if (descriptionText) {
-    for (const [genre, list] of Object.entries(KEYWORDS) as Array<[Genre, string[]]>) {
-      const matches = list.filter(
-        (keyword) => countOccurrences(descriptionText, normalizeCategory(keyword)) >= 3
-      )
-      if (matches.length > 0) {
-        addTagWeight(tagMap, genre, TIER_WEIGHTS.description, `Description: ${matches.join(", ")}`)
-      }
-    }
-
-    for (const trigger of CROSSOVER_TRIGGERS) {
-      if (countOccurrences(descriptionText, normalizeCategory(trigger.phrase)) >= 3) {
-        for (const tag of trigger.tags) {
-          addTagWeight(tagMap, tag, TIER_WEIGHTS.crossover, `Description: ${trigger.phrase}`)
-        }
-      }
-    }
-  }
-
-  const combinedText = normalizeCategory(`${titleText} ${googleDescription}`)
-  const hasBiographicalBisac = googleCategories.some((category) => normalizeCategory(category).includes("bio"))
-  const hasFictionLc = openLibrary?.lcClassifications
-    ? hasFictionLcClassification(openLibrary.lcClassifications)
-    : false
-  if (hasBiographicalBisac && hasFictionLc && /\ba novel\b/i.test(combinedText)) {
-    addTagWeight(tagMap, "NON-FICTION", TIER_WEIGHTS.bisacSecondary, "Biographical Fiction rule")
-    addTagWeight(tagMap, "ADVENTURE", TIER_WEIGHTS.bisacSecondary, "Biographical Fiction rule")
-  }
-
-  if (openLibrary?.lcClassifications?.some(isPsModernAmericanRange)) {
-    const hasTierOneOrTwo = Array.from(tagMap.values()).some((value) => value.weight >= TIER_WEIGHTS.olClassification)
-    if (!hasTierOneOrTwo) {
-      addTagWeight(tagMap, "ADVENTURE", TIER_WEIGHTS.subject * olWeightMultiplier, "OL LC: PS3550-3626 default")
-    }
-  }
-
-  const sorted = Array.from(tagMap.entries())
-    .map(([name, info]) => ({ name, weight: info.weight, source: info.sources.join(" | ") }))
-    .sort((a, b) => b.weight - a.weight)
-
-  return sorted
-}
 
 function uniqueGenres(genres: Genre[]): Genre[] {
   const seen = new Set<Genre>()
@@ -538,49 +404,6 @@ function uniqueGenres(genres: Genre[]): Genre[] {
   return result
 }
 
-function applyNonFictionExclusivity(tags: WeightedTag[]): WeightedTag[] {
-  const hasNonFiction = tags.some((tag) => tag.name === "NON-FICTION")
-  if (!hasNonFiction) return tags
-
-  const nonFiction = tags.find((tag) => tag.name === "NON-FICTION")
-  if (!nonFiction) return tags
-
-  const fictionTags = tags.filter((tag) => tag.name !== "NON-FICTION")
-  if (fictionTags.length === 0) return [nonFiction]
-
-  const topFiction = fictionTags[0]
-  const reliableNonFiction = /reliability|BISAC: non-fiction top-level|OL LC: non-fiction|OL Dewey: non-fiction|BISAC: mainCategory|BISAC: non-fiction prefix/i.test(
-    nonFiction.source
-  )
-  const margin = 0.15
-
-  if (nonFiction.weight >= topFiction.weight + margin || (reliableNonFiction && nonFiction.weight >= topFiction.weight)) {
-    return [nonFiction]
-  }
-
-  return fictionTags
-}
-
-export function normalizeWeightedTags(weights: unknown): WeightedTag[] {
-  if (!Array.isArray(weights)) return []
-  const tags = weights
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") return null
-      const name = (entry as any).name
-      const weight = Number((entry as any).weight)
-      if (!isGenre(name) || !Number.isFinite(weight)) return null
-      return {
-        name,
-        weight,
-        source: typeof (entry as any).source === "string" ? (entry as any).source : "",
-      } satisfies WeightedTag
-    })
-    .filter((entry): entry is WeightedTag => Boolean(entry))
-    .sort((a, b) => b.weight - a.weight)
-
-  return tags
-}
-
 export function enforceGenreRulesFromList(genres: Genre[]): Genre[] {
   const unique = uniqueGenres(genres)
   if (unique.length === 0) return []
@@ -590,15 +413,37 @@ export function enforceGenreRulesFromList(genres: Genre[]): Genre[] {
   return unique
 }
 
-export function flattenWeightedTags(tags: WeightedTag[]): Genre[] {
-  const normalized = applyNonFictionExclusivity(tags)
-  const names = uniqueGenres(normalized.map((tag) => tag.name))
-  if (names.length === 0) return []
-  return names
+export function inferGenresFromMetadata(input: TaggingInput): Genre[] {
+  const genres = new Set<Genre>()
+  const mainCategory = input.googleMainCategory?.trim()
+  const googleCategories = input.googleCategories?.filter(Boolean) ?? []
+  const openLibrary = input.openLibrary
+
+  if (mainCategory) {
+    addGenresFromKeywords(genres, mainCategory, BISAC_KEYWORDS)
+    if (beginsWithReliabilityNonFiction(mainCategory)) genres.add("NON-FICTION")
+  }
+
+  for (const rawCategory of googleCategories) {
+    const segments = splitBisacSegments(rawCategory)
+    const topLevel = segments[0] ?? rawCategory
+    if (beginsWithReliabilityNonFiction(rawCategory) || isNonFictionTopLevel(topLevel)) {
+      genres.add("NON-FICTION")
+    }
+    addGenresFromKeywords(genres, rawCategory, BISAC_KEYWORDS)
+    addCrossoverGenres(genres, rawCategory)
+  }
+
+  if (openLibrary?.subjects?.length) {
+    const subjectsText = openLibrary.subjects.join(" ")
+    addGenresFromKeywords(genres, subjectsText, KEYWORDS)
+    addCrossoverGenres(genres, subjectsText)
+  }
+
+  const descriptionText = `${input.googleDescription ?? ""} ${openLibrary?.description ?? ""}`
+  addGenresFromKeywords(genres, descriptionText, KEYWORDS)
+  addCrossoverGenres(genres, descriptionText)
+
+  return enforceGenreRulesFromList(Array.from(genres))
 }
 
-export function genresFromWeights(weights: unknown): Genre[] {
-  const normalized = normalizeWeightedTags(weights)
-  if (normalized.length === 0) return []
-  return flattenWeightedTags(normalized)
-}

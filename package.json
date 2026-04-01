@@ -9,8 +9,7 @@
     "start": "next start",
     "drizzle:generate": "drizzle-kit generate",
     "drizzle:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx scripts/seed.ts",
-    "db:backfill-genres": "tsx scripts/backfill-genre-weights.ts"
+    "db:seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

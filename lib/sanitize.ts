@@ -60,3 +60,14 @@ export function extractPlainTextFromHtml(input: string | null | undefined) {
     .replace(/\s+/g, " ")
     .trim()
 }
+
+export function buildNoteHtmlFromText(input: string | null | undefined) {
+  const normalized = (input ?? "").trim()
+  if (!normalized) return ""
+  const escaped = normalized
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br />")
+  return `<p>${escaped}</p>`
+}

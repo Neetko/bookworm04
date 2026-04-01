@@ -2,10 +2,7 @@
 
 import { createServerClient } from "@/lib/supabase-server"
 import { searchGoogleBooksWithOpenLibrary } from "@/lib/google-books"
-import {
-  genresFromWeights,
-  enforceGenreRulesFromList,
-} from "@/lib/book-tagging"
+import { enforceGenreRulesFromList } from "@/lib/book-tagging"
 import { isGenre, type Genre, type SearchTitleResult } from "@/lib/types"
 
 type LocalTitleRow = {
@@ -70,39 +67,29 @@ async function getGenresForTitles(
 ): Promise<Map<string, Genre[]>> {
   if (titleIds.length === 0) return new Map()
 
-  const [titleRows, bookRows, trackedByTitle, trackedById] = await Promise.all([
-    supabase.from("titles").select("id,genre_weights").in("id", titleIds),
-    supabase.from("books").select("title_id,genre,genre_weights").in("title_id", titleIds),
-    supabase.from("tracked_books").select("title_id,genre,genre_weights").in("title_id", titleIds),
-    supabase.from("tracked_books").select("id,genre,genre_weights").in("id", titleIds),
+  const [bookRows, trackedByTitle, trackedById] = await Promise.all([
+    supabase.from("books").select("title_id,genre").in("title_id", titleIds),
+    supabase.from("tracked_books").select("title_id,genre").in("title_id", titleIds),
+    supabase.from("tracked_books").select("id,genre").in("id", titleIds),
   ])
 
   const map = new Map<string, Genre[]>()
-  for (const row of titleRows.data ?? []) {
-    if (!row.id) continue
-    const weighted = genresFromWeights((row as any).genre_weights)
-    if (weighted.length > 0) map.set(row.id, weighted)
-  }
   for (const row of bookRows.data ?? []) {
     if (!row.title_id) continue
-    if (map.has(row.title_id)) continue
-    const weighted = genresFromWeights((row as any).genre_weights)
     const fallback = enforceGenreRulesFromList(uniqueGenres(((row as any).genre ?? []).filter(isGenre)))
-    map.set(row.title_id, weighted.length > 0 ? weighted : fallback)
+    map.set(row.title_id, fallback)
   }
   for (const row of trackedByTitle.data ?? []) {
     if (!row.title_id) continue
     if (map.has(row.title_id)) continue
-    const weighted = genresFromWeights((row as any).genre_weights)
     const fallback = enforceGenreRulesFromList(uniqueGenres(((row as any).genre ?? []).filter(isGenre)))
-    map.set(row.title_id, weighted.length > 0 ? weighted : fallback)
+    map.set(row.title_id, fallback)
   }
   for (const row of trackedById.data ?? []) {
     if (!row.id) continue
     if (map.has(row.id)) continue
-    const weighted = genresFromWeights((row as any).genre_weights)
     const fallback = enforceGenreRulesFromList(uniqueGenres(((row as any).genre ?? []).filter(isGenre)))
-    map.set(row.id, weighted.length > 0 ? weighted : fallback)
+    map.set(row.id, fallback)
   }
 
   return map
