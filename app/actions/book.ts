@@ -37,7 +37,7 @@ export async function toggleBookReadStatus(token: string, bookId: string, isRead
 
   // 2. Check if progress exists
   const { data: progress, error: progressError } = await supabase
-    .from("user_progress")
+    .from("library_user_progress")
     .select("*")
     .eq("user_profile_id", profile.id)
     .eq("book_id", bookId)
@@ -51,7 +51,7 @@ export async function toggleBookReadStatus(token: string, bookId: string, isRead
   if (progress) {
     // Update existing
     const { error: updateError } = await supabase
-      .from("user_progress")
+      .from("library_user_progress")
       .update({ is_completed: isRead, last_read_at: new Date().toISOString() })
       .eq("id", progress.id)
 
@@ -62,7 +62,7 @@ export async function toggleBookReadStatus(token: string, bookId: string, isRead
   } else {
     // Insert new
     const { error: insertError } = await supabase
-      .from("user_progress")
+      .from("library_user_progress")
       .insert({
         user_profile_id: profile.id,
         book_id: bookId,
@@ -102,7 +102,7 @@ export async function getReadStatus(token: string, bookId: string) {
 
   // 2. Check if progress exists
   const { data: progress, error: progressError } = await supabase
-    .from("user_progress")
+    .from("library_user_progress")
     .select("is_completed")
     .eq("user_profile_id", profile.id)
     .eq("book_id", bookId)

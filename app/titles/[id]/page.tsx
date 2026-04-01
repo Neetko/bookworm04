@@ -9,13 +9,13 @@ import { getReviews } from "@/app/actions/reviews"
 import { TitleEngagementTabs } from "@/components/title-engagement-tabs"
 import { MarkReadButton } from "@/components/mark-read-button"
 import { CoverImage } from "@/components/cover-image"
-import { sanitizeDescriptionHtml } from "@/lib/sanitize"
+import { buildNoteHtmlFromText, extractPlainTextFromHtml, sanitizeDescriptionHtml } from "@/lib/sanitize"
 import { getTitleReadStatus } from "@/app/actions/title"
 import { TitleTrackProgressButton } from "@/components/title-track-progress-button"
 import { TitleEditionsDialog } from "@/components/title-editions-dialog"
 import { TitleDedupeDialog } from "@/components/title-dedupe-dialog"
 import { GENRE_BG_CLASS, isGenre, normalizeGenres } from "@/lib/types"
-import { enforceGenreRulesFromList, genresFromWeights as genresFromWeightArray } from "@/lib/book-tagging"
+import { enforceGenreRulesFromList } from "@/lib/book-tagging"
 import { cn } from "@/lib/utils"
 import { buildAmazonProductUrl, buildAmazonSearchUrl } from "@/lib/amazon"
 
@@ -89,6 +89,41 @@ async function getTrackedBookIdForTitle(titleId: string): Promise<string | null>
   return (data?.id as string | undefined) ?? null
 }
 
+async function getTodayDiaryNoteForTitle(titleId: string): Promise<{ noteHtml: string | null; noteText: string | null } | null> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return null
+
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle()
+
+  if (profileError || !profile?.id) return null
+
+  const today = new Date().toISOString().slice(0, 10)
+  const { data, error } = await supabase
+    .from("reading_diary_entries")
+    .select("note_html,note_text")
+    .eq("user_profile_id", profile.id)
+    .eq("title_id", titleId)
+    .eq("entry_date", today)
+    .maybeSingle()
+
+  if (error || !data) return null
+
+  const rawNoteHtml = data.note_html ?? null
+  const rawNoteText = data.note_text ?? null
+  const noteHtml = rawNoteHtml || (rawNoteText ? buildNoteHtmlFromText(rawNoteText) : null)
+  const noteText = rawNoteText || (rawNoteHtml ? extractPlainTextFromHtml(rawNoteHtml) : null)
+
+  return { noteHtml, noteText }
+}
+
 async function getEditionsForTitle(title: TitleRow): Promise<EditionRow[]> {
   const supabase = await createServerClient()
   const workIds = [title.work_id, ...(title.dupe_work_ids ?? [])].filter(Boolean) as string[]
@@ -133,19 +168,10 @@ function uniqueGenres(genres: string[]): string[] {
 async function getGenresForTitle(titleId: string): Promise<string[]> {
   const supabase = await createServerClient()
   const [bookRow, trackedRow, trackedByIdRow] = await Promise.all([
-    supabase.from("books").select("genre,genre_weights").eq("title_id", titleId).maybeSingle(),
-    supabase.from("tracked_books").select("genre,genre_weights").eq("title_id", titleId).maybeSingle(),
-    supabase.from("tracked_books").select("genre,genre_weights").eq("id", titleId).maybeSingle(),
+    supabase.from("books").select("genre").eq("title_id", titleId).maybeSingle(),
+    supabase.from("tracked_books").select("genre").eq("title_id", titleId).maybeSingle(),
+    supabase.from("tracked_books").select("genre").eq("id", titleId).maybeSingle(),
   ])
-
-  const weightedFromBook = genresFromWeightArray(bookRow.data?.genre_weights)
-  if (weightedFromBook.length > 0) return weightedFromBook
-
-  const weightedFromTracked = genresFromWeightArray(trackedRow.data?.genre_weights)
-  if (weightedFromTracked.length > 0) return weightedFromTracked
-
-  const weightedFromTrackedId = genresFromWeightArray(trackedByIdRow.data?.genre_weights)
-  if (weightedFromTrackedId.length > 0) return weightedFromTrackedId
 
   const fallback = uniqueGenres([
     ...((bookRow.data?.genre ?? []).filter(isGenre)),
@@ -171,6 +197,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
   const canRead = await getTitleReadStatus(title.id)
   const editions = await getEditionsForTitle(title)
   const featuredEditions = pickFeaturedEditions(editions)
+  const todayDiaryNote = await getTodayDiaryNoteForTitle(title.id)
 
   const amazonSearchUrl = buildAmazonSearchUrl(`${title.title} ${title.author}`)
   const audibleSearchUrl = buildAmazonSearchUrl(`${title.title} ${title.author} Audible`)
@@ -302,6 +329,8 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                     title={title.title}
                     bookId={libraryBookId}
                     trackedBookId={trackedBookId}
+                    initialNoteHtml={todayDiaryNote?.noteHtml ?? null}
+                    initialNoteText={todayDiaryNote?.noteText ?? null}
                   />
                   <TitleEditionsDialog titleId={title.id} />
                   <TitleDedupeDialog titleId={title.id} />

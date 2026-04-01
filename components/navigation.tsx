@@ -48,6 +48,9 @@ export function Navigation() {
                 <Link href="/library" className="text-muted-foreground hover:text-foreground">
                   Library
                 </Link>
+                <Link href="/diary" className="text-muted-foreground hover:text-foreground">
+                  Diary
+                </Link>
                 <Link href="/search-titles" className="text-muted-foreground hover:text-foreground">
                   Search Titles
                 </Link>

@@ -10,9 +10,10 @@ import {
   type OpenLibraryEdition,
   type OpenLibraryWorkCandidate,
 } from "@/lib/open-library"
-import { computeWeightedTags, flattenWeightedTags, type WeightedTag } from "@/lib/book-tagging"
+import { inferGenresFromMetadata } from "@/lib/book-tagging"
 import { normalizeGenres, type Genre } from "@/lib/types"
 import { revalidatePath } from "next/cache"
+import { extractPlainTextFromHtml } from "@/lib/sanitize"
 import { awardPointsForTitleAction } from "@/app/actions/rewards"
 
 type ProgressMode = "pages" | "audiobook"
@@ -390,7 +391,6 @@ async function ensureBookFromGoogleVolume(
         isbn_list: identifiers,
         dupe_work_ids: extraWorkIds.length > 0 ? extraWorkIds : null,
         genre: null,
-        genre_weights: null,
       })
       .select("id")
       .single()
@@ -431,7 +431,7 @@ async function ensureBookFromGoogleVolume(
     await supabase.from("tracked_books").update(trackedUpdate).eq("id", mappedBookId)
   }
 
-  const titleId = await ensureTitleForTrackedBook(supabase, mappedBookId!, volumeId, volume, undefined, {
+  const titleId = await ensureTitleForTrackedBook(supabase, mappedBookId!, volumeId, volume, {
     workId,
     isbnList: identifiers,
     dupeWorkIds: extraWorkIds,
@@ -456,14 +456,6 @@ async function ensureBookFromGoogleVolume(
   return { bookId: mappedBookId!, titleId }
 }
 
-function toUserConfirmedWeights(genres: Genre[]): WeightedTag[] {
-  return genres.map((name) => ({
-    name,
-    weight: 1,
-    source: "user-confirmed-ingest",
-  }))
-}
-
 export async function getGoogleIngestSuggestion(volumeId: string): Promise<{
   title: string
   author: string
@@ -479,7 +471,7 @@ export async function getGoogleIngestSuggestion(volumeId: string): Promise<{
   if (!volume) throw new Error("Unable to fetch Google book")
 
   const openLibrary = volume.isbn ? await fetchOpenLibraryMetadataByIsbn(volume.isbn) : null
-  const weightedTags = computeWeightedTags({
+  const suggestedGenres = inferGenresFromMetadata({
     title: volume.title,
     googleMainCategory: volume.mainCategory ?? null,
     googleCategories: volume.categories,
@@ -527,7 +519,7 @@ export async function getGoogleIngestSuggestion(volumeId: string): Promise<{
   return {
     title: volume.title,
     author: volume.authors[0] ?? "Unknown author",
-    suggestedGenres: normalizeGenres(flattenWeightedTags(weightedTags)),
+    suggestedGenres: normalizeGenres(suggestedGenres),
     workCandidates,
     localDuplicates,
     requiresWorkConfirmation,
@@ -553,13 +545,11 @@ export async function confirmGoogleBookIngest(input: {
   }
 
   const ensured = await ensureBookFromGoogleVolume(input.volumeId, input.selectedWorkIds ?? [])
-  const userWeights = toUserConfirmedWeights(selectedGenres)
 
   const { error: trackedUpdateError } = await supabase
     .from("tracked_books")
     .update({
       genre: selectedGenres,
-      genre_weights: userWeights,
       updated_at: new Date().toISOString(),
     })
     .eq("id", ensured.bookId)
@@ -572,7 +562,7 @@ export async function confirmGoogleBookIngest(input: {
   const { error: titleUpdateError } = await supabase
     .from("titles")
     .update({
-      genre_weights: userWeights,
+      genre: selectedGenres,
       updated_at: new Date().toISOString(),
     })
     .eq("id", ensured.titleId)
@@ -599,7 +589,6 @@ async function ensureTitleForTrackedBook(
     publishedYear: number | null
     isbn: string | null
   },
-  genreWeights?: WeightedTag[],
   workInfo?: { workId: string | null; isbnList: string[]; dupeWorkIds?: string[] }
 ) {
   const { data: tracked } = await supabase
@@ -722,7 +711,6 @@ async function ensureTitleForTrackedBook(
       work_id: workInfo?.workId ?? tracked?.work_id ?? null,
       isbn_list: mergedIsbns.length > 0 ? mergedIsbns : null,
       dupe_work_ids: mergedDupes,
-      genre_weights: genreWeights ?? null,
     })
   }
 
@@ -1020,11 +1008,13 @@ export async function trackTitleProgress(input: {
   bookId?: string | null
   trackedBookId?: string | null
   progress: TrackProgressInput
+  noteHtml?: string
+  noteText?: string
 }) {
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
 
-  const { titleId, bookId, trackedBookId, progress } = input
+  const { titleId, bookId, trackedBookId, progress, noteHtml, noteText } = input
 
   if (!bookId && !trackedBookId) {
     throw new Error("No ingested title available to track")
@@ -1064,9 +1054,72 @@ export async function trackTitleProgress(input: {
 
   update.is_completed = isCompleted
 
+  const normalizedEntryDate = new Date().toISOString().slice(0, 10)
+
+  const normalizedNoteHtml = (noteHtml ?? "").trim() || null
+  const normalizedNoteText = (noteText ?? "").trim() || (normalizedNoteHtml ? extractPlainTextFromHtml(normalizedNoteHtml) : null)
+
+  const diaryEntryBase = {
+    user_profile_id: profileId,
+    title_id: titleId,
+    entry_date: normalizedEntryDate,
+    note_html: normalizedNoteHtml,
+    note_text: normalizedNoteText,
+    progress_mode: progress.mode,
+    current_page: update.current_page ?? null,
+    total_pages: update.total_pages ?? null,
+    minutes_listened: update.minutes_listened ?? null,
+    total_minutes: update.total_minutes ?? null,
+    progress_percent: update.progress_percent ?? null,
+    is_completed: isCompleted,
+  }
+
+  const upsertDiaryEntryForToday = async (override: Record<string, any>) => {
+    const { data: existingEntry } = await supabase
+      .from("reading_diary_entries")
+      .select("id,note_html,note_text")
+      .eq("user_profile_id", profileId)
+      .eq("title_id", titleId)
+      .eq("entry_date", normalizedEntryDate)
+      .maybeSingle()
+
+    const notePayload: Record<string, any> = {}
+    if (normalizedNoteHtml) notePayload.note_html = normalizedNoteHtml
+    if (normalizedNoteText) notePayload.note_text = normalizedNoteText
+
+    if (existingEntry?.id) {
+      const { error: updateError } = await supabase
+        .from("reading_diary_entries")
+        .update({
+          ...override,
+          ...notePayload,
+        })
+        .eq("id", existingEntry.id)
+
+      if (updateError) {
+        console.error("Failed to update diary entry", updateError)
+        throw new Error("Failed to save diary entry")
+      }
+      return existingEntry.id
+    }
+
+    const { error: insertError } = await supabase
+      .from("reading_diary_entries")
+      .insert({
+        ...diaryEntryBase,
+        ...override,
+      })
+
+    if (insertError) {
+      console.error("Failed to insert diary entry", insertError)
+      throw new Error("Failed to save diary entry")
+    }
+    return null
+  }
+
   if (bookId) {
     update.book_id = bookId
-    const { error } = await supabase.from("user_progress").upsert(update, {
+    const { error } = await supabase.from("library_user_progress").upsert(update, {
       onConflict: "user_profile_id,book_id",
     })
 
@@ -1086,7 +1139,13 @@ export async function trackTitleProgress(input: {
       await ensureTitleReadAndReward(supabase, profileId, titleId)
     }
 
+    await upsertDiaryEntryForToday({
+      book_id: bookId,
+      tracked_book_id: null,
+    })
+
     revalidatePath(`/titles/${titleId}`)
+    revalidatePath("/diary")
     return { bookId, titleId }
   }
 
@@ -1111,8 +1170,61 @@ export async function trackTitleProgress(input: {
     await ensureTitleReadAndReward(supabase, profileId, titleId)
   }
 
+  await upsertDiaryEntryForToday({
+    book_id: null,
+    tracked_book_id: trackedBookId ?? null,
+  })
+
   revalidatePath(`/titles/${titleId}`)
+  revalidatePath("/diary")
   return { trackedBookId, titleId }
+}
+
+export async function updateDiaryEntry(input: {
+  entryId: string
+  noteHtml?: string
+  noteText?: string
+}) {
+  const supabase = await createServerClient()
+  const profileId = await requireAuthedProfileId(supabase)
+
+  const { data: entry, error: entryError } = await supabase
+    .from("reading_diary_entries")
+    .select("id,title_id,book_id,tracked_book_id")
+    .eq("user_profile_id", profileId)
+    .eq("id", input.entryId)
+    .single()
+
+  if (entryError || !entry) {
+    throw new Error("Diary entry not found")
+  }
+
+  if (!entry.title_id) {
+    throw new Error("Diary entry missing title")
+  }
+
+  const normalizedUpdateNoteHtml = (input.noteHtml ?? "").trim() || null
+  const normalizedUpdateNoteText = (input.noteText ?? "").trim() || (normalizedUpdateNoteHtml ? extractPlainTextFromHtml(normalizedUpdateNoteHtml) : null)
+  const update: Record<string, any> = {
+    note_html: normalizedUpdateNoteHtml,
+    note_text: normalizedUpdateNoteText,
+  }
+
+  const { error: updateError } = await supabase
+    .from("reading_diary_entries")
+    .update(update)
+    .eq("id", input.entryId)
+    .eq("user_profile_id", profileId)
+
+  if (updateError) {
+    console.error("Failed to update diary entry", updateError)
+    throw new Error("Failed to update diary entry")
+  }
+
+  revalidatePath(`/diary/${input.entryId}`)
+  revalidatePath("/diary")
+  revalidatePath(`/titles/${entry.title_id}`)
+  return { entryId: input.entryId }
 }
 
 export async function claimAndTrackLocalBook(bookId: string, progress: TrackProgressInput) {
@@ -1158,7 +1270,7 @@ export async function claimAndTrackLocalBook(bookId: string, progress: TrackProg
 
   update.is_completed = isCompleted
 
-  const { error } = await supabase.from("user_progress").upsert(update, {
+  const { error } = await supabase.from("library_user_progress").upsert(update, {
     onConflict: "user_profile_id,book_id",
   })
 

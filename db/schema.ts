@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean, check, jsonb } from "drizzle-orm/pg-core"
+import { pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean, check, jsonb, date } from "drizzle-orm/pg-core"
 
 export const books = pgTable("books", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -11,7 +11,6 @@ export const books = pgTable("books", {
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
   genre: text("genre").array(),
-  genreWeights: jsonb("genre_weights"),
   publishedYear: integer("published_year"),
   isbn: varchar("isbn", { length: 20 }),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
@@ -24,7 +23,7 @@ export const titles = pgTable("titles", {
   author: text("author").notNull(),
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
-  genreWeights: jsonb("genre_weights"),
+  genre: text("genre").array(),
   workId: text("work_id"),
   isbnList: jsonb("isbn_list"),
   dupeWorkIds: jsonb("dupe_work_ids"),
@@ -181,7 +180,6 @@ export const trackedBooks = pgTable("tracked_books", {
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
   genre: text("genre").array(),
-  genreWeights: jsonb("genre_weights"),
   workId: text("work_id"),
   isbnList: jsonb("isbn_list"),
   dupeWorkIds: jsonb("dupe_work_ids"),
@@ -312,8 +310,8 @@ export const bookContents = pgTable(
   })
 )
 
-export const userProgress = pgTable(
-  "user_progress",
+export const libraryUserProgress = pgTable(
+  "library_user_progress",
   {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     userProfileId: uuid("user_profile_id")
@@ -331,7 +329,7 @@ export const userProgress = pgTable(
     lastReadAt: timestamp("last_read_at", { withTimezone: true }).default(sql`now()`),
   },
   (t: any) => ({
-    uniqUserBookProgress: uniqueIndex("user_progress_user_book_unique").on(t.userProfileId, t.bookId),
+    uniqUserBookProgress: uniqueIndex("library_user_progress_user_book_unique").on(t.userProfileId, t.bookId),
   })
 )
 
@@ -357,6 +355,29 @@ export const trackedUserProgress = pgTable(
     uniqUserTrackedBookProgress: uniqueIndex("tracked_user_progress_user_book_unique").on(t.userProfileId, t.trackedBookId),
   })
 )
+
+export const readingDiaryEntries = pgTable("reading_diary_entries", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userProfileId: uuid("user_profile_id")
+    .references(() => userProfiles.id, { onDelete: "cascade" })
+    .notNull(),
+  titleId: uuid("title_id")
+    .references(() => titles.id, { onDelete: "cascade" })
+    .notNull(),
+  bookId: uuid("book_id").references(() => books.id, { onDelete: "set null" }),
+  trackedBookId: uuid("tracked_book_id").references(() => trackedBooks.id, { onDelete: "set null" }),
+  entryDate: date("entry_date").default(sql`CURRENT_DATE`).notNull(),
+  noteHtml: text("note_html"),
+  noteText: text("note_text"),
+  progressMode: text("progress_mode").notNull(),
+  currentPage: integer("current_page"),
+  totalPages: integer("total_pages"),
+  minutesListened: integer("minutes_listened"),
+  totalMinutes: integer("total_minutes"),
+  progressPercent: integer("progress_percent"),
+  isCompleted: boolean("is_completed").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+})
 
 export const externalBooks = pgTable(
   "external_books",
