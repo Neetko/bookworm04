@@ -11,7 +11,17 @@ import { GENRES, isGenre, type Genre } from "@/lib/types"
 
 type Suggestion = { id: string; title: string; author: string }
 
-function TrackReadingSearchContent() {
+type TrackReadingSearchQuery = {
+  title: string
+  author: string
+  includeExternal: boolean
+  genres: Genre[]
+}
+type TrackReadingSearchProps = {
+  onQueryChange?: (query: TrackReadingSearchQuery) => void
+}
+
+function TrackReadingSearchContent({ onQueryChange }: TrackReadingSearchProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -43,6 +53,15 @@ function TrackReadingSearchContent() {
 
   const titleQuery = useMemo(() => title.trim(), [title])
   const authorQuery = useMemo(() => author.trim(), [author])
+
+  useEffect(() => {
+    onQueryChange?.({
+      title: titleQuery,
+      author: authorQuery,
+      includeExternal,
+      genres: selectedGenres,
+    })
+  }, [titleQuery, authorQuery, includeExternal, selectedGenres, onQueryChange])
 
   useEffect(() => {
     abortRef.current?.abort()
@@ -107,53 +126,57 @@ function TrackReadingSearchContent() {
   }
 
   return (
-    <div className="relative max-w-2xl">
-      <div className="grid gap-2 sm:grid-cols-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+    <div className="relative w-full">
+      <div className="max-w-2xl">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Title (press Enter)"
+              className="pl-10"
+              onFocus={() => {
+                if (suggestions.length > 0) setOpen(true)
+              }}
+            />
+          </div>
           <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Title (press Enter)"
-            className="pl-10"
+            placeholder="Author (optional)"
             onFocus={() => {
               if (suggestions.length > 0) setOpen(true)
             }}
           />
         </div>
-        <Input
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Author (optional)"
-          onFocus={() => {
-            if (suggestions.length > 0) setOpen(true)
-          }}
-        />
-      </div>
 
-      <div className="mt-3 flex items-center gap-2">
-        <Switch
-          id="includeExternal"
-          checked={includeExternal}
-          onCheckedChange={setIncludeExternal}
-        />
-        <Label htmlFor="includeExternal" className="text-sm text-muted-foreground">
-          Include external results
-        </Label>
-      </div>
-
-      <div className="mt-3 flex flex-nowrap gap-2 w-full overflow-x-auto pb-1">
-        {GENRES.map((genre) => (
-          <GenreToggleButton
-            key={genre}
-            genre={genre}
-            selected={selectedGenres.includes(genre)}
-            onToggle={toggleGenre}
-            className={includeExternal ? "opacity-50 pointer-events-none" : undefined}
+        <div className="mt-3 flex items-center gap-2">
+          <Switch
+            id="includeExternal"
+            checked={includeExternal}
+            onCheckedChange={setIncludeExternal}
           />
-        ))}
+          <Label htmlFor="includeExternal" className="text-sm text-muted-foreground">
+            Include external results
+          </Label>
+        </div>
+      </div>
+
+      <div className="mt-3 w-full overflow-x-auto pb-1">
+        <div className="flex flex-nowrap gap-2 min-w-max">
+          {GENRES.map((genre) => (
+            <GenreToggleButton
+              key={genre}
+              genre={genre}
+              selected={selectedGenres.includes(genre)}
+              onToggle={toggleGenre}
+              className={includeExternal ? "opacity-50 pointer-events-none" : undefined}
+            />
+          ))}
+        </div>
       </div>
 
       {open && suggestions.length > 0 ? (
@@ -179,7 +202,7 @@ function TrackReadingSearchContent() {
   )
 }
 
-export function TrackReadingSearch() {
+export function TrackReadingSearch({ onQueryChange }: TrackReadingSearchProps) {
   return (
     <Suspense
       fallback={
@@ -189,7 +212,7 @@ export function TrackReadingSearch() {
         </div>
       }
     >
-      <TrackReadingSearchContent />
+      <TrackReadingSearchContent onQueryChange={onQueryChange} />
     </Suspense>
   )
 }

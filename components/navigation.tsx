@@ -36,6 +36,9 @@ export function Navigation() {
 
           <div className="flex items-center space-x-4">
             <ModeToggle />
+            <Link href="/" className="text-muted-foreground hover:text-foreground">
+              Home
+            </Link>
             <Link href="/about" className="text-muted-foreground hover:text-foreground">
               About
             </Link>

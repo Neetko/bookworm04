@@ -430,7 +430,7 @@ export function TrackReadingResultList({
         </DialogContent>
       </Dialog>
 
-      <div className="space-y-6">
+      <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
       {results.map((result) => {
         const resolvedTitleId =
           result.source === "google" && result.volumeId
@@ -453,7 +453,7 @@ export function TrackReadingResultList({
         return (
           <Card
             key={`${result.source}:${result.id}`}
-            className={`flex flex-col sm:flex-row hover:shadow-lg transition-shadow overflow-hidden min-h-[200px] ${
+            className={`flex flex-col sm:flex-row hover:shadow-lg transition-all duration-200 overflow-hidden min-h-[200px] ${
               isClickable ? "cursor-pointer" : ""
             } ${showOpenReady ? "ring-2 ring-primary/30 dark:ring-primary/60 ring-inset" : ""}`}
             role={isClickable ? "button" : undefined}

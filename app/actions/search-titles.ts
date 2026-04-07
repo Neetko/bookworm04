@@ -129,6 +129,70 @@ async function getLocalBooks(
   return (data ?? []) as LocalTitleRow[]
 }
 
+async function getLocalBooksAlphabetical(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  limit = 50
+): Promise<LocalTitleRow[]> {
+  const { data, error } = await supabase
+    .from("titles")
+    .select("id,title,author,description,cover_image_url,published_year,isbn,created_at,updated_at")
+    .order("title", { ascending: true })
+    .order("author", { ascending: true })
+    .limit(limit)
+
+  if (error) {
+    console.error("Error fetching local titles", error)
+    return []
+  }
+
+  return (data ?? []) as LocalTitleRow[]
+}
+
+async function buildLocalResults(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  localBooks: LocalTitleRow[]
+): Promise<SearchTitleResult[]> {
+  const localTitleIds = localBooks.map((book) => book.id)
+  const localGenresMap = await getGenresForTitles(supabase, localTitleIds)
+  const reviewCounts = new Map<string, number>()
+  const postCounts = new Map<string, number>()
+
+  if (localTitleIds.length > 0) {
+    const [reviewRows, postRows] = await Promise.all([
+      supabase.from("reviews").select("title_id").in("title_id", localTitleIds),
+      supabase.from("discussion_posts").select("title_id").in("title_id", localTitleIds),
+    ])
+
+    for (const row of reviewRows.data ?? []) {
+      if (!row.title_id) continue
+      reviewCounts.set(row.title_id, (reviewCounts.get(row.title_id) ?? 0) + 1)
+    }
+
+    for (const row of postRows.data ?? []) {
+      if (!row.title_id) continue
+      postCounts.set(row.title_id, (postCounts.get(row.title_id) ?? 0) + 1)
+    }
+  }
+
+  return localBooks.map((book) => {
+    const titleId = book.id
+    const engagement = (reviewCounts.get(titleId) ?? 0) + (postCounts.get(titleId) ?? 0)
+
+    return {
+      id: book.id,
+      source: "local",
+      titleId,
+      title: book.title,
+      author: book.author,
+      description: book.description ?? null,
+      coverImageUrl: book.cover_image_url ?? null,
+      genres: uniqueGenres(localGenresMap.get(titleId) ?? []),
+      engagement,
+      claimed: true,
+    }
+  })
+}
+
 export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitleResult[]> {
   const supabase = await createServerClient()
   const {
@@ -319,4 +383,22 @@ export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitl
 
   const dedupedResults = Array.from(deduped.values())
   return dedupedResults.sort(compareResults)
+}
+
+export async function getInitialTitles(genres: Genre[] = []): Promise<SearchTitleResult[]> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) throw new Error("Unauthorized")
+
+  const localBooks = await getLocalBooksAlphabetical(supabase, 50)
+  const localResults = await buildLocalResults(supabase, localBooks)
+
+  if (genres.length === 0) return localResults
+
+  return localResults.filter((result) =>
+    result.genres?.some((genre) => genres.includes(genre))
+  )
 }

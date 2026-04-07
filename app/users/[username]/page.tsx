@@ -6,12 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BookOpen, TrendingUp } from "lucide-react"
 import { GENRES, GENRE_BG_CLASS, type Genre } from "@/lib/types"
 import { summarizeGenrePoints } from "@/app/actions/rewards"
+import { FollowButton } from "@/components/follow-button"
 
 async function getUserProfile(username: string) {
   const supabase = await createServerClient()
   const { data, error } = await supabase
     .from("user_profiles")
-    .select("id, username, avatar_url, bio")
+    .select("id, username, avatar_url, bio, auth_user_id")
     .eq("username", username)
     .maybeSingle()
 
@@ -21,6 +22,24 @@ async function getUserProfile(username: string) {
   }
 
   return data
+}
+
+async function getViewerProfileId() {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return null
+
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle()
+
+  if (error || !data?.id) return null
+  return data.id as string
 }
 
 async function getReadTitles(userProfileId: string) {
@@ -100,6 +119,24 @@ export default async function UserReadListPage({
 
   const readTitles = await getReadTitles(profile.id)
   const pointsByGenre = await getGenrePoints(profile.id)
+  const viewerProfileId = await getViewerProfileId()
+  const isSelf = viewerProfileId ? viewerProfileId === profile.id : false
+  let followState: { isFollowing: boolean; isFriend: boolean } = { isFollowing: false, isFriend: false }
+
+  if (viewerProfileId && !isSelf) {
+    const supabase = await createServerClient()
+    const { data } = await supabase
+      .from("user_follows")
+      .select("id,is_friend")
+      .eq("follower_profile_id", viewerProfileId)
+      .eq("followed_profile_id", profile.id)
+      .maybeSingle()
+
+    followState = {
+      isFollowing: Boolean(data?.id),
+      isFriend: Boolean(data?.is_friend),
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -115,6 +152,15 @@ export default async function UserReadListPage({
               <p className="text-2xl font-bold">{profile.username ?? "Anonymous"}</p>
               {profile.bio ? <p className="text-sm text-muted-foreground">{profile.bio}</p> : null}
             </div>
+            {!isSelf && viewerProfileId ? (
+              <div className="ml-auto">
+                <FollowButton
+                  targetProfileId={profile.id}
+                  initialIsFollowing={followState.isFollowing}
+                  initialIsFriend={followState.isFriend}
+                />
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 

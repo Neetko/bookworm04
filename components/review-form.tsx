@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { submitReview } from "@/app/actions/reviews"
+import { getMyReview, submitReview } from "@/app/actions/reviews"
 import { toast } from "sonner"
 import { Star, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -20,6 +20,7 @@ export function ReviewForm({ titleId, canWrite: canWriteProp }: ReviewFormProps)
   const [reviewHtml, setReviewHtml] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [canWriteState, setCanWriteState] = useState(false)
+  const [hasExistingReview, setHasExistingReview] = useState(false)
   const router = useRouter()
 
   const canWrite = canWriteProp ?? canWriteState
@@ -40,6 +41,27 @@ export function ReviewForm({ titleId, canWrite: canWriteProp }: ReviewFormProps)
     }
   }, [titleId, canWriteProp])
 
+  useEffect(() => {
+    if (!canWrite) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const existing = await getMyReview(titleId)
+        if (cancelled) return
+        if (existing) {
+          setHasExistingReview(true)
+          setRating(existing.rating ?? 0)
+          setReviewHtml(existing.review_text ?? "")
+        }
+      } catch {
+        if (!cancelled) setHasExistingReview(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [titleId, canWrite])
+
   const handleSubmit = async () => {
     if (!canWrite) {
       toast.error("You must mark this title as read to write a review")
@@ -54,8 +76,7 @@ export function ReviewForm({ titleId, canWrite: canWriteProp }: ReviewFormProps)
     try {
       await submitReview(titleId, rating, reviewHtml)
       toast.success("Review submitted successfully")
-      setRating(0)
-      setReviewHtml("")
+      setHasExistingReview(true)
       router.refresh()
     } catch (error) {
       console.error(error)
@@ -113,9 +134,15 @@ export function ReviewForm({ titleId, canWrite: canWriteProp }: ReviewFormProps)
               />
             </div>
 
+            {hasExistingReview ? (
+              <p className="text-xs text-muted-foreground">
+                You already reviewed this title. Submitting will update your review.
+              </p>
+            ) : null}
+
             <Button className="w-full" onClick={handleSubmit} disabled={isSubmitting || !canWrite}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submit Review
+              {hasExistingReview ? "Update Review" : "Submit Review"}
             </Button>
           </>
         ) : null}

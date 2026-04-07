@@ -9,7 +9,9 @@
     "start": "next start",
     "drizzle:generate": "drizzle-kit generate",
     "drizzle:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "db:seed-activity-feed": "tsx scripts/seed-activity-feed.ts",
+    "db:seed-reviews": "tsx scripts/seed-title-reviews.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

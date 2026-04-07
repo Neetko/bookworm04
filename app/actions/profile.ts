@@ -271,6 +271,13 @@ export async function getProfileData(token: string) {
     .select("genre, points")
     .eq("user_profile_id", profile.id)
 
+  const { data: recentActivity } = await supabase
+    .from("activity_events")
+    .select("id,event_type,metadata,created_at")
+    .eq("user_profile_id", profile.id)
+    .order("created_at", { ascending: false })
+    .limit(3)
+
   const totals = await summarizeGenrePoints((pointRows ?? []) as Array<{ genre: string | null; points: number | null }>)
   const pointsByGenre = GENRES.reduce<Record<Genre, number>>((acc, genre) => {
     acc[genre] = totals.get(genre) ?? 0
@@ -296,6 +303,7 @@ export async function getProfileData(token: string) {
       genrePoints: pointsByGenre,
     },
     recentReviews: recentReviews || [],
+    recentActivity: recentActivity || [],
     finishedReadingTitles: finishedReadingItems || [],
     toReadTitles: toReadItems || [],
     toReadListId,

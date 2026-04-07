@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
+import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ReviewForm } from "@/components/review-form"
@@ -60,7 +61,16 @@ export function TitleEngagementTabs({ titleId, canRead, reviews }: TitleEngageme
                   <div key={review.id} className="border-b pb-6 last:border-b-0">
                     <div className="flex items-center justify-between">
                       <div className="font-medium">
-                        {review.user_profiles?.username ?? "Anonymous"}
+                        {review.user_profiles?.username ? (
+                          <Link
+                            href={`/users/${review.user_profiles.username}`}
+                            className="hover:underline"
+                          >
+                            {review.user_profiles.username}
+                          </Link>
+                        ) : (
+                          "Anonymous"
+                        )}
                       </div>
                       <div className="text-sm text-muted-foreground">{review.rating}/10</div>
                     </div>

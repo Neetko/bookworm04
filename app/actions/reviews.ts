@@ -85,21 +85,66 @@ export async function getReviews(titleId: string) {
   const { data: reviews, error } = await supabase
     .from("reviews")
     .select(`
-      *,
-      user_profiles (
-        username,
-        avatar_url
-      )
+      id,
+      rating,
+      review_text,
+      created_at,
+      user_id
     `)
     .eq("title_id", titleId)
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching reviews:", error)
+    console.error("Error fetching reviews:", JSON.stringify(error))
     return []
   }
 
-  return reviews
+  const rows = reviews ?? []
+  const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter(Boolean))) as string[]
+  if (userIds.length === 0) return rows
+
+  const { data: profiles, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("id,username,avatar_url")
+    .in("id", userIds)
+
+  if (profileError) {
+    console.error("Error fetching review profiles:", JSON.stringify(profileError))
+    return rows
+  }
+
+  const profileMap = new Map<string, { username: string | null; avatar_url: string | null }>()
+  for (const profile of profiles ?? []) {
+    if (!profile?.id) continue
+    profileMap.set(profile.id as string, {
+      username: profile.username ?? null,
+      avatar_url: profile.avatar_url ?? null,
+    })
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    user_profiles: row.user_id ? profileMap.get(row.user_id) ?? null : null,
+  }))
+}
+
+export async function getMyReview(titleId: string) {
+  const supabase = await createServerClient()
+  const profileId = await requireAuthedProfileId(supabase)
+
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("id,rating,review_text")
+    .eq("user_id", profileId)
+    .eq("title_id", titleId)
+    .maybeSingle()
+
+  if (error) {
+    console.error("Error fetching user review:", JSON.stringify(error))
+    throw new Error("Failed to load review")
+  }
+
+  return data ?? null
 }
 
 export async function submitReview(titleId: string, rating: number, reviewText: string) {
@@ -110,52 +155,34 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
   const cleanedReview = sanitizeRichTextHtml(reviewText)
 
   // Check if review already exists
-  const { data: existingReview } = await supabase
+  const { data, error } = await supabase
     .from("reviews")
-    .select("id")
-    .eq("user_id", profileId)
-    .eq("title_id", titleId)
-    .single()
-
-  if (existingReview) {
-    // Update existing review
-    const { error } = await supabase
-      .from("reviews")
-      .update({
-        rating,
-        review_text: cleanedReview,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existingReview.id)
-
-    if (error) throw new Error("Failed to update review")
-  } else {
-    // Insert new review
-    const { data, error } = await supabase
-      .from("reviews")
-      .insert({
+    .upsert(
+      {
         user_id: profileId,
         book_id: null,
         title_id: titleId,
         rating,
         review_text: cleanedReview,
-      })
-      .select("id")
-      .single()
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,title_id" }
+    )
+    .select("id")
+    .single()
 
-    if (error) throw new Error("Failed to submit review")
+  if (error) throw new Error("Failed to submit review")
 
-    if (data?.id) {
-      await awardPointsForTitleAction({
-        supabase,
-        profileId,
-        titleId,
-        sourceType: "review",
-        sourceId: data.id,
-        basePoints: 1,
-        reason: "review_submitted",
-      })
-    }
+  if (data?.id) {
+    await awardPointsForTitleAction({
+      supabase,
+      profileId,
+      titleId,
+      sourceType: "review",
+      sourceId: data.id,
+      basePoints: 1,
+      reason: "review_submitted",
+    })
   }
 
   revalidatePath(`/titles/${titleId}`)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { BookOpen, MessageCircle, Star, Award, Calendar, TrendingUp, Loader2, User } from "lucide-react"
+import { BookOpen, MessageCircle, Star, Award, Calendar, TrendingUp, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -122,18 +122,38 @@ function ProfilePageContent({ profileData }: ProfilePageContentProps) {
     earned: badge.condition(stats),
   }))
 
-  const activities = [
-    {
-      type: "joined",
-      date: new Date(profile.createdAt),
-      data: null,
-    },
-    ...(profileData.recentReviews || []).map((r: any) => ({
-      type: "review",
-      date: new Date(r.created_at),
-      data: r,
-    })),
-  ].sort((a, b) => b.date.getTime() - a.date.getTime())
+  const activities = (profileData.recentActivity || []).map((activity: any) => ({
+    ...activity,
+    date: activity.created_at ? new Date(activity.created_at) : new Date(),
+  }))
+
+  const renderActivityText = (activity: any) => {
+    const actorName = activity.metadata?.actor?.username ?? profile.username ?? "Someone"
+    const titleName = activity.metadata?.title?.title ?? "a title"
+    const listName = activity.metadata?.list?.name ?? "a list"
+    const clubName = activity.metadata?.club?.name ?? "a club"
+    const achievementName = activity.metadata?.achievement?.name ?? "an achievement"
+    const rating = activity.metadata?.rating
+
+    switch (activity.event_type) {
+      case "review_posted":
+        return `${actorName} reviewed ${titleName}${rating ? ` (${rating}/10)` : ""}.`
+      case "title_finished":
+        return `${actorName} finished reading ${titleName}.`
+      case "list_created":
+        return `${actorName} created the list “${listName}”.`
+      case "list_item_added":
+        return `${actorName} added ${titleName} to “${listName}”.`
+      case "club_created":
+        return `${actorName} created the club “${clubName}”.`
+      case "club_joined":
+        return `${actorName} joined “${clubName}”.`
+      case "achievement_earned":
+        return `${actorName} earned ${achievementName}.`
+      default:
+        return `${actorName} did something new.`
+    }
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -419,39 +439,30 @@ function ProfilePageContent({ profileData }: ProfilePageContentProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {activities.map((activity: any, index: number) => (
-                  <div key={index}>
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          activity.type === "review" ? "bg-primary/10" : "bg-secondary/10"
-                        }`}
-                      >
-                        {activity.type === "review" && <Star className="h-4 w-4 text-primary" />}
-                        {activity.type === "joined" && <User className="h-4 w-4 text-secondary" />}
+              {activities.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No recent activity yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {activities.map((activity: any, index: number) => (
+                    <div key={activity.id ?? index}>
+                      <div className="flex items-start gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Star className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm">
+                            <span className="font-medium">{renderActivityText(activity)}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatDistanceToNow(activity.date, { addSuffix: true })}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm">
-                          {activity.type === "joined" && (
-                            <span className="font-medium">Joined Bookworm</span>
-                          )}
-                          {activity.type === "review" && (
-                            <>
-                              <span className="font-medium">{activity.data.books?.title || "Unknown Book"}</span>{" "}
-                              <span className="text-muted-foreground">rated {activity.data.rating}/10</span>
-                            </>
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatDistanceToNow(activity.date, { addSuffix: true })}
-                        </p>
-                      </div>
+                      {index < activities.length - 1 && <Separator className="mt-4" />}
                     </div>
-                    {index < activities.length - 1 && <Separator className="mt-4" />}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -211,6 +211,29 @@ export const userProfiles = pgTable(
   })
 )
 
+export const userFollows = pgTable(
+  "user_follows",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    followerProfileId: uuid("follower_profile_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    followedProfileId: uuid("followed_profile_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    isPrivate: boolean("is_private").default(true).notNull(),
+    isFriend: boolean("is_friend").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqFollowPair: uniqueIndex("user_follows_unique_pair").on(t.followerProfileId, t.followedProfileId),
+    followerFollowedCheck: check(
+      "user_follows_follower_followed_check",
+      sql`follower_profile_id <> followed_profile_id`
+    ),
+  })
+)
+
 export const clubReadingItems = pgTable("club_reading_items", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   clubId: uuid("club_id")
