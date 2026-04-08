@@ -13,6 +13,7 @@ type ReviewRow = {
   rating: number
   review_text: string | null
   user_profiles?: {
+    id?: string | null
     username?: string | null
   } | null
 }
@@ -61,15 +62,15 @@ export function TitleEngagementTabs({ titleId, canRead, reviews }: TitleEngageme
                   <div key={review.id} className="border-b pb-6 last:border-b-0">
                     <div className="flex items-center justify-between">
                       <div className="font-medium">
-                        {review.user_profiles?.username ? (
+                        {review.user_profiles?.id ? (
                           <Link
-                            href={`/users/${review.user_profiles.username}`}
+                            href={`/users/${review.user_profiles.id}`}
                             className="hover:underline"
                           >
-                            {review.user_profiles.username}
+                            {review.user_profiles.username ?? "View profile"}
                           </Link>
                         ) : (
-                          "Anonymous"
+                          review.user_profiles?.username ?? "Anonymous"
                         )}
                       </div>
                       <div className="text-sm text-muted-foreground">{review.rating}/10</div>

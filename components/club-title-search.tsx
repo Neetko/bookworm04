@@ -86,7 +86,6 @@ export function ClubTitleSearch({ clubId, onSelected, initialSelected = [] }: Cl
         })
       } else {
         await addClubReadingItem(clubId, {
-          bookId: result.id,
           titleId: result.titleId ?? result.id,
           title: result.title,
           author: result.author,

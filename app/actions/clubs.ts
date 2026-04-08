@@ -416,6 +416,18 @@ export async function createClub(type: ClubType, name: string, description: stri
 
   if (error || !data) throw new Error("Failed to create club")
 
+  await supabase.from("activity_events").insert({
+    user_profile_id: profileId,
+    event_type: "club_created",
+    metadata: {
+      club: {
+        id: data.id as string,
+        name,
+        avatar_url: null,
+      },
+    },
+  })
+
   revalidatePath("/community")
   revalidatePath(`/community/clubs/${data.id}`)
 
@@ -537,18 +549,21 @@ export async function addClubReadingItem(
   await requireOwnerProfileId(supabase, clubId)
 
   const bookId = input.bookId?.trim() || null
-  const titleId = input.titleId?.trim() || bookId
+  const titleId = input.titleId?.trim() || null
   const title = input.title?.trim() || null
   const author = input.author?.trim() || null
 
   if (!bookId && !title) throw new Error("Provide a book id or title")
 
-  const payload = {
+  const payload: Record<string, any> = {
     club_id: clubId,
     book_id: bookId,
-    title_id: titleId,
     title,
     author,
+  }
+
+  if (titleId) {
+    payload.title_id = titleId
   }
 
   const { error } = await supabase.from("club_reading_items").insert(payload)
@@ -888,6 +903,24 @@ export async function joinClub(clubId: string) {
   })
 
   if (error) throw new Error("Failed to join club")
+
+  const { data: club } = await supabase
+    .from("clubs")
+    .select("id, name, avatar_url")
+    .eq("id", clubId)
+    .maybeSingle()
+
+  await supabase.from("activity_events").insert({
+    user_profile_id: profileId,
+    event_type: "club_joined",
+    metadata: {
+      club: {
+        id: clubId,
+        name: club?.name ?? "a club",
+        avatar_url: (club as any)?.avatar_url ?? null,
+      },
+    },
+  })
 
   revalidatePath(`/community/clubs/${clubId}`)
 }

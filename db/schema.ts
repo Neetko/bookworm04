@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean, check, jsonb, date } from "drizzle-orm/pg-core"
+import { pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean, check, jsonb, date, index } from "drizzle-orm/pg-core"
 
 export const books = pgTable("books", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -231,6 +231,32 @@ export const userFollows = pgTable(
       "user_follows_follower_followed_check",
       sql`follower_profile_id <> followed_profile_id`
     ),
+  })
+)
+
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    senderProfileId: uuid("sender_profile_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    recipientProfileId: uuid("recipient_profile_id").references(() => userProfiles.id, { onDelete: "set null" }),
+    recipientUsername: text("recipient_username"),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    status: text("status").default("sent").notNull(),
+    isRead: boolean("is_read").default(false).notNull(),
+    senderDeleted: boolean("sender_deleted").default(false).notNull(),
+    recipientDeleted: boolean("recipient_deleted").default(false).notNull(),
+    replyTo: uuid("reply_to"),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    senderIdx: index("messages_sender_profile_id_idx").on(t.senderProfileId),
+    recipientIdx: index("messages_recipient_profile_id_idx").on(t.recipientProfileId),
+    statusIdx: index("messages_status_idx").on(t.status),
   })
 )
 

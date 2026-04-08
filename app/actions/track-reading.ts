@@ -865,6 +865,25 @@ async function ensureTitleReadAndReward(
     throw new Error("Failed to mark title as read")
   }
 
+  const { data: title } = await supabase
+    .from("titles")
+    .select("id, title, cover_image_url")
+    .eq("id", titleId)
+    .maybeSingle()
+
+  await supabase.from("activity_events").insert({
+    user_profile_id: profileId,
+    title_id: titleId,
+    event_type: "title_finished",
+    metadata: {
+      title: {
+        id: titleId,
+        title: title?.title ?? "a title",
+        cover: (title as any)?.cover_image_url ?? null,
+      },
+    },
+  })
+
   await awardPointsForTitleAction({
     supabase,
     profileId,

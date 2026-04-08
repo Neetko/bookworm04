@@ -1,7 +1,7 @@
 "use server"
 
 import { createServerClient } from "@/lib/supabase-server"
-import { sanitizeRichTextHtml } from "@/lib/sanitize"
+import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
 import { revalidatePath } from "next/cache"
 import { awardPointsForTitleAction } from "@/app/actions/rewards"
 
@@ -113,10 +113,11 @@ export async function getReviews(titleId: string) {
     return rows
   }
 
-  const profileMap = new Map<string, { username: string | null; avatar_url: string | null }>()
+  const profileMap = new Map<string, { id: string; username: string | null; avatar_url: string | null }>()
   for (const profile of profiles ?? []) {
     if (!profile?.id) continue
     profileMap.set(profile.id as string, {
+      id: profile.id as string,
       username: profile.username ?? null,
       avatar_url: profile.avatar_url ?? null,
     })
@@ -182,6 +183,45 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
       sourceId: data.id,
       basePoints: 1,
       reason: "review_submitted",
+    })
+  }
+
+  const reviewPlainText = extractPlainTextFromHtml(cleanedReview)
+  const { data: title } = await supabase
+    .from("titles")
+    .select("id, title, cover_image_url")
+    .eq("id", titleId)
+    .maybeSingle()
+
+  const metadata = {
+    title: {
+      id: titleId,
+      title: title?.title ?? "a title",
+      cover: (title as any)?.cover_image_url ?? null,
+    },
+    rating,
+    reviewText: reviewPlainText,
+  }
+
+  const { data: existingEvent } = await supabase
+    .from("activity_events")
+    .select("id")
+    .eq("user_profile_id", profileId)
+    .eq("event_type", "review_posted")
+    .eq("title_id", titleId)
+    .maybeSingle()
+
+  if (existingEvent?.id) {
+    await supabase
+      .from("activity_events")
+      .update({ metadata })
+      .eq("id", existingEvent.id)
+  } else {
+    await supabase.from("activity_events").insert({
+      user_profile_id: profileId,
+      title_id: titleId,
+      event_type: "review_posted",
+      metadata,
     })
   }
 

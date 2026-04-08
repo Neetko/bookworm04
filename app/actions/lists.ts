@@ -225,6 +225,17 @@ export async function createCustomListAction(input: { name: string; isPublic: bo
     throw new Error("Failed to create list")
   }
 
+  await supabase.from("activity_events").insert({
+    user_profile_id: profileId,
+    event_type: "list_created",
+    metadata: {
+      list: {
+        id: data.id as string,
+        name,
+      },
+    },
+  })
+
   revalidatePath("/profile")
   return { listId: data.id as string }
 }
@@ -270,12 +281,25 @@ export async function addTitleToListAction(input: { listId: string; titleId: str
 
   const { data: list, error: listError } = await supabase
     .from("title_lists")
-    .select("id, user_profile_id")
+    .select("id, user_profile_id, name, list_type")
     .eq("id", input.listId)
     .single()
 
   if (listError || !list?.id) throw new Error("List not found")
   if (list.user_profile_id !== profileId) throw new Error("Forbidden")
+
+  const { data: existingItem } = await supabase
+    .from("title_list_items")
+    .select("id")
+    .eq("list_id", input.listId)
+    .eq("title_id", input.titleId)
+    .maybeSingle()
+
+  if (existingItem?.id) {
+    revalidatePath("/profile")
+    revalidatePath(`/titles/${input.titleId}`)
+    return { listId: input.listId }
+  }
 
   const { error } = await supabase
     .from("title_list_items")
@@ -287,6 +311,31 @@ export async function addTitleToListAction(input: { listId: string; titleId: str
   if (error) {
     console.error("Failed to add title to list", error)
     throw new Error("Failed to add title to list")
+  }
+
+  if (list.list_type === "custom") {
+    const { data: title } = await supabase
+      .from("titles")
+      .select("id, title, cover_image_url")
+      .eq("id", input.titleId)
+      .maybeSingle()
+
+    await supabase.from("activity_events").insert({
+      user_profile_id: profileId,
+      title_id: input.titleId,
+      event_type: "list_item_added",
+      metadata: {
+        title: {
+          id: input.titleId,
+          title: title?.title ?? "a title",
+          cover: (title as any)?.cover_image_url ?? null,
+        },
+        list: {
+          id: list.id as string,
+          name: (list as any).name ?? "a list",
+        },
+      },
+    })
   }
 
   revalidatePath("/profile")

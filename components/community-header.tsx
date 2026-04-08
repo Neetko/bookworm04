@@ -149,7 +149,6 @@ export function CommunityHeader() {
           })
         } else {
           await addClubReadingItem(id, {
-            bookId: item.id,
             titleId: item.titleId ?? item.id,
             title: item.title,
             author: item.author,

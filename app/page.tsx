@@ -141,7 +141,7 @@ export default async function HomePage() {
                       {activities.map((activity) => {
                         const profile = activityProfileMap.get(activity.user_profile_id)
                         const actorName = profile?.username ?? activity.metadata?.actor?.username ?? "Someone"
-                        const actorLink = actorName ? `/users/${actorName}` : null
+                        const actorLink = profile?.id ? `/users/${profile.id}` : null
                         const avatarUrl = profile?.avatar_url ?? activity.metadata?.actor?.avatar_url ?? null
                         const titleName = activity.metadata?.title?.title ?? "a title"
                         const coverUrl = activity.metadata?.title?.cover ?? null

@@ -172,8 +172,8 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
 
                         return (
                           <div key={m.id} className="flex items-center gap-3">
-                            {m.username ? (
-                              <Link href={`/users/${encodeURIComponent(m.username)}`} className="hover:underline">
+                            {m.id ? (
+                              <Link href={`/users/${encodeURIComponent(m.id)}`} className="hover:underline">
                                 {content}
                               </Link>
                             ) : (

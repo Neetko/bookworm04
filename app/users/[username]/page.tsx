@@ -8,12 +8,12 @@ import { GENRES, GENRE_BG_CLASS, type Genre } from "@/lib/types"
 import { summarizeGenrePoints } from "@/app/actions/rewards"
 import { FollowButton } from "@/components/follow-button"
 
-async function getUserProfile(username: string) {
+async function getUserProfile(profileId: string) {
   const supabase = await createServerClient()
   const { data, error } = await supabase
     .from("user_profiles")
     .select("id, username, avatar_url, bio, auth_user_id")
-    .eq("username", username)
+    .eq("id", profileId)
     .maybeSingle()
 
   if (error) {
@@ -99,8 +99,8 @@ export default async function UserReadListPage({
 }: {
   params: Promise<{ username: string }>
 }) {
-  const { username } = await params
-  const profile = await getUserProfile(username)
+  const { username: profileId } = await params
+  const profile = await getUserProfile(profileId)
 
   if (!profile) {
     return (
