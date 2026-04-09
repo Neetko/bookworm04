@@ -24,6 +24,22 @@ async function requireAuthedProfileId(supabase: Awaited<ReturnType<typeof create
   return profile.id as string
 }
 
+async function getOptionalProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return null
+
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle()
+
+  return (profile?.id as string | null) ?? null
+}
+
 async function requireTitleRead(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
   profileId: string,
@@ -100,6 +116,26 @@ export async function getReviews(titleId: string) {
   }
 
   const rows = reviews ?? []
+  const reviewIds = rows.map((row) => row.id).filter(Boolean) as string[]
+  const viewerProfileId = await getOptionalProfileId(supabase)
+
+  const likesCountMap = new Map<string, number>()
+  const viewerLikedSet = new Set<string>()
+
+  if (reviewIds.length > 0) {
+    const { data: likeRows } = await supabase
+      .from("review_likes")
+      .select("review_id,user_id")
+      .in("review_id", reviewIds)
+
+    for (const like of likeRows ?? []) {
+      const reviewId = (like as any).review_id as string
+      likesCountMap.set(reviewId, (likesCountMap.get(reviewId) ?? 0) + 1)
+      if (viewerProfileId && (like as any).user_id === viewerProfileId) {
+        viewerLikedSet.add(reviewId)
+      }
+    }
+  }
   const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter(Boolean))) as string[]
   if (userIds.length === 0) return rows
 
@@ -125,8 +161,69 @@ export async function getReviews(titleId: string) {
 
   return rows.map((row) => ({
     ...row,
+    likes_count: likesCountMap.get(row.id) ?? 0,
+    viewer_has_liked: viewerLikedSet.has(row.id),
     user_profiles: row.user_id ? profileMap.get(row.user_id) ?? null : null,
   }))
+}
+
+export async function toggleReviewLike(reviewId: string) {
+  const supabase = await createServerClient()
+  const profileId = await requireAuthedProfileId(supabase)
+
+  const { data: review, error: reviewError } = await supabase
+    .from("reviews")
+    .select("id,user_id,title_id")
+    .eq("id", reviewId)
+    .maybeSingle()
+
+  if (reviewError || !review?.id) throw new Error("Review not found")
+
+  const { data: existing } = await supabase
+    .from("review_likes")
+    .select("id")
+    .eq("review_id", reviewId)
+    .eq("user_id", profileId)
+    .maybeSingle()
+
+  if (existing?.id) {
+    const { error } = await supabase
+      .from("review_likes")
+      .delete()
+      .eq("id", existing.id)
+
+    if (error) throw new Error("Failed to remove like")
+    return { liked: false }
+  }
+
+  const { error: insertError } = await supabase
+    .from("review_likes")
+    .insert({ review_id: reviewId, user_id: profileId })
+
+  if (insertError) throw new Error("Failed to like review")
+
+  if (review.user_id && review.user_id !== profileId) {
+    const [{ data: actor }, { data: title }] = await Promise.all([
+      supabase.from("user_profiles").select("id,username,avatar_url").eq("id", profileId).maybeSingle(),
+      review.title_id
+        ? supabase.from("titles").select("id,title,cover_image_url").eq("id", review.title_id).maybeSingle()
+        : Promise.resolve({ data: null } as any),
+    ])
+
+    await supabase.from("notifications").insert({
+      recipient_profile_id: review.user_id,
+      actor_profile_id: profileId,
+      title_id: review.title_id ?? null,
+      review_id: reviewId,
+      event_type: "review_like",
+      metadata: {
+        actor: actor ? { id: actor.id, username: actor.username, avatarUrl: actor.avatar_url } : null,
+        title: title ? { id: title.id, title: title.title, coverUrl: (title as any).cover_image_url ?? null } : null,
+      },
+    })
+  }
+
+  return { liked: true }
 }
 
 export async function getMyReview(titleId: string) {

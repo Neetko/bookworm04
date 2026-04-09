@@ -27,6 +27,28 @@ async function requireAuthedProfileId() {
   return { supabase, profileId: profile.id as string }
 }
 
+async function getActorMetadata(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileIds: string[]
+) {
+  const { data } = await supabase
+    .from("user_profiles")
+    .select("id,username,avatar_url")
+    .in("id", profileIds)
+
+  const map = new Map<string, { id: string; username: string | null; avatarUrl: string | null }>()
+  for (const row of data ?? []) {
+    if (!row?.id) continue
+    map.set(row.id as string, {
+      id: row.id as string,
+      username: row.username ?? null,
+      avatarUrl: row.avatar_url ?? null,
+    })
+  }
+
+  return map
+}
+
 export async function getFollowState(targetProfileId: string) {
   const { supabase, profileId } = await requireAuthedProfileId()
 
@@ -72,6 +94,18 @@ export async function followUser(targetProfileId: string) {
     throw new Error("Failed to follow user")
   }
 
+  const actorMap = await getActorMetadata(supabase, [profileId])
+  const actorMeta = actorMap.get(profileId) ?? null
+
+  await supabase.from("notifications").insert({
+    recipient_profile_id: targetProfileId,
+    actor_profile_id: profileId,
+    event_type: "followed",
+    metadata: {
+      actor: actorMeta,
+    },
+  })
+
   const { data: reciprocal, error: reciprocalError } = await supabase
     .from("user_follows")
     .select("id")
@@ -85,6 +119,15 @@ export async function followUser(targetProfileId: string) {
   }
 
   if (reciprocal?.id) {
+    const { data: friendRows } = await supabase
+      .from("user_follows")
+      .select("is_friend")
+      .or(
+        `and(follower_profile_id.eq.${profileId},followed_profile_id.eq.${targetProfileId}),and(follower_profile_id.eq.${targetProfileId},followed_profile_id.eq.${profileId})`
+      )
+
+    const wasFriend = (friendRows ?? []).some((row: any) => row?.is_friend)
+
     const { error: updateError } = await supabase
       .from("user_follows")
       .update({ is_friend: true })
@@ -95,6 +138,27 @@ export async function followUser(targetProfileId: string) {
     if (updateError) {
       console.error("Failed to update friend state", updateError)
       throw new Error("Failed to follow user")
+    }
+
+    if (!wasFriend) {
+      const metaMap = await getActorMetadata(supabase, [profileId, targetProfileId])
+      const forTarget = metaMap.get(profileId) ?? null
+      const forActor = metaMap.get(targetProfileId) ?? null
+
+      await supabase.from("notifications").insert([
+        {
+          recipient_profile_id: targetProfileId,
+          actor_profile_id: profileId,
+          event_type: "friendship",
+          metadata: { actor: forTarget },
+        },
+        {
+          recipient_profile_id: profileId,
+          actor_profile_id: targetProfileId,
+          event_type: "friendship",
+          metadata: { actor: forActor },
+        },
+      ])
     }
   }
 

@@ -47,6 +47,44 @@ async function requireTitleRead(
   if (!data?.title_id) throw new Error("Forbidden")
 }
 
+async function buildActorMetadata(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string
+) {
+  const { data } = await supabase
+    .from("user_profiles")
+    .select("id,username,avatar_url")
+    .eq("id", profileId)
+    .maybeSingle()
+
+  if (!data) return null
+
+  return {
+    id: data.id,
+    username: data.username,
+    avatarUrl: data.avatar_url ?? null,
+  }
+}
+
+async function buildTitleMetadata(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  titleId: string
+) {
+  const { data } = await supabase
+    .from("titles")
+    .select("id,title,cover_image_url")
+    .eq("id", titleId)
+    .maybeSingle()
+
+  if (!data) return null
+
+  return {
+    id: data.id,
+    title: data.title,
+    coverUrl: (data as any).cover_image_url ?? null,
+  }
+}
+
 async function ensureToReadListForProfile(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
   profileId: string
@@ -269,6 +307,8 @@ export type DiscussionPostRow = {
   id: string
   content: string
   created_at: string
+  likes_count: number
+  viewer_has_liked?: boolean
   user_profiles: {
     username: string | null
     avatar_url: string | null
@@ -290,6 +330,7 @@ export async function getDiscussionPosts(titleId: string): Promise<DiscussionPos
       `
       id,
       content,
+      likes_count,
       created_at,
       user_profiles (
         username,
@@ -310,8 +351,25 @@ export async function getDiscussionPosts(titleId: string): Promise<DiscussionPos
   }
 
   const rows = (data ?? []) as any[]
+  const postIds = rows.map((row) => row.id).filter(Boolean) as string[]
+  const likedSet = new Set<string>()
+
+  if (postIds.length > 0) {
+    const { data: likedRows } = await supabase
+      .from("post_likes")
+      .select("post_id")
+      .eq("user_id", profileId)
+      .in("post_id", postIds)
+
+    for (const row of likedRows ?? []) {
+      likedSet.add((row as any).post_id as string)
+    }
+  }
+
   return rows.map((row) => ({
     ...row,
+    likes_count: row.likes_count ?? 0,
+    viewer_has_liked: likedSet.has(row.id),
     user_profiles: row.user_profiles
       ? {
           ...row.user_profiles,
@@ -356,10 +414,156 @@ export async function createDiscussionPost(titleId: string, content: string) {
       basePoints: 2,
       reason: "discussion_post",
     })
+
+    const [{ data: bookmarks }, actorMeta, titleMeta] = await Promise.all([
+      supabase.from("title_bookmarks").select("user_profile_id").eq("title_id", titleId),
+      buildActorMetadata(supabase, profileId),
+      buildTitleMetadata(supabase, titleId),
+    ])
+
+    const recipients = Array.from(
+      new Set(
+        (bookmarks ?? [])
+          .map((row) => (row as any).user_profile_id as string)
+          .filter((id) => id && id !== profileId)
+      )
+    )
+
+    if (recipients.length > 0) {
+      await supabase.from("notifications").insert(
+        recipients.map((recipientId) => ({
+          recipient_profile_id: recipientId,
+          actor_profile_id: profileId,
+          title_id: titleId,
+          post_id: data.id,
+          event_type: "bookmarked_discussion_post",
+          metadata: {
+            actor: actorMeta,
+            title: titleMeta,
+          },
+        }))
+      )
+    }
   }
 
   revalidatePath(`/titles/${titleId}`)
   return { titleId }
+}
+
+export async function toggleDiscussionPostLike(postId: string) {
+  const supabase = await createServerClient()
+  const profileId = await requireAuthedProfileId(supabase)
+
+  const { data: post, error: postError } = await supabase
+    .from("discussion_posts")
+    .select("id,user_id,title_id,likes_count")
+    .eq("id", postId)
+    .maybeSingle()
+
+  if (postError || !post?.id) throw new Error("Post not found")
+
+  const { data: existing } = await supabase
+    .from("post_likes")
+    .select("id")
+    .eq("post_id", postId)
+    .eq("user_id", profileId)
+    .maybeSingle()
+
+  if (existing?.id) {
+    const { error } = await supabase
+      .from("post_likes")
+      .delete()
+      .eq("id", existing.id)
+
+    if (error) throw new Error("Failed to remove like")
+
+    await supabase
+      .from("discussion_posts")
+      .update({ likes_count: Math.max(0, (post.likes_count ?? 0) - 1) })
+      .eq("id", postId)
+
+    return { liked: false }
+  }
+
+  const { error: insertError } = await supabase
+    .from("post_likes")
+    .insert({ post_id: postId, user_id: profileId })
+
+  if (insertError) throw new Error("Failed to like post")
+
+  await supabase
+    .from("discussion_posts")
+    .update({ likes_count: (post.likes_count ?? 0) + 1 })
+    .eq("id", postId)
+
+  if (post.user_id && post.user_id !== profileId) {
+    const [actorMeta, titleMeta] = await Promise.all([
+      buildActorMetadata(supabase, profileId),
+      post.title_id ? buildTitleMetadata(supabase, post.title_id as string) : Promise.resolve(null),
+    ])
+
+    await supabase.from("notifications").insert({
+      recipient_profile_id: post.user_id,
+      actor_profile_id: profileId,
+      title_id: post.title_id ?? null,
+      post_id: postId,
+      event_type: "discussion_post_like",
+      metadata: {
+        actor: actorMeta,
+        title: titleMeta,
+      },
+    })
+  }
+
+  return { liked: true }
+}
+
+export async function getTitleBookmarkStatus(titleId: string) {
+  const supabase = await createServerClient()
+  const profileId = await requireAuthedProfileId(supabase)
+
+  const { data, error } = await supabase
+    .from("title_bookmarks")
+    .select("id")
+    .eq("user_profile_id", profileId)
+    .eq("title_id", titleId)
+    .maybeSingle()
+
+  if (error) throw new Error("Failed to load bookmark status")
+
+  return Boolean(data?.id)
+}
+
+export async function toggleTitleBookmark(titleId: string) {
+  const supabase = await createServerClient()
+  const profileId = await requireAuthedProfileId(supabase)
+
+  const { data: existing } = await supabase
+    .from("title_bookmarks")
+    .select("id")
+    .eq("user_profile_id", profileId)
+    .eq("title_id", titleId)
+    .maybeSingle()
+
+  if (existing?.id) {
+    const { error } = await supabase
+      .from("title_bookmarks")
+      .delete()
+      .eq("id", existing.id)
+
+    if (error) throw new Error("Failed to remove bookmark")
+    revalidatePath(`/titles/${titleId}`)
+    return { bookmarked: false }
+  }
+
+  const { error } = await supabase
+    .from("title_bookmarks")
+    .insert({ user_profile_id: profileId, title_id: titleId })
+
+  if (error) throw new Error("Failed to bookmark title")
+
+  revalidatePath(`/titles/${titleId}`)
+  return { bookmarked: true }
 }
 
 export type TitleEditionRow = {

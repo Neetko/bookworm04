@@ -1,17 +1,23 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ReviewForm } from "@/components/review-form"
 import { DiscussionForum } from "@/components/discussion-forum"
 import { sanitizeRichTextHtml } from "@/lib/sanitize"
+import { Button } from "@/components/ui/button"
+import { ThumbsUp } from "lucide-react"
+import { toggleReviewLike } from "@/app/actions/reviews"
+import { toast } from "sonner"
 
 type ReviewRow = {
   id: string
   rating: number
   review_text: string | null
+  likes_count?: number
+  viewer_has_liked?: boolean
   user_profiles?: {
     id?: string | null
     username?: string | null
@@ -83,6 +89,11 @@ export function TitleEngagementTabs({ titleId, canRead, reviews }: TitleEngageme
                         }}
                       />
                     ) : null}
+                    <ReviewLikeButton
+                      reviewId={review.id}
+                      initialCount={review.likes_count ?? 0}
+                      initialLiked={Boolean(review.viewer_has_liked)}
+                    />
                   </div>
                 ))}
               </div>
@@ -104,5 +115,55 @@ export function TitleEngagementTabs({ titleId, canRead, reviews }: TitleEngageme
         </TabsContent>
       ) : null}
     </Tabs>
+  )
+}
+
+function ReviewLikeButton({
+  reviewId,
+  initialCount,
+  initialLiked,
+}: {
+  reviewId: string
+  initialCount: number
+  initialLiked: boolean
+}) {
+  const [isLiked, setIsLiked] = useState(initialLiked)
+  const [likesCount, setLikesCount] = useState(initialCount)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleLike = async () => {
+    if (isSubmitting) return
+    const nextLiked = !isLiked
+    const nextCount = Math.max(0, likesCount + (nextLiked ? 1 : -1))
+
+    setIsSubmitting(true)
+    setIsLiked(nextLiked)
+    setLikesCount(nextCount)
+
+    try {
+      await toggleReviewLike(reviewId)
+    } catch (error) {
+      console.error(error)
+      setIsLiked(!nextLiked)
+      setLikesCount(likesCount)
+      toast.error((error as any)?.message ?? "Failed to update like")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mt-4">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-2 text-muted-foreground hover:text-foreground"
+        onClick={handleLike}
+        disabled={isSubmitting}
+      >
+        <ThumbsUp className={`h-4 w-4 ${isLiked ? "text-primary" : ""}`} />
+        <span>{likesCount}</span>
+      </Button>
+    </div>
   )
 }

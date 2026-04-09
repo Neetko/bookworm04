@@ -9,11 +9,16 @@ import { User, Calendar, ThumbsUp, Flag, MoreHorizontal } from "lucide-react"
 import { formatDistanceToNow, format } from "date-fns"
 import { sanitizeRichTextHtml } from "@/lib/sanitize"
 import Image from "next/image"
+import { toggleDiscussionPostLike } from "@/app/actions/title"
+import { toast } from "sonner"
+import { useState } from "react"
 
 interface PostData {
   id: string
   content: string
   created_at: string
+  likes_count?: number
+  viewer_has_liked?: boolean
   user_profiles: {
     username: string | null
     avatar_url: string | null
@@ -30,9 +35,33 @@ interface DiscussionPostProps {
 
 export function DiscussionPost({ post }: DiscussionPostProps) {
   const userProfile = post.user_profiles
+  const [isLiked, setIsLiked] = useState(Boolean(post.viewer_has_liked))
+  const [likesCount, setLikesCount] = useState(post.likes_count ?? 0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const joinedDate = userProfile?.joined_date 
     ? format(new Date(userProfile.joined_date), "MMM yyyy")
     : "Unknown"
+
+  const handleLike = async () => {
+    if (isSubmitting) return
+    const nextLiked = !isLiked
+    const nextCount = Math.max(0, likesCount + (nextLiked ? 1 : -1))
+
+    setIsSubmitting(true)
+    setIsLiked(nextLiked)
+    setLikesCount(nextCount)
+
+    try {
+      await toggleDiscussionPostLike(post.id)
+    } catch (error) {
+      console.error(error)
+      setIsLiked(!nextLiked)
+      setLikesCount(likesCount)
+      toast.error((error as any)?.message ?? "Failed to update like")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <Card className="overflow-hidden">
@@ -125,9 +154,15 @@ export function DiscussionPost({ post }: DiscussionPostProps) {
             )}
 
             {/* Post Actions */}
-            <Button variant="ghost" size="sm" className="absolute bottom-2 left-2 gap-1 h-8 px-2">
-              <ThumbsUp className="h-3 w-3" />
-              <span className="text-xs">(12)</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute bottom-2 left-2 gap-1 h-8 px-2"
+              onClick={handleLike}
+              disabled={isSubmitting}
+            >
+              <ThumbsUp className={`h-3 w-3 ${isLiked ? "text-primary" : ""}`} />
+              <span className="text-xs">({likesCount})</span>
             </Button>
             <Button variant="ghost" size="sm" className="absolute bottom-2 right-2 gap-1 h-8 px-2">
               <Flag className="h-3 w-3" />
