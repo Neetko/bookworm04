@@ -14,6 +14,7 @@ import { getTitleReadStatus } from "@/app/actions/title"
 import { TitleTrackProgressButton } from "@/components/title-track-progress-button"
 import { TitleEditionsDialog } from "@/components/title-editions-dialog"
 import { TitleDedupeDialog } from "@/components/title-dedupe-dialog"
+import { TitleBookmarkButton } from "@/components/title-bookmark-button"
 import { GENRE_BG_CLASS, isGenre, normalizeGenres } from "@/lib/types"
 import { enforceGenreRulesFromList } from "@/lib/book-tagging"
 import { cn } from "@/lib/utils"
@@ -173,11 +174,13 @@ async function getGenresForTitle(titleId: string): Promise<string[]> {
     supabase.from("tracked_books").select("genre").eq("id", titleId).maybeSingle(),
   ])
 
-  const fallback = uniqueGenres([
-    ...((bookRow.data?.genre ?? []).filter(isGenre)),
-    ...((trackedRow.data?.genre ?? []).filter(isGenre)),
-    ...((trackedByIdRow.data?.genre ?? []).filter(isGenre)),
-  ])
+  const fallback = normalizeGenres(
+    uniqueGenres([
+      ...((bookRow.data?.genre ?? []).filter(isGenre)),
+      ...((trackedRow.data?.genre ?? []).filter(isGenre)),
+      ...((trackedByIdRow.data?.genre ?? []).filter(isGenre)),
+    ])
+  )
 
   return enforceGenreRulesFromList(fallback)
 }
@@ -324,6 +327,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                   ) : null}
 
                   <MarkReadButton titleId={title.id} />
+                  <TitleBookmarkButton titleId={title.id} />
                   <TitleTrackProgressButton
                     titleId={title.id}
                     title={title.title}
