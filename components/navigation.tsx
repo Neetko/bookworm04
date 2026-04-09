@@ -22,6 +22,7 @@ export function Navigation() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authView, setAuthView] = useState<"sign_in" | "sign_up">("sign_in")
   const [profile, setProfile] = useState<{ username: string | null; avatar_url: string | null } | null>(null)
+  const [unreadCounts, setUnreadCounts] = useState({ notifications: 0, messages: 0, total: 0 })
 
   useEffect(() => {
     let isMounted = true
@@ -42,6 +43,30 @@ export function Navigation() {
     }
 
     loadProfile()
+
+    const loadCounts = async () => {
+      if (!user) {
+        if (isMounted) setUnreadCounts({ notifications: 0, messages: 0, total: 0 })
+        return
+      }
+
+      try {
+        const response = await fetch("/api/notifications/counts")
+        if (!response.ok) throw new Error("Failed to load counts")
+        const data = await response.json()
+        if (isMounted) {
+          setUnreadCounts({
+            notifications: data?.notifications ?? 0,
+            messages: data?.messages ?? 0,
+            total: data?.total ?? 0,
+          })
+        }
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    loadCounts()
 
     return () => {
       isMounted = false
@@ -107,11 +132,18 @@ export function Navigation() {
                 </Link>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                      <Avatar className="h-7 w-7 border">
-                        <AvatarImage src={profile?.avatar_url ?? undefined} alt={displayName} />
-                        <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
-                      </Avatar>
+                    <Button variant="ghost" size="sm" className="flex items-center gap-2 relative">
+                      <span className="relative">
+                        <Avatar className="h-7 w-7 border">
+                          <AvatarImage src={profile?.avatar_url ?? undefined} alt={displayName} />
+                          <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
+                        </Avatar>
+                        {unreadCounts.total > 0 ? (
+                          <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                            {unreadCounts.total}
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="max-w-[140px] truncate text-sm font-medium">
                         {displayName}
                       </span>
@@ -119,19 +151,35 @@ export function Navigation() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52">
                     <DropdownMenuItem asChild>
-                      <Link href="/profile" className="flex items-center">
+                      <Link href="/profile" className="flex w-full items-center gap-2">
                         <User className="h-4 w-4" />
                         <span>View Profile</span>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled>
-                      <Bell className="h-4 w-4" />
-                      <span>Notifications</span>
+                    <DropdownMenuItem asChild>
+                      <Link href="/notifications" className="flex w-full items-center justify-between gap-2">
+                        <span className="flex items-center gap-2">
+                          <Bell className="h-4 w-4" />
+                          <span>Notifications</span>
+                        </span>
+                        {unreadCounts.notifications > 0 ? (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
+                            {unreadCounts.notifications}
+                          </span>
+                        ) : null}
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/messages" className="flex items-center">
-                        <Mail className="h-4 w-4" />
-                        <span>Messages</span>
+                      <Link href="/messages" className="flex w-full items-center justify-between gap-2">
+                        <span className="flex items-center gap-2">
+                          <Mail className="h-4 w-4" />
+                          <span>Messages</span>
+                        </span>
+                        {unreadCounts.messages > 0 ? (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
+                            {unreadCounts.messages}
+                          </span>
+                        ) : null}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
