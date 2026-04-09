@@ -317,16 +317,39 @@ export const reviews = pgTable(
   })
 )
 
-export const bookmarks = pgTable(
-  "bookmarks",
+export const reviewLikes = pgTable(
+  "review_likes",
   {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    userId: uuid("user_id").references(() => userProfiles.id, { onDelete: "cascade" }),
-    bookId: uuid("book_id").references(() => books.id, { onDelete: "cascade" }),
+    reviewId: uuid("review_id")
+      .references(() => reviews.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   },
   (t: any) => ({
-    uniqUserBook: uniqueIndex("bookmarks_user_book_unique").on(t.userId, t.bookId),
+    uniqUserReview: uniqueIndex("review_likes_user_review_unique").on(t.userId, t.reviewId),
+  })
+)
+
+export const titleBookmarks = pgTable(
+  "title_bookmarks",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userProfileId: uuid("user_profile_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    titleId: uuid("title_id")
+      .references(() => titles.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqUserTitle: uniqueIndex("title_bookmarks_user_title_unique").on(t.userProfileId, t.titleId),
+    userIdx: index("title_bookmarks_user_idx").on(t.userProfileId),
+    titleIdx: index("title_bookmarks_title_idx").on(t.titleId),
   })
 )
 
@@ -473,6 +496,29 @@ export const postLikes = pgTable(
   },
   (t: any) => ({
     uniqUserPost: uniqueIndex("post_likes_user_post_unique").on(t.userId, t.postId),
+  })
+)
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    recipientProfileId: uuid("recipient_profile_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    actorProfileId: uuid("actor_profile_id").references(() => userProfiles.id, { onDelete: "set null" }),
+    titleId: uuid("title_id").references(() => titles.id, { onDelete: "set null" }),
+    postId: uuid("post_id").references(() => discussionPosts.id, { onDelete: "set null" }),
+    reviewId: uuid("review_id").references(() => reviews.id, { onDelete: "set null" }),
+    eventType: text("event_type").notNull(),
+    metadata: jsonb("metadata"),
+    isRead: boolean("is_read").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    recipientIdx: index("notifications_recipient_idx").on(t.recipientProfileId),
+    readIdx: index("notifications_read_idx").on(t.isRead),
+    createdIdx: index("notifications_created_idx").on(t.createdAt),
   })
 )
 
