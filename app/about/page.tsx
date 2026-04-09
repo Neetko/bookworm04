@@ -54,7 +54,7 @@ export default function AboutPage() {
               <TrendingUp className="h-12 w-12 text-primary mb-4" />
               <h3 className="text-xl font-semibold mb-3">Track Your Progress</h3>
               <p className="text-muted-foreground">
-                Keep track of your reading journey with personalized statistics, bookmarks, and favorites. Set reading
+                Keep track of your reading journey with personalized statistics and favorites. Set reading
                 goals and celebrate your literary achievements as you explore new worlds.
               </p>
             </CardContent>

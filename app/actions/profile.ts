@@ -117,11 +117,6 @@ export async function getProfileData(token: string) {
     .select("*", { count: "exact", head: true })
     .eq("user_id", profile.id)
 
-  const { count: bookmarksCount } = await supabase
-    .from("bookmarks")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", profile.id)
-
   // Fetch recent reviews
   const { data: recentReviews } = await supabase
     .from("reviews")
@@ -299,7 +294,6 @@ export async function getProfileData(token: string) {
       booksRead: booksReadCount || 0,
       reviewsWritten: reviewsCount || 0,
       favorites: favoritesCount || 0,
-      bookmarks: bookmarksCount || 0,
       genrePoints: pointsByGenre,
     },
     recentReviews: recentReviews || [],

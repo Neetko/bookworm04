@@ -82,14 +82,6 @@ export interface Review {
   books?: Book
 }
 
-export interface Bookmark {
-  id: string
-  user_id: string
-  book_id: string
-  created_at: string
-  books?: Book
-}
-
 export interface Favorite {
   id: string
   user_id: string
