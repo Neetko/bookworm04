@@ -77,20 +77,38 @@ export default async function HomePage() {
 
     const renderActivityText = (activity: (typeof activities)[number]) => {
       const titleName = activity.metadata?.title?.title ?? "a title"
+      const titleId = activity.metadata?.title?.id ?? null
       const listName = activity.metadata?.list?.name ?? "a list"
       const clubName = activity.metadata?.club?.name ?? "a club"
       const achievementName = activity.metadata?.achievement?.name ?? "an achievement"
       const rating = activity.metadata?.rating
 
+      const titleNode = titleId ? (
+        <Link href={`/titles/${titleId}`} className="font-medium text-foreground hover:underline">
+          {titleName}
+        </Link>
+      ) : (
+        <span className="font-medium text-foreground">{titleName}</span>
+      )
+
       switch (activity.event_type) {
         case "review_posted":
-          return `reviewed ${titleName}${rating ? ` — ${rating}/10` : ""}.`
+          return (
+            <>
+              reviewed {titleNode}
+              {rating ? ` — ${rating}/10` : ""}.
+            </>
+          )
         case "title_finished":
-          return `finished reading ${titleName}.`
+          return <>finished reading {titleNode}.</>
         case "list_created":
           return `created the list “${listName}”.`
         case "list_item_added":
-          return `added ${titleName} to “${listName}”.`
+          return (
+            <>
+              added {titleNode} to “{listName}”.
+            </>
+          )
         case "club_created":
           return `created the club “${clubName}”.`
         case "club_joined":
@@ -144,14 +162,16 @@ export default async function HomePage() {
                         const actorLink = profile?.id ? `/users/${profile.id}` : null
                         const avatarUrl = profile?.avatar_url ?? activity.metadata?.actor?.avatar_url ?? null
                         const titleName = activity.metadata?.title?.title ?? "a title"
+                        const titleId = activity.metadata?.title?.id ?? null
                         const coverUrl = activity.metadata?.title?.cover ?? null
                         const clubName = activity.metadata?.club?.name ?? "a club"
                         const clubAvatarUrl = activity.metadata?.club?.avatar_url ?? null
                         const isClubEvent = activity.event_type === "club_created" || activity.event_type === "club_joined"
                         const isAchievementEvent = activity.event_type === "achievement_earned"
-                        const shouldShowCover = !isClubEvent && !isAchievementEvent
+                        const isListCreatedEvent = activity.event_type === "list_created"
+                        const shouldShowCover = !isClubEvent && !isAchievementEvent && !isListCreatedEvent
                         return (
-                          <div key={activity.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
+                          <div key={activity.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1 space-y-3">
                                 <div className="flex items-center gap-3">
@@ -183,7 +203,7 @@ export default async function HomePage() {
                                   </div>
                                 ) : null}
                               </div>
-                              <div className="flex-shrink-0 pr-2">
+                              <div className="flex-shrink-0">
                                 {isClubEvent ? (
                                   <Avatar className="h-12 w-12">
                                     <AvatarImage src={clubAvatarUrl || undefined} />
@@ -194,9 +214,15 @@ export default async function HomePage() {
                                     Badge
                                   </div>
                                 ) : shouldShowCover ? (
-                                  <div className="relative h-20 w-14 overflow-hidden rounded-md bg-muted">
-                                    <CoverImage src={coverUrl} alt={titleName} className="object-cover" />
-                                  </div>
+                                  <Link
+                                    href={titleId ? `/titles/${titleId}` : "#"}
+                                    className={titleId ? "block" : "pointer-events-none"}
+                                    aria-label={titleId ? `Open ${titleName}` : undefined}
+                                  >
+                                    <div className="relative h-28 w-20 overflow-hidden rounded-md bg-muted">
+                                      <CoverImage src={coverUrl} alt={titleName} className="object-cover" />
+                                    </div>
+                                  </Link>
                                 ) : null}
                               </div>
                             </div>
