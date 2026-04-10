@@ -1,10 +1,1 @@
--- Insert sample books
-INSERT INTO books (title, author, description, genre, published_year, isbn) VALUES
-('The Great Gatsby', 'F. Scott Fitzgerald', 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.', ARRAY['MYSTERY'], 1925, '978-0-7432-7356-5'),
-('To Kill a Mockingbird', 'Harper Lee', 'Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore.', ARRAY['NON-FICTION'], 1960, '978-0-06-112008-4'),
-('1984', 'George Orwell', 'Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem.', ARRAY['SCI-FI'], 1949, '978-0-452-28423-4'),
-('Pride and Prejudice', 'Jane Austen', 'Accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.', ARRAY['ROMANCE'], 1813, '978-0-14-143951-8'),
-('The Catcher in the Rye', 'J.D. Salinger', 'Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.', ARRAY['MYSTERY'], 1951, '978-0-316-76948-0'),
-('Lord of the Flies', 'William Golding', 'Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt.', ARRAY['ADVENTURE'], 1954, '978-0-571-05686-2'),
-('Brave New World', 'Aldous Huxley', 'Ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam.', ARRAY['SCI-FI'], 1932, '978-0-06-085052-4'),
-('The Hobbit', 'J.R.R. Tolkien', 'Nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur.', ARRAY['FANTASY','ADVENTURE'], 1937, '978-0-547-92822-7');
+-- Deprecated: legacy books seed removed.

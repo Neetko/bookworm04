@@ -258,7 +258,6 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
     .upsert(
       {
         user_id: profileId,
-        book_id: null,
         title_id: titleId,
         rating,
         review_text: cleanedReview,

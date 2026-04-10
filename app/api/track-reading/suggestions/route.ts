@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
   const supabase = await createServerClient()
 
-  let query = supabase.from("books").select("id,title,author")
+  let query = supabase.from("titles").select("id,title,author")
 
   if (hasStructured) {
     if (title) query = query.ilike("title", `%${title}%`)

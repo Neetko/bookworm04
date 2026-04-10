@@ -37,7 +37,6 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
   const members = await getClubMembers(id)
   const readingItems = (await getClubReadingItems(id)) as Array<{
     id: string
-    book_id: string | null
     title_id?: string | null
     title: string | null
     author: string | null
@@ -48,7 +47,6 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
       author: string
       cover_image_url: string | null
     } | null
-    book?: { id: string; title: string; author: string } | null
   }>
   const currentReading = await getClubCurrentReading(id)
   const rawComments = (await getClubCurrentReadingComments(id)) as Array<{
@@ -200,11 +198,11 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
                 ) : (
                   <div className="grid gap-3">
                     {readingItems.map((item) => {
-                      const titleRecord = item.title_data ?? item.book
+                      const titleRecord = item.title_data ?? null
                       const title = titleRecord?.title ?? item.title ?? "Untitled"
                       const author = titleRecord?.author ?? item.author ?? ""
                       const coverUrl = item.title_data?.cover_image_url ?? null
-                      const linkId = item.title_data?.id ?? item.book?.id ?? null
+                      const linkId = item.title_data?.id ?? null
 
                       return (
                         <Card key={item.id}>
@@ -226,9 +224,6 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
                                 </div>
                                 {author && <div className="text-sm text-muted-foreground">{author}</div>}
                               </div>
-                              <Badge variant={item.book ? "default" : "secondary"}>
-                                {item.book ? "In library" : "Not in library"}
-                              </Badge>
                             </div>
                           </CardContent>
                         </Card>

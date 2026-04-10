@@ -42,20 +42,6 @@ export function normalizeGenres(value: unknown): Genre[] {
   return []
 }
 
-export interface Book {
-  id: string
-  title_id?: string | null
-  title: string
-  author: string
-  description: string | null
-  cover_image_url: string | null
-  genre: Genre[] | null
-  published_year: number | null
-  isbn: string | null
-  created_at: string
-  updated_at: string
-}
-
 export interface UserProfile {
   id: string
   auth_user_id?: string | null
@@ -66,34 +52,6 @@ export interface UserProfile {
   role?: string | null
   signature?: string | null
   signature_image?: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface Review {
-  id: string
-  user_id: string
-  book_id: string
-  rating: number
-  review_text: string | null
-  created_at: string
-  updated_at: string
-  user_profiles?: UserProfile
-  books?: Book
-}
-
-export interface Favorite {
-  id: string
-  user_id: string
-  book_id: string
-  created_at: string
-  books?: Book
-}
-
-export interface BookContent {
-  id: string
-  book_id: string
-  content: string
   created_at: string
   updated_at: string
 }

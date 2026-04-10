@@ -10,14 +10,12 @@ import { useRouter } from "next/navigation"
 export function TitleTrackProgressButton({
   titleId,
   title,
-  bookId,
   trackedBookId,
   initialNoteHtml,
   initialNoteText,
 }: {
   titleId: string
   title: string
-  bookId?: string | null
   trackedBookId?: string | null
   initialNoteHtml?: string | null
   initialNoteText?: string | null
@@ -29,7 +27,6 @@ export function TitleTrackProgressButton({
     try {
       await trackTitleProgress({
         titleId,
-        bookId,
         trackedBookId,
         progress,
         noteHtml: progress.noteHtml,
@@ -43,7 +40,7 @@ export function TitleTrackProgressButton({
     }
   }
 
-  if (!bookId && !trackedBookId) return null
+  if (!trackedBookId) return null
 
   return (
     <>

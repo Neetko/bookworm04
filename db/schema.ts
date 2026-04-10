@@ -1,22 +1,6 @@
 import { sql } from "drizzle-orm"
 import { pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean, check, jsonb, date, index } from "drizzle-orm/pg-core"
 
-export const books = pgTable("books", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  titleId: uuid("title_id")
-    .references(() => titles.id, { onDelete: "cascade" })
-    .notNull(),
-  title: varchar("title", { length: 255 }).notNull(),
-  author: varchar("author", { length: 255 }).notNull(),
-  description: text("description"),
-  coverImageUrl: text("cover_image_url"),
-  genre: text("genre").array(),
-  publishedYear: integer("published_year"),
-  isbn: varchar("isbn", { length: 20 }),
-  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
-})
-
 export const titles = pgTable("titles", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
@@ -265,7 +249,6 @@ export const clubReadingItems = pgTable("club_reading_items", {
   clubId: uuid("club_id")
     .references(() => clubs.id, { onDelete: "cascade" })
     .notNull(),
-  bookId: uuid("book_id").references(() => books.id, { onDelete: "set null" }),
   titleId: uuid("title_id").references(() => titles.id, { onDelete: "set null" }),
   title: text("title"),
   author: text("author"),
@@ -273,7 +256,7 @@ export const clubReadingItems = pgTable("club_reading_items", {
 }, (t: any) => ({
   requireBookOrTitle: check(
     "club_reading_items_book_or_title_check",
-    sql`book_id is not null or title_id is not null`
+    sql`title_id is not null`
   ),
 }))
 
@@ -300,7 +283,6 @@ export const reviews = pgTable(
   {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     userId: uuid("user_id").references(() => userProfiles.id, { onDelete: "cascade" }),
-    bookId: uuid("book_id").references(() => books.id, { onDelete: "cascade" }),
     titleId: uuid("title_id").references(() => titles.id, { onDelete: "cascade" }),
     rating: integer("rating").notNull(), // 1-10 scale
     reviewText: text("review_text"),
@@ -308,12 +290,7 @@ export const reviews = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
   },
   (t: any) => ({
-    uniqUserBook: uniqueIndex("reviews_user_book_unique").on(t.userId, t.bookId),
     uniqUserTitle: uniqueIndex("reviews_user_title_unique").on(t.userId, t.titleId),
-    requireExactlyOneTarget: check(
-      "reviews_book_or_title_check",
-      sql`(book_id is null) <> (title_id is null)`
-    ),
   })
 )
 
@@ -353,58 +330,6 @@ export const titleBookmarks = pgTable(
   })
 )
 
-export const favorites = pgTable(
-  "favorites",
-  {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    userId: uuid("user_id").references(() => userProfiles.id, { onDelete: "cascade" }),
-    bookId: uuid("book_id").references(() => books.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-  },
-  (t: any) => ({
-    uniqUserBook: uniqueIndex("favorites_user_book_unique").on(t.userId, t.bookId),
-  })
-)
-
-export const bookContents = pgTable(
-  "book_contents",
-  {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    bookId: uuid("book_id")
-      .references(() => books.id, { onDelete: "cascade" })
-      .notNull(),
-    content: text("content").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
-  },
-  (t: any) => ({
-    uniqBookId: uniqueIndex("book_contents_book_id_unique").on(t.bookId),
-  })
-)
-
-export const libraryUserProgress = pgTable(
-  "library_user_progress",
-  {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    userProfileId: uuid("user_profile_id")
-      .references(() => userProfiles.id, { onDelete: "cascade" })
-      .notNull(),
-    bookId: uuid("book_id")
-      .references(() => books.id, { onDelete: "cascade" })
-      .notNull(),
-    currentPage: integer("current_page").default(0).notNull(),
-    totalPages: integer("total_pages"),
-    minutesListened: integer("minutes_listened"),
-    totalMinutes: integer("total_minutes"),
-    progressPercent: integer("progress_percent"),
-    isCompleted: boolean("is_completed").default(false).notNull(),
-    lastReadAt: timestamp("last_read_at", { withTimezone: true }).default(sql`now()`),
-  },
-  (t: any) => ({
-    uniqUserBookProgress: uniqueIndex("library_user_progress_user_book_unique").on(t.userProfileId, t.bookId),
-  })
-)
-
 export const trackedUserProgress = pgTable(
   "tracked_user_progress",
   {
@@ -436,7 +361,6 @@ export const readingDiaryEntries = pgTable("reading_diary_entries", {
   titleId: uuid("title_id")
     .references(() => titles.id, { onDelete: "cascade" })
     .notNull(),
-  bookId: uuid("book_id").references(() => books.id, { onDelete: "set null" }),
   trackedBookId: uuid("tracked_book_id").references(() => trackedBooks.id, { onDelete: "set null" }),
   entryDate: date("entry_date").default(sql`CURRENT_DATE`).notNull(),
   noteHtml: text("note_html"),
@@ -469,7 +393,6 @@ export const externalBooks = pgTable(
 
 export const discussionPosts = pgTable("discussion_posts", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  bookId: uuid("book_id").references(() => books.id, { onDelete: "cascade" }),
   titleId: uuid("title_id")
     .references(() => titles.id, { onDelete: "cascade" })
     .notNull(),

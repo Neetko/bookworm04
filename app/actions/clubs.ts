@@ -104,7 +104,6 @@ export async function getClubs() {
 
   let plannedItems: Array<{
     club_id: string
-    book_id: string | null
     title_id?: string | null
     title: string | null
     created_at?: string
@@ -113,7 +112,7 @@ export async function getClubs() {
   if (bookClubIds.length > 0) {
     const plannedRes = await supabase
       .from("club_reading_items")
-      .select("club_id, book_id, title_id, title, created_at")
+      .select("club_id, title_id, title, created_at")
       .in("club_id", bookClubIds)
       .order("created_at", { ascending: false })
 
@@ -124,7 +123,7 @@ export async function getClubs() {
       if (isMissingTitleId) {
         const fallbackRes = await supabase
           .from("club_reading_items")
-          .select("club_id, book_id, title, created_at")
+          .select("club_id, title, created_at")
           .in("club_id", bookClubIds)
           .order("created_at", { ascending: false })
 
@@ -140,21 +139,12 @@ export async function getClubs() {
   const plannedTitleIds = plannedItems
     .map((item) => item.title_id)
     .filter(Boolean) as string[]
-  const plannedBookIds = plannedItems
-    .map((item) => item.book_id)
-    .filter(Boolean) as string[]
 
-  const [plannedTitlesRes, plannedBooksRes] = await Promise.all([
-    plannedTitleIds.length
-      ? supabase.from("titles").select("id, title").in("id", plannedTitleIds)
-      : Promise.resolve({ data: [] as any[] }),
-    plannedBookIds.length
-      ? supabase.from("books").select("id, title").in("id", plannedBookIds)
-      : Promise.resolve({ data: [] as any[] }),
-  ])
+  const plannedTitlesRes = plannedTitleIds.length
+    ? await supabase.from("titles").select("id, title").in("id", plannedTitleIds)
+    : { data: [] as any[] }
 
   const plannedTitleMap = new Map((plannedTitlesRes.data ?? []).map((t: any) => [t.id, t.title]))
-  const plannedBookMap = new Map((plannedBooksRes.data ?? []).map((b: any) => [b.id, b.title]))
 
   const plannedByClub = new Map<string, string[]>()
   for (const item of plannedItems) {
@@ -164,7 +154,6 @@ export async function getClubs() {
 
     const title =
       (item.title_id ? plannedTitleMap.get(item.title_id) : null) ??
-      (item.book_id ? plannedBookMap.get(item.book_id) : null) ??
       item.title ??
       "Untitled"
 
@@ -543,21 +532,19 @@ export async function kickMemberFromClub(clubId: string, memberProfileId: string
 
 export async function addClubReadingItem(
   clubId: string,
-  input: { bookId?: string; titleId?: string; title?: string; author?: string }
+  input: { titleId?: string; title?: string; author?: string }
 ) {
   const supabase = await createServerClient()
   await requireOwnerProfileId(supabase, clubId)
 
-  const bookId = input.bookId?.trim() || null
   const titleId = input.titleId?.trim() || null
   const title = input.title?.trim() || null
   const author = input.author?.trim() || null
 
-  if (!bookId && !title) throw new Error("Provide a book id or title")
+  if (!titleId && !title) throw new Error("Provide a title id or title")
 
   const payload: Record<string, any> = {
     club_id: clubId,
-    book_id: bookId,
     title,
     author,
   }
@@ -575,7 +562,6 @@ export async function addClubReadingItem(
     if (isMissingColumn) {
       const { error: fallbackError } = await supabase.from("club_reading_items").insert({
         club_id: clubId,
-        book_id: bookId,
         title,
         author,
       })
@@ -652,51 +638,6 @@ export async function uploadClubAvatar(clubId: string, formData: FormData) {
   return publicUrl
 }
 
-export async function uploadBookCover(bookId: string, formData: FormData) {
-  const supabase = await createServerClient()
-  const profileId = await requireAuthedProfileId(supabase)
-
-  const { data: me, error: meError } = await supabase
-    .from("user_profiles")
-    .select("role")
-    .eq("id", profileId)
-    .single()
-
-  if (meError || !me) throw new Error("Unauthorized")
-  if (me.role !== "Admin") throw new Error("Forbidden")
-
-  const file = formData.get("file")
-  if (!(file instanceof File)) throw new Error("Missing file")
-  if (!file.type.startsWith("image/")) throw new Error("File must be an image")
-  if (file.size > 10 * 1024 * 1024) throw new Error("Image must be <= 10MB")
-
-  const original = file.name || "upload"
-  const ext = (original.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "")
-  const safeExt = ext || "jpg"
-  const path = `books/${bookId}/${randomUUID()}.${safeExt}`
-
-  const { error: uploadError } = await supabase.storage
-    .from("book-covers")
-    .upload(path, file, { upsert: true, contentType: file.type })
-
-  if (uploadError) throw new Error("Failed to upload cover")
-
-  const { data: publicUrlData } = supabase.storage.from("book-covers").getPublicUrl(path)
-  const publicUrl = publicUrlData.publicUrl
-
-  const { error: updateError } = await supabase
-    .from("books")
-    .update({ cover_image_url: publicUrl, updated_at: new Date().toISOString() })
-    .eq("id", bookId)
-
-  if (updateError) throw new Error("Failed to save cover")
-
-  revalidatePath(`/titles/${bookId}`)
-  revalidatePath(`/books/${bookId}/read`)
-  revalidatePath("/")
-
-  return publicUrl
-}
 
 export async function getMyMembership(clubId: string) {
   const supabase = await createServerClient()
@@ -814,7 +755,7 @@ export async function getClubReadingItems(clubId: string) {
 
   const { data: items, error } = await supabase
     .from("club_reading_items")
-    .select("id, book_id, title_id, title, author, created_at")
+    .select("id, title_id, title, author, created_at")
     .eq("club_id", clubId)
     .order("created_at", { ascending: false })
 
@@ -822,41 +763,28 @@ export async function getClubReadingItems(clubId: string) {
     console.error("Error fetching club reading items:", error)
     return [] as Array<{
       id: string
-      book_id: string | null
       title_id: string | null
       title: string | null
       author: string | null
       created_at: string
       title_data?: { id: string; title: string; author: string; cover_image_url: string | null } | null
-      book?: { id: string; title: string; author: string } | null
     }>
   }
 
   const titleIds = (items ?? []).map((i) => i.title_id).filter(Boolean) as string[]
-  const bookIds = (items ?? []).map((i) => i.book_id).filter(Boolean) as string[]
 
-  const [titlesRes, booksRes] = await Promise.all([
-    titleIds.length
-      ? supabase
-          .from("titles")
-          .select("id, title, author, cover_image_url")
-          .in("id", titleIds)
-      : Promise.resolve({ data: [] as any[] }),
-    bookIds.length
-      ? supabase
-          .from("books")
-          .select("id, title, author")
-          .in("id", bookIds)
-      : Promise.resolve({ data: [] as any[] }),
-  ])
+  const titlesRes = titleIds.length
+    ? await supabase
+        .from("titles")
+        .select("id, title, author, cover_image_url")
+        .in("id", titleIds)
+    : { data: [] as any[] }
 
   const titleMap = new Map((titlesRes.data ?? []).map((t: any) => [t.id, t]))
-  const bookMap = new Map((booksRes.data ?? []).map((b: any) => [b.id, b]))
 
   return (items ?? []).map((item: any) => ({
     ...item,
     title_data: item.title_id ? titleMap.get(item.title_id) ?? null : null,
-    book: item.book_id ? bookMap.get(item.book_id) ?? null : null,
   }))
 }
 

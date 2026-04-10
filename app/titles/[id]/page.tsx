@@ -3,7 +3,7 @@ import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Star, BookOpenText, BookOpen } from "lucide-react"
+import { Star, BookOpen } from "lucide-react"
 import { createServerClient } from "@/lib/supabase-server"
 import { getReviews } from "@/app/actions/reviews"
 import { TitleEngagementTabs } from "@/components/title-engagement-tabs"
@@ -56,22 +56,6 @@ async function getTitle(id: string): Promise<TitleRow | null> {
     return null
   }
   return data as TitleRow
-}
-
-async function getLibraryBookIdForTitle(titleId: string): Promise<string | null> {
-  const supabase = await createServerClient()
-  const { data, error } = await supabase
-    .from("books")
-    .select("id")
-    .or(`id.eq.${titleId},title_id.eq.${titleId}`)
-    .maybeSingle()
-
-  if (error) {
-    console.error("Error fetching library mapping:", error)
-    return null
-  }
-
-  return (data?.id as string | undefined) ?? null
 }
 
 async function getTrackedBookIdForTitle(titleId: string): Promise<string | null> {
@@ -168,15 +152,15 @@ function uniqueGenres(genres: string[]): string[] {
 
 async function getGenresForTitle(titleId: string): Promise<string[]> {
   const supabase = await createServerClient()
-  const [bookRow, trackedRow, trackedByIdRow] = await Promise.all([
-    supabase.from("books").select("genre").eq("title_id", titleId).maybeSingle(),
+  const [titleRow, trackedRow, trackedByIdRow] = await Promise.all([
+    supabase.from("titles").select("genre").eq("id", titleId).maybeSingle(),
     supabase.from("tracked_books").select("genre").eq("title_id", titleId).maybeSingle(),
     supabase.from("tracked_books").select("genre").eq("id", titleId).maybeSingle(),
   ])
 
   const fallback = normalizeGenres(
     uniqueGenres([
-      ...((bookRow.data?.genre ?? []).filter(isGenre)),
+      ...((titleRow.data?.genre ?? []).filter(isGenre)),
       ...((trackedRow.data?.genre ?? []).filter(isGenre)),
       ...((trackedByIdRow.data?.genre ?? []).filter(isGenre)),
     ])
@@ -193,7 +177,6 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
     return <div className="min-h-screen bg-background"><Navigation /><div className="max-w-3xl mx-auto p-8">Title not found</div></div>
   }
 
-  const libraryBookId = await getLibraryBookIdForTitle(title.id)
   const trackedBookId = await getTrackedBookIdForTitle(title.id)
   const genres = normalizeGenres(await getGenresForTitle(title.id))
   const reviews = await getReviews(title.id)
@@ -317,21 +300,11 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                 ) : null}
 
                 <div className="flex flex-wrap gap-3">
-                  {libraryBookId ? (
-                    <Button asChild>
-                      <Link href={`/books/${libraryBookId}/read`}>
-                        <BookOpenText className="h-4 w-4 mr-2" />
-                        Read
-                      </Link>
-                    </Button>
-                  ) : null}
-
                   <MarkReadButton titleId={title.id} />
                   <TitleBookmarkButton titleId={title.id} />
                   <TitleTrackProgressButton
                     titleId={title.id}
                     title={title.title}
-                    bookId={libraryBookId}
                     trackedBookId={trackedBookId}
                     initialNoteHtml={todayDiaryNote?.noteHtml ?? null}
                     initialNoteText={todayDiaryNote?.noteText ?? null}

@@ -108,7 +108,6 @@ async function seed() {
           {
             user_id: user.id,
             title_id: title.id,
-            book_id: null,
             rating,
             review_text: reviewText,
           },
