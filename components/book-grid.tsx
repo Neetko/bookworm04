@@ -3,7 +3,6 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Star, BookOpen } from "lucide-react"
-import type { Book } from "@/lib/types"
 import { CoverImage } from "@/components/cover-image"
 
 function normalizeCoverUrl(url: string | null): string | null {
@@ -11,8 +10,17 @@ function normalizeCoverUrl(url: string | null): string | null {
   return url.replace(/^http:/, "https:")
 }
 
+type TitleGridItem = {
+  id: string
+  title: string
+  author: string
+  description?: string | null
+  cover_image_url?: string | null
+  genre?: string[] | null
+}
+
 interface BookGridProps {
-  books: Book[]
+  books: TitleGridItem[]
 }
 
 export function BookGrid({ books }: BookGridProps) {
@@ -66,7 +74,7 @@ export function BookGrid({ books }: BookGridProps) {
 
             <CardFooter className="p-6 pt-0 flex justify-end">
               <Button asChild>
-                <Link href={`/titles/${book.title_id ?? book.id}`}>Open</Link>
+                <Link href={`/titles/${book.id}`}>Open</Link>
               </Button>
             </CardFooter>
           </div>

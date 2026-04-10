@@ -121,9 +121,6 @@ export function Navigation() {
 
             {user ? (
               <>
-                <Link href="/library" className="text-muted-foreground hover:text-foreground">
-                  Library
-                </Link>
                 <Link href="/diary" className="text-muted-foreground hover:text-foreground">
                   Diary
                 </Link>

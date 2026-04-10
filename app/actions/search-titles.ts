@@ -67,17 +67,17 @@ async function getGenresForTitles(
 ): Promise<Map<string, Genre[]>> {
   if (titleIds.length === 0) return new Map()
 
-  const [bookRows, trackedByTitle, trackedById] = await Promise.all([
-    supabase.from("books").select("title_id,genre").in("title_id", titleIds),
+  const [titleRows, trackedByTitle, trackedById] = await Promise.all([
+    supabase.from("titles").select("id,genre").in("id", titleIds),
     supabase.from("tracked_books").select("title_id,genre").in("title_id", titleIds),
     supabase.from("tracked_books").select("id,genre").in("id", titleIds),
   ])
 
   const map = new Map<string, Genre[]>()
-  for (const row of bookRows.data ?? []) {
-    if (!row.title_id) continue
+  for (const row of titleRows.data ?? []) {
+    if (!row.id) continue
     const fallback = enforceGenreRulesFromList(uniqueGenres(((row as any).genre ?? []).filter(isGenre)))
-    map.set(row.title_id, fallback)
+    map.set(row.id, fallback)
   }
   for (const row of trackedByTitle.data ?? []) {
     if (!row.title_id) continue

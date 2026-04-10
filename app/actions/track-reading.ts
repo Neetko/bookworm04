@@ -603,10 +603,10 @@ async function ensureTitleForTrackedBook(
 
   const author = volume?.authors?.[0] ?? "Unknown author"
 
-  // Try to unify with curated library by ISBN
+  // Try to unify with canonical titles by ISBN
   if (volume?.isbn) {
     const { data: matchByIsbn } = await supabase
-      .from("books")
+      .from("titles")
       .select("id")
       .eq("isbn", volume.isbn)
       .maybeSingle()
@@ -645,10 +645,10 @@ async function ensureTitleForTrackedBook(
     }
   }
 
-  // Try to unify with curated library by title+author (case-insensitive)
+  // Try to unify with canonical titles by title+author (case-insensitive)
   if (volume?.title) {
     const { data: matchByTitle } = await supabase
-      .from("books")
+      .from("titles")
       .select("id")
       .ilike("title", volume.title)
       .ilike("author", author)
@@ -1024,7 +1024,6 @@ async function removeFromCurrentReadingList(
 
 export async function trackTitleProgress(input: {
   titleId: string
-  bookId?: string | null
   trackedBookId?: string | null
   progress: TrackProgressInput
   noteHtml?: string
@@ -1033,9 +1032,9 @@ export async function trackTitleProgress(input: {
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
 
-  const { titleId, bookId, trackedBookId, progress, noteHtml, noteText } = input
+  const { titleId, trackedBookId, progress, noteHtml, noteText } = input
 
-  if (!bookId && !trackedBookId) {
+  if (!trackedBookId) {
     throw new Error("No ingested title available to track")
   }
 
@@ -1136,38 +1135,6 @@ export async function trackTitleProgress(input: {
     return null
   }
 
-  if (bookId) {
-    update.book_id = bookId
-    const { error } = await supabase.from("library_user_progress").upsert(update, {
-      onConflict: "user_profile_id,book_id",
-    })
-
-    if (error) {
-      console.error("Failed to upsert progress", error)
-      throw new Error("Failed to save progress")
-    }
-
-    if (progressPercent > 0 && progressPercent < 100) {
-      await addToCurrentReadingList(supabase, profileId, titleId)
-      await removeFromToReadList(supabase, profileId, titleId)
-    } else if (progressPercent === 0) {
-      await removeFromCurrentReadingList(supabase, profileId, titleId)
-    }
-
-    if (isCompleted) {
-      await ensureTitleReadAndReward(supabase, profileId, titleId)
-    }
-
-    await upsertDiaryEntryForToday({
-      book_id: bookId,
-      tracked_book_id: null,
-    })
-
-    revalidatePath(`/titles/${titleId}`)
-    revalidatePath("/diary")
-    return { bookId, titleId }
-  }
-
   update.tracked_book_id = trackedBookId
   const { error } = await supabase.from("tracked_user_progress").upsert(update, {
     onConflict: "user_profile_id,tracked_book_id",
@@ -1190,7 +1157,6 @@ export async function trackTitleProgress(input: {
   }
 
   await upsertDiaryEntryForToday({
-    book_id: null,
     tracked_book_id: trackedBookId ?? null,
   })
 
@@ -1209,7 +1175,7 @@ export async function updateDiaryEntry(input: {
 
   const { data: entry, error: entryError } = await supabase
     .from("reading_diary_entries")
-    .select("id,title_id,book_id,tracked_book_id")
+    .select("id,title_id,tracked_book_id")
     .eq("user_profile_id", profileId)
     .eq("id", input.entryId)
     .single()
@@ -1244,73 +1210,6 @@ export async function updateDiaryEntry(input: {
   revalidatePath("/diary")
   revalidatePath(`/titles/${entry.title_id}`)
   return { entryId: input.entryId }
-}
-
-export async function claimAndTrackLocalBook(bookId: string, progress: TrackProgressInput) {
-  const supabase = await createServerClient()
-  const profileId = await requireAuthedProfileId(supabase)
-
-  const update: Record<string, any> = {
-    user_profile_id: profileId,
-    book_id: bookId,
-    last_read_at: new Date().toISOString(),
-  }
-  let isCompleted = false
-  let progressPercent = 0
-
-  if (progress.mode === "pages") {
-    const totalPages = Math.max(1, Math.floor(progress.totalPages))
-    const currentPage = clamp(Math.floor(progress.currentPage), 0, totalPages)
-    const percent = Math.round((currentPage / totalPages) * 100)
-
-    update.current_page = currentPage
-    update.total_pages = totalPages
-    update.progress_percent = percent
-    isCompleted = percent >= 100
-    progressPercent = percent
-
-    // Clear audio fields
-    update.minutes_listened = null
-    update.total_minutes = null
-  } else {
-    const totalMinutes = Math.max(1, Math.floor(progress.totalMinutes))
-    const minutesListened = clamp(Math.floor(progress.minutesListened), 0, totalMinutes)
-    const percent = Math.round((minutesListened / totalMinutes) * 100)
-
-    update.minutes_listened = minutesListened
-    update.total_minutes = totalMinutes
-    update.progress_percent = percent
-    isCompleted = percent >= 100
-    progressPercent = percent
-
-    // Keep current_page but clear page totals
-    update.total_pages = null
-  }
-
-  update.is_completed = isCompleted
-
-  const { error } = await supabase.from("library_user_progress").upsert(update, {
-    onConflict: "user_profile_id,book_id",
-  })
-
-  if (error) {
-    console.error("Failed to upsert progress", error)
-    throw new Error("Failed to save progress")
-  }
-
-  if (progressPercent > 0 && progressPercent < 100) {
-    await addToCurrentReadingList(supabase, profileId, bookId)
-    await removeFromToReadList(supabase, profileId, bookId)
-  } else if (progressPercent === 0) {
-    await removeFromCurrentReadingList(supabase, profileId, bookId)
-  }
-
-  if (isCompleted) {
-    await ensureTitleReadAndReward(supabase, profileId, bookId)
-  }
-
-  revalidatePath(`/titles/${bookId}`)
-  return { bookId }
 }
 
 export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackProgressInput) {

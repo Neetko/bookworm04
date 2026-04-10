@@ -112,15 +112,10 @@ export async function getProfileData(token: string) {
     .select("*", { count: "exact", head: true })
     .eq("user_id", profile.id)
 
-  const { count: favoritesCount } = await supabase
-    .from("favorites")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", profile.id)
-
   // Fetch recent reviews
   const { data: recentReviews } = await supabase
     .from("reviews")
-    .select("*, books(title)")
+    .select("*, titles(title)")
     .eq("user_id", profile.id)
     .order("created_at", { ascending: false })
     .limit(10)
@@ -293,7 +288,6 @@ export async function getProfileData(token: string) {
     stats: {
       booksRead: booksReadCount || 0,
       reviewsWritten: reviewsCount || 0,
-      favorites: favoritesCount || 0,
       genrePoints: pointsByGenre,
     },
     recentReviews: recentReviews || [],

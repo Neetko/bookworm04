@@ -35,14 +35,14 @@ async function getTitleGenres(
   supabase: any,
   titleId: string
 ): Promise<Genre[]> {
-  const [bookRow, trackedRow, trackedByIdRow] = await Promise.all([
-    supabase.from("books").select("genre").eq("title_id", titleId).maybeSingle(),
+  const [titleRow, trackedRow, trackedByIdRow] = await Promise.all([
+    supabase.from("titles").select("genre").eq("id", titleId).maybeSingle(),
     supabase.from("tracked_books").select("genre").eq("title_id", titleId).maybeSingle(),
     supabase.from("tracked_books").select("genre").eq("id", titleId).maybeSingle(),
   ])
 
   const fallback = uniqueGenres([
-    ...normalizeGenres(bookRow.data?.genre),
+    ...normalizeGenres(titleRow.data?.genre),
     ...normalizeGenres(trackedRow.data?.genre),
     ...normalizeGenres(trackedByIdRow.data?.genre),
   ])

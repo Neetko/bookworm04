@@ -42,11 +42,9 @@ type Member = { id: string; username: string | null; avatar_url: string | null; 
 
 type ReadingItem = {
   id: string
-  book_id: string | null
   title_id?: string | null
   title: string | null
   author: string | null
-  book: { id: string; title: string; author: string } | null
   title_data?: { id: string; title: string; author: string; cover_image_url: string | null } | null
 }
 
@@ -262,10 +260,10 @@ export function ClubManageForm({
                 >
                   <option value="">No current reading</option>
                   {readingItems.map((item) => {
-                    const titleRecord = item.title_data ?? item.book
+                    const titleRecord = item.title_data ?? null
                     const title = titleRecord?.title ?? item.title ?? "Untitled"
                     const author = titleRecord?.author ?? item.author ?? ""
-                    const titleId = item.title_id ?? item.book?.id ?? null
+                    const titleId = item.title_id ?? null
 
                     if (!titleId) return null
 
@@ -290,7 +288,7 @@ export function ClubManageForm({
                 <div className="text-sm text-muted-foreground">No titles selected.</div>
               ) : (
                 readingItems.map((item) => {
-                  const titleRecord = item.title_data ?? item.book
+                  const titleRecord = item.title_data ?? null
                   const title = titleRecord?.title ?? item.title ?? "Untitled"
                   const author = titleRecord?.author ?? item.author ?? ""
                   const coverUrl = item.title_data?.cover_image_url ?? null
@@ -308,9 +306,6 @@ export function ClubManageForm({
                             {author && <div className="text-sm text-muted-foreground">{author}</div>}
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant={item.book ? "default" : "secondary"}>
-                              {item.book ? "In library" : "Not in library"}
-                            </Badge>
                             <Button
                               size="icon"
                               variant="ghost"
