@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Star, BookOpen } from "lucide-react"
 import { CoverImage } from "@/components/cover-image"
 
-function normalizeCoverUrl(url: string | null): string | null {
+function normalizeCoverUrl(url: string | null | undefined): string | null {
   if (!url) return null
   return url.replace(/^http:/, "https:")
 }

@@ -124,10 +124,22 @@ function EditListsPageContent({ profileData, sessionToken, reloadProfile }: Edit
     toListName: string
   }>(null)
 
-  const finishedReadingTitles = profileData.finishedReadingTitles || []
-  const toReadTitles = profileData.toReadTitles || []
-  const currentReadingTitles = profileData.currentReadingTitles || []
-  const customLists = profileData.customLists || []
+  const finishedReadingTitles = useMemo(
+    () => profileData.finishedReadingTitles || [],
+    [profileData.finishedReadingTitles]
+  )
+  const toReadTitles = useMemo(
+    () => profileData.toReadTitles || [],
+    [profileData.toReadTitles]
+  )
+  const currentReadingTitles = useMemo(
+    () => profileData.currentReadingTitles || [],
+    [profileData.currentReadingTitles]
+  )
+  const customLists = useMemo(
+    () => profileData.customLists || [],
+    [profileData.customLists]
+  )
 
   const toReadTitleIds = useMemo(
     () => new Set<string>((toReadTitles ?? []).map((entry: any) => entry.title_id)),
