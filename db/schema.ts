@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean, check, jsonb, date, index } from "drizzle-orm/pg-core"
+import { pgTable, pgEnum, uuid, varchar, text, integer, timestamp, uniqueIndex, boolean, check, jsonb, date, index } from "drizzle-orm/pg-core"
 
 export const titles = pgTable("titles", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -16,6 +16,10 @@ export const titles = pgTable("titles", {
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
 })
+
+export const appRole = pgEnum("app_role", ["admin", "user"])
+export const suggestionStatus = pgEnum("suggestion_status", ["pending", "approved", "dismissed"])
+export const suggestionMatchType = pgEnum("suggestion_match_type", ["exact_auto_dupe", "bookworm_suggested"])
 
 export const editions = pgTable(
   "editions",
@@ -155,25 +159,64 @@ export const titleSources = pgTable(
   })
 )
 
-// Tracked/ingested titles (metadata-only; not readable content in the Library)
-export const trackedBooks = pgTable("tracked_books", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  titleId: uuid("title_id").references(() => titles.id, { onDelete: "cascade" }),
-  title: varchar("title", { length: 255 }).notNull(),
-  author: varchar("author", { length: 255 }).notNull(),
-  description: text("description"),
-  coverImageUrl: text("cover_image_url"),
-  genre: text("genre").array(),
-  workId: text("work_id"),
-  isbnList: jsonb("isbn_list"),
-  dupeWorkIds: jsonb("dupe_work_ids"),
-  publishedYear: integer("published_year"),
-  isbn: varchar("isbn", { length: 20 }),
-  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
-}, (t: any) => ({
-  uniqTrackedTitleId: uniqueIndex("tracked_books_title_id_unique").on(t.titleId),
-}))
+export const titleReferenceWorks = pgTable(
+  "title_reference_works",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    titleId: uuid("title_id")
+      .references(() => titles.id, { onDelete: "cascade" })
+      .notNull(),
+    workId: text("work_id").notNull(),
+    source: text("source").default("unknown").notNull(),
+    confidenceScore: integer("confidence_score"),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqTitleWork: uniqueIndex("title_reference_works_title_work_unique").on(t.titleId, t.workId),
+    titleReferenceWorksTitleIdx: index("title_reference_works_title_idx").on(t.titleId),
+    titleReferenceWorksWorkIdx: index("title_reference_works_work_idx").on(t.workId),
+  })
+)
+
+export const referenceIsbns = pgTable(
+  "reference_isbns",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    titleId: uuid("title_id")
+      .references(() => titles.id, { onDelete: "cascade" })
+      .notNull(),
+    workId: text("work_id").notNull(),
+    isbn: text("isbn").notNull(),
+    source: text("source").default("unknown").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqReferenceIsbn: uniqueIndex("reference_isbns_isbn_unique").on(t.isbn),
+    referenceIsbnsTitleIdx: index("reference_isbns_title_idx").on(t.titleId),
+    referenceIsbnsWorkIdx: index("reference_isbns_work_idx").on(t.workId),
+  })
+)
+
+export const workCoverCache = pgTable(
+  "work_cover_cache",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workId: text("work_id").notNull(),
+    source: text("source").notNull(),
+    sourceCoverKey: text("source_cover_key").notNull(),
+    remoteUrl: text("remote_url").notNull(),
+    cachedFilePath: text("cached_file_path"),
+    cachedPublicUrl: text("cached_public_url"),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqWorkCoverCache: uniqueIndex("work_cover_cache_work_source_key_unique").on(t.workId, t.source, t.sourceCoverKey),
+    workCoverCacheWorkIdx: index("work_cover_cache_work_idx").on(t.workId),
+  })
+)
 
 export const userProfiles = pgTable(
   "user_profiles",
@@ -192,6 +235,50 @@ export const userProfiles = pgTable(
   },
   (t: any) => ({
     uniqAuthUser: uniqueIndex("user_profiles_auth_user_id_unique").on(t.authUserId),
+  })
+)
+
+export const suggestions = pgTable("suggestions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  titleId: uuid("title_id")
+    .references(() => titles.id, { onDelete: "cascade" })
+    .notNull(),
+  suggestedGenres: text("suggested_genres").array(),
+  algorithmSuggestedGenres: text("algorithm_suggested_genres").array(),
+  suggestedSelectedWorkIds: text("suggested_selected_work_ids").array(),
+  suggestedSelectedWorkSnapshots: jsonb("suggested_selected_work_snapshots"),
+  adminFinalGenres: text("admin_final_genres").array(),
+  adminFinalSelectedWorkIds: text("admin_final_selected_work_ids").array(),
+  adminFinalSelectedWorkSnapshots: jsonb("admin_final_selected_work_snapshots"),
+  adminFinalCoverSelection: jsonb("admin_final_cover_selection"),
+  adminReviewedAt: timestamp("admin_reviewed_at", { withTimezone: true }),
+  adminReviewedByProfileId: uuid("admin_reviewed_by_profile_id")
+    .references(() => userProfiles.id, { onDelete: "set null" }),
+  suggestedByProfileId: uuid("suggested_by_profile_id")
+    .references(() => userProfiles.id, { onDelete: "set null" }),
+  status: suggestionStatus("status").default("pending").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+})
+
+export const suggestionWorkMatches = pgTable(
+  "suggestion_work_matches",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    suggestionId: uuid("suggestion_id")
+      .references(() => suggestions.id, { onDelete: "cascade" })
+      .notNull(),
+    workId: text("work_id").notNull(),
+    matchType: suggestionMatchType("match_type").notNull(),
+    confidenceScore: integer("confidence_score"),
+    reason: text("reason"),
+    workSnapshot: jsonb("work_snapshot"),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqSuggestionMatch: uniqueIndex("suggestion_work_matches_unique_match").on(t.suggestionId, t.workId, t.matchType),
+    suggestionIdx: index("suggestion_work_matches_suggestion_idx").on(t.suggestionId),
   })
 )
 
@@ -330,15 +417,15 @@ export const titleBookmarks = pgTable(
   })
 )
 
-export const trackedUserProgress = pgTable(
-  "tracked_user_progress",
+export const titleUserProgress = pgTable(
+  "title_user_progress",
   {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     userProfileId: uuid("user_profile_id")
       .references(() => userProfiles.id, { onDelete: "cascade" })
       .notNull(),
-    trackedBookId: uuid("tracked_book_id")
-      .references(() => trackedBooks.id, { onDelete: "cascade" })
+    titleId: uuid("title_id")
+      .references(() => titles.id, { onDelete: "cascade" })
       .notNull(),
     currentPage: integer("current_page").default(0).notNull(),
     totalPages: integer("total_pages"),
@@ -349,7 +436,7 @@ export const trackedUserProgress = pgTable(
     lastReadAt: timestamp("last_read_at", { withTimezone: true }).default(sql`now()`),
   },
   (t: any) => ({
-    uniqUserTrackedBookProgress: uniqueIndex("tracked_user_progress_user_book_unique").on(t.userProfileId, t.trackedBookId),
+    uniqUserTitleProgress: uniqueIndex("title_user_progress_user_title_unique").on(t.userProfileId, t.titleId),
   })
 )
 
@@ -361,7 +448,6 @@ export const readingDiaryEntries = pgTable("reading_diary_entries", {
   titleId: uuid("title_id")
     .references(() => titles.id, { onDelete: "cascade" })
     .notNull(),
-  trackedBookId: uuid("tracked_book_id").references(() => trackedBooks.id, { onDelete: "set null" }),
   entryDate: date("entry_date").default(sql`CURRENT_DATE`).notNull(),
   noteHtml: text("note_html"),
   noteText: text("note_text"),
@@ -374,22 +460,6 @@ export const readingDiaryEntries = pgTable("reading_diary_entries", {
   isCompleted: boolean("is_completed").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
 })
-
-export const externalBooks = pgTable(
-  "external_books",
-  {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    source: text("source").notNull(),
-    externalId: text("external_id").notNull(),
-    trackedBookId: uuid("tracked_book_id")
-      .references(() => trackedBooks.id, { onDelete: "cascade" })
-      .notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-  },
-  (t: any) => ({
-    uniqSourceExternalId: uniqueIndex("external_books_source_external_id_unique").on(t.source, t.externalId),
-  })
-)
 
 export const discussionPosts = pgTable("discussion_posts", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
