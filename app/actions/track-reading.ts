@@ -451,7 +451,8 @@ async function getExistingTitleIdForVolume(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
   volumeId: string
 ): Promise<string | null> {
-  const { data, error } = await supabase
+  const admin = createAdminClient()
+  const { data, error } = await admin
     .from("title_sources")
     .select("title_id")
     .eq("source", "google")
@@ -473,7 +474,8 @@ async function ensureTitleSourceMapping(
   volumeId: string,
   titleId: string
 ) {
-  const { error } = await supabase.from("title_sources").upsert(
+  const admin = createAdminClient()
+  const { error } = await admin.from("title_sources").upsert(
     {
       source: "google",
       external_id: volumeId,
@@ -503,6 +505,7 @@ async function ensureTitleForGoogleVolume(
   },
   workInfo?: { workId: string | null; isbnList: string[]; dupeWorkIds?: string[] }
 ) {
+  const admin = createAdminClient()
   const author = volume.authors?.[0] ?? "Unknown author"
   const existingMappedTitleId = await getExistingTitleIdForVolume(supabase, volumeId)
   const now = new Date().toISOString()
@@ -512,12 +515,12 @@ async function ensureTitleForGoogleVolume(
   let titleId = existingMappedTitleId
 
   if (titleId) {
-    const { data } = await supabase.from("titles").select(selectFields).eq("id", titleId).maybeSingle()
+    const { data } = await admin.from("titles").select(selectFields).eq("id", titleId).maybeSingle()
     existingTitle = data ?? null
   }
 
   if (!titleId && volume.isbn) {
-    const { data } = await supabase.from("titles").select(selectFields).eq("isbn", volume.isbn).maybeSingle()
+    const { data } = await admin.from("titles").select(selectFields).eq("isbn", volume.isbn).maybeSingle()
     if (data?.id) {
       titleId = data.id as string
       existingTitle = data
@@ -525,7 +528,7 @@ async function ensureTitleForGoogleVolume(
   }
 
   if (!titleId && volume.title) {
-    const { data } = await supabase
+    const { data } = await admin
       .from("titles")
       .select(selectFields)
       .ilike("title", volume.title)
@@ -538,7 +541,7 @@ async function ensureTitleForGoogleVolume(
   }
 
   if (!titleId) {
-    const { data: inserted, error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await admin
       .from("titles")
       .insert({
         title: volume.title,
@@ -580,7 +583,7 @@ async function ensureTitleForGoogleVolume(
     if (!existingTitle?.published_year && volume.publishedYear) updatePayload.published_year = volume.publishedYear
     if (!existingTitle?.isbn && volume.isbn) updatePayload.isbn = volume.isbn
 
-    const { error: updateError } = await supabase.from("titles").update(updatePayload).eq("id", titleId)
+    const { error: updateError } = await admin.from("titles").update(updatePayload).eq("id", titleId)
     if (updateError) {
       console.error("Failed to update title", updateError)
       throw new Error("Failed to update title")
@@ -596,6 +599,8 @@ async function ensureBookFromGoogleVolume(
   _selectedWorkIds: string[]
 ): Promise<{ titleId: string }> {
   const supabase = await createServerClient()
+  await requireAuthedProfileId(supabase)
+  const admin = createAdminClient()
 
   const details = await getGoogleBookDetails(volumeId)
   if (!details) throw new Error("Unable to fetch Google book")
@@ -615,14 +620,14 @@ async function ensureBookFromGoogleVolume(
   })
 
   if (openLibrary?.workId) {
-    await upsertTitleReferenceWorks(supabase, {
+    await upsertTitleReferenceWorks(admin, {
       titleId,
       workIds: [openLibrary.workId],
       source: "google-ingest",
       confidenceScore: 100,
     })
 
-    await upsertReferenceIsbns(supabase, {
+    await upsertReferenceIsbns(admin, {
       titleId,
       workId: openLibrary.workId,
       isbns: openLibrary.isbns,
@@ -695,6 +700,7 @@ export async function confirmGoogleBookIngest(input: {
     author: string
     firstPublishYear: number | null
     editionCount: number | null
+    coverUrl?: string | null
   }>
 }) {
   const supabase = await createServerClient()
@@ -830,7 +836,8 @@ async function upsertEditionsForWorks(input: {
   workEditions: Array<{ workId: string; editions: OpenLibraryEdition[] }>
   googleCategories: string[]
 }) {
-  const { supabase, primaryWorkId, identifiers, googleDetails, workEditions, googleCategories } = input
+  const { primaryWorkId, identifiers, googleDetails, workEditions, googleCategories } = input
+  const admin = createAdminClient()
   if (!googleDetails) return
 
   const { isbn10, isbn13 } = extractIsbnParts(identifiers)
@@ -862,13 +869,13 @@ async function upsertEditionsForWorks(input: {
   }
 
   if (isbn13) {
-    await supabase.from("editions").upsert(googleEdition, { onConflict: "isbn_13" })
+    await admin.from("editions").upsert(googleEdition, { onConflict: "isbn_13" })
   } else if (isbn10) {
-    await supabase.from("editions").upsert(googleEdition, { onConflict: "isbn_10" })
+    await admin.from("editions").upsert(googleEdition, { onConflict: "isbn_10" })
   } else if (googleAsin) {
-    await supabase.from("editions").upsert(googleEdition, { onConflict: "volume_id" })
+    await admin.from("editions").upsert(googleEdition, { onConflict: "volume_id" })
   } else {
-    await supabase.from("editions").upsert(googleEdition, { onConflict: "volume_id" })
+    await admin.from("editions").upsert(googleEdition, { onConflict: "volume_id" })
   }
 
   for (const entry of workEditions) {
@@ -916,10 +923,10 @@ async function upsertEditionsForWorks(input: {
     const olRowsIsbn10 = olRows.filter((row) => row.isbn_10 && !row.isbn_13)
 
     if (olRowsIsbn13.length > 0) {
-      await supabase.from("editions").upsert(olRowsIsbn13, { onConflict: "isbn_13" })
+      await admin.from("editions").upsert(olRowsIsbn13, { onConflict: "isbn_13" })
     }
     if (olRowsIsbn10.length > 0) {
-      await supabase.from("editions").upsert(olRowsIsbn10, { onConflict: "isbn_10" })
+      await admin.from("editions").upsert(olRowsIsbn10, { onConflict: "isbn_10" })
     }
   }
 }

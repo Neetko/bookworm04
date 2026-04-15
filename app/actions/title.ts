@@ -329,22 +329,7 @@ export async function getDiscussionPosts(titleId: string): Promise<DiscussionPos
 
   const { data, error } = await supabase
     .from("discussion_posts")
-    .select(
-      `
-      id,
-      content,
-      likes_count,
-      created_at,
-      user_profiles (
-        username,
-        avatar_url,
-        role,
-        created_at,
-        signature,
-        signature_image
-      )
-    `
-    )
+    .select("id, content, likes_count, created_at, user_id")
     .eq("title_id", titleId)
     .order("created_at", { ascending: false })
 
@@ -355,7 +340,17 @@ export async function getDiscussionPosts(titleId: string): Promise<DiscussionPos
 
   const rows = (data ?? []) as any[]
   const postIds = rows.map((row) => row.id).filter(Boolean) as string[]
+  const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter(Boolean))) as string[]
   const likedSet = new Set<string>()
+
+  const { data: profiles } = userIds.length
+    ? await supabase
+        .from("public_profiles")
+        .select("id,username,avatar_url,role,created_at")
+        .in("id", userIds)
+    : { data: [] as Array<{ id: string; username: string | null; avatar_url: string | null; role: string | null; created_at: string | null }> }
+
+  const profileMap = new Map((profiles ?? []).map((profile) => [profile.id as string, profile]))
 
   if (postIds.length > 0) {
     const { data: likedRows } = await supabase
@@ -373,10 +368,14 @@ export async function getDiscussionPosts(titleId: string): Promise<DiscussionPos
     ...row,
     likes_count: row.likes_count ?? 0,
     viewer_has_liked: likedSet.has(row.id),
-    user_profiles: row.user_profiles
+    user_profiles: profileMap.get(row.user_id as string)
       ? {
-          ...row.user_profiles,
-          joined_date: row.user_profiles.created_at ?? null,
+          username: profileMap.get(row.user_id as string)?.username ?? null,
+          avatar_url: profileMap.get(row.user_id as string)?.avatar_url ?? null,
+          role: profileMap.get(row.user_id as string)?.role ?? null,
+          joined_date: profileMap.get(row.user_id as string)?.created_at ?? null,
+          signature: null,
+          signature_image: null,
         }
       : null,
   }))
@@ -384,6 +383,7 @@ export async function getDiscussionPosts(titleId: string): Promise<DiscussionPos
 
 export async function createDiscussionPost(titleId: string, content: string) {
   const supabase = await createServerClient()
+  const admin = createAdminClient()
   const profileId = await requireAuthedProfileId(supabase)
   await requireTitleRead(supabase, profileId, titleId)
 
@@ -419,7 +419,7 @@ export async function createDiscussionPost(titleId: string, content: string) {
     })
 
     const [{ data: bookmarks }, actorMeta, titleMeta] = await Promise.all([
-      supabase.from("title_bookmarks").select("user_profile_id").eq("title_id", titleId),
+      admin.from("title_bookmarks").select("user_profile_id").eq("title_id", titleId),
       buildActorMetadata(supabase, profileId),
       buildTitleMetadata(supabase, titleId),
     ])
@@ -433,7 +433,7 @@ export async function createDiscussionPost(titleId: string, content: string) {
     )
 
     if (recipients.length > 0) {
-      await supabase.from("notifications").insert(
+      await admin.from("notifications").insert(
         recipients.map((recipientId) => ({
           recipient_profile_id: recipientId,
           actor_profile_id: profileId,
@@ -455,6 +455,7 @@ export async function createDiscussionPost(titleId: string, content: string) {
 
 export async function toggleDiscussionPostLike(postId: string) {
   const supabase = await createServerClient()
+  const admin = createAdminClient()
   const profileId = await requireAuthedProfileId(supabase)
 
   const { data: post, error: postError } = await supabase
@@ -480,7 +481,7 @@ export async function toggleDiscussionPostLike(postId: string) {
 
     if (error) throw new Error("Failed to remove like")
 
-    await supabase
+    await admin
       .from("discussion_posts")
       .update({ likes_count: Math.max(0, (post.likes_count ?? 0) - 1) })
       .eq("id", postId)
@@ -494,7 +495,7 @@ export async function toggleDiscussionPostLike(postId: string) {
 
   if (insertError) throw new Error("Failed to like post")
 
-  await supabase
+  await admin
     .from("discussion_posts")
     .update({ likes_count: (post.likes_count ?? 0) + 1 })
     .eq("id", postId)
@@ -505,7 +506,7 @@ export async function toggleDiscussionPostLike(postId: string) {
       post.title_id ? buildTitleMetadata(supabase, post.title_id as string) : Promise.resolve(null),
     ])
 
-    await supabase.from("notifications").insert({
+    await admin.from("notifications").insert({
       recipient_profile_id: post.user_id,
       actor_profile_id: profileId,
       title_id: post.title_id ?? null,
@@ -676,7 +677,8 @@ async function getPendingSuggestedWorkIdsForTitle(
 ): Promise<string[]> {
   if (!titleId.trim()) return []
 
-  const { data, error } = await supabase
+  const admin = createAdminClient()
+  const { data, error } = await admin
     .from("suggestions")
     .select("suggested_selected_work_ids,admin_final_selected_work_ids")
     .eq("title_id", titleId)

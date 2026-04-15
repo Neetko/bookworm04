@@ -48,7 +48,7 @@ export async function GET(request: Request) {
   }
 
   const friendsQuery = supabase
-    .from("user_profiles")
+    .from("public_profiles")
     .select("id, username, avatar_url")
     .in("id", friendIds.length > 0 ? friendIds : ["00000000-0000-0000-0000-000000000000"])
     .neq("id", profile.id)
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
   if (results.length < 3) {
     const excludedIds = [profile.id, ...results.map((item) => item.id)]
     const otherQuery = supabase
-      .from("user_profiles")
+      .from("public_profiles")
       .select("id, username, avatar_url")
       .not("id", "in", `(${excludedIds.join(",")})`)
 

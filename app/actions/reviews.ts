@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase-server"
+import { createAdminClient, createServerClient } from "@/lib/supabase-server"
 import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
 import { revalidatePath } from "next/cache"
 import { awardPointsForTitleAction } from "@/app/actions/rewards"
@@ -140,7 +140,7 @@ export async function getReviews(titleId: string) {
   if (userIds.length === 0) return rows
 
   const { data: profiles, error: profileError } = await supabase
-    .from("user_profiles")
+    .from("public_profiles")
     .select("id,username,avatar_url")
     .in("id", userIds)
 
@@ -169,6 +169,7 @@ export async function getReviews(titleId: string) {
 
 export async function toggleReviewLike(reviewId: string) {
   const supabase = await createServerClient()
+  const admin = createAdminClient()
   const profileId = await requireAuthedProfileId(supabase)
 
   const { data: review, error: reviewError } = await supabase
@@ -210,7 +211,7 @@ export async function toggleReviewLike(reviewId: string) {
         : Promise.resolve({ data: null } as any),
     ])
 
-    await supabase.from("notifications").insert({
+    await admin.from("notifications").insert({
       recipient_profile_id: review.user_id,
       actor_profile_id: profileId,
       title_id: review.title_id ?? null,

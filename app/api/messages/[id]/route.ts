@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase-server"
+import { createAdminClient, createServerClient } from "@/lib/supabase-server"
 
 const getProfileId = async () => {
   const supabase = await createServerClient()
@@ -45,7 +45,8 @@ const buildCounts = async (supabase: Awaited<ReturnType<typeof createServerClien
   }
 }
 
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const { supabase, profileId } = await getProfileId()
 
   if (!profileId) {
@@ -55,7 +56,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   const { data: message, error } = await supabase
     .from("messages")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .or(`sender_profile_id.eq.${profileId},recipient_profile_id.eq.${profileId}`)
     .maybeSingle()
 
@@ -73,8 +74,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   const profileIds = [message.sender_profile_id, message.recipient_profile_id].filter(Boolean) as string[]
 
   const { data: profiles } = await supabase
-    .from("user_profiles")
-    .select("id, username, avatar_url, email")
+    .from("public_profiles")
+    .select("id, username, avatar_url")
     .in("id", profileIds.length > 0 ? profileIds : ["00000000-0000-0000-0000-000000000000"])
 
   const profileMap = new Map((profiles ?? []).map((profile) => [profile.id as string, profile]))
@@ -82,8 +83,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   const sender = profileMap.get(message.sender_profile_id) as any
   const recipient = message.recipient_profile_id ? (profileMap.get(message.recipient_profile_id) as any) : null
 
-  const senderName = sender?.username ?? sender?.email ?? "Unknown"
-  const recipientName = recipient?.username ?? recipient?.email ?? message.recipient_username ?? "Unknown"
+  const senderName = sender?.username ?? "Unknown"
+  const recipientName = recipient?.username ?? message.recipient_username ?? "Unknown"
 
   const normalized = {
     id: message.id as string,
@@ -94,12 +95,12 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     type: message.status === "draft" ? "draft" : message.recipient_profile_id === profileId ? "inbox" : "sent",
     from: {
       name: senderName,
-      email: sender?.email ?? senderName,
+      email: senderName,
       avatarUrl: sender?.avatar_url ?? null,
     },
     to: {
       name: recipientName,
-      email: recipient?.email ?? recipientName,
+      email: recipientName,
       avatarUrl: recipient?.avatar_url ?? null,
     },
     replyTo: message.reply_to as string | null,
@@ -110,8 +111,10 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   return NextResponse.json({ message: normalized, counts })
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const { supabase, profileId } = await getProfileId()
+  const admin = createAdminClient()
 
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -129,7 +132,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const { data: message } = await supabase
     .from("messages")
     .select("sender_profile_id, recipient_profile_id")
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle()
 
   if (!message) {
@@ -141,10 +144,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const { error } = await supabase
+    const { error } = await admin
       .from("messages")
       .update({ is_read: Boolean(payload?.isRead), updated_at: new Date().toISOString() })
-      .eq("id", params.id)
+      .eq("id", id)
+      .eq("recipient_profile_id", profileId)
 
     if (error) {
       return NextResponse.json({ error: "Failed to update message" }, { status: 500 })
@@ -175,7 +179,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   if (recipient) {
     const { data: recipientProfile } = await supabase
-      .from("user_profiles")
+      .from("public_profiles")
       .select("id, username")
       .eq("username", recipient)
       .maybeSingle()
@@ -191,7 +195,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: "Recipient required" }, { status: 400 })
   }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from("messages")
     .update({
       subject: title,
@@ -202,7 +206,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       is_read: status !== "sent" ? true : false,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", params.id)
+    .eq("id", id)
+    .eq("sender_profile_id", profileId)
 
   if (error) {
     return NextResponse.json({ error: "Failed to update message" }, { status: 500 })
@@ -211,8 +216,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   return NextResponse.json({ success: true })
 }
 
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const { supabase, profileId } = await getProfileId()
+  const admin = createAdminClient()
 
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -221,7 +228,7 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
   const { data: message } = await supabase
     .from("messages")
     .select("id, status, sender_profile_id, recipient_profile_id, sender_deleted, recipient_deleted")
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle()
 
   if (!message) {
@@ -239,7 +246,11 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
     if (!isSender) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
-    const { error } = await supabase.from("messages").delete().eq("id", params.id)
+    const { error } = await admin
+      .from("messages")
+      .delete()
+      .eq("id", id)
+      .eq("sender_profile_id", profileId)
     if (error) {
       return NextResponse.json({ error: "Failed to delete draft" }, { status: 500 })
     }
@@ -253,21 +264,21 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
   const nextRecipientDeleted = isRecipient ? true : recipientDeleted
 
   if (nextSenderDeleted && nextRecipientDeleted) {
-    const { error } = await supabase.from("messages").delete().eq("id", params.id)
+    const { error } = await admin.from("messages").delete().eq("id", id)
     if (error) {
       return NextResponse.json({ error: "Failed to delete message" }, { status: 500 })
     }
     return NextResponse.json({ deleted: true })
   }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from("messages")
     .update({
       sender_deleted: nextSenderDeleted,
       recipient_deleted: nextRecipientDeleted,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", params.id)
+    .eq("id", id)
 
   if (error) {
     return NextResponse.json({ error: "Failed to delete message" }, { status: 500 })
