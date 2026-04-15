@@ -15,7 +15,7 @@
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
 @layer utilities {
@@ -116,9 +116,6 @@ body {
     --sidebar-ring: oklch(0.5455 0.0616 60.6400);
     --radius: 0.3rem;
     --sidebar: oklch(0.2684 0.0214 47.9030);
-    --font-sans: "IM Fell English SC", serif;
-    --font-serif: "IM Fell English", serif;
-    --font-mono: "Source Code Pro", monospace;
     --shadow-color: #000000;
     --shadow-opacity: 0.4;
     --shadow-blur: 12px;
@@ -137,9 +134,6 @@ body {
     --shadow-2xl: 0px 6px 12px 0px hsl(0 0% 0% / 1.00);
   }
   .theme {
-    --font-sans: "IM Fell English SC", serif;
-    --font-mono: "Source Code Pro", monospace;
-    --font-serif: "IM Fell English", serif;
     --radius: 0.3rem;
     --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
     --tracking-tight: calc(var(--tracking-normal) - 0.025em);
