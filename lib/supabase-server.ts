@@ -3,9 +3,9 @@ import "server-only"
 import { createServerClient as createSupabaseServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
+import { getSupabasePublicEnv, getSupabaseServiceRoleEnv } from "@/lib/supabase-config"
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://localhost"
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "public-anon-key"
+const { url, anonKey: anon } = getSupabasePublicEnv()
 
 // Cookie-aware server client for Server Components + Server Actions
 export const createServerClient = async () => {
@@ -36,7 +36,12 @@ export const createServerClient = async () => {
 
 // Admin client (service role) – use sparingly and never for user-authenticated identity.
 export const createAdminClient = () => {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "service-role-key"
+  const { serviceRoleKey: serviceKey, isConfigured } = getSupabaseServiceRoleEnv()
+
+  if (!isConfigured) {
+    console.warn("SUPABASE_SERVICE_ROLE_KEY is not configured. Admin-only Supabase requests may fail.")
+  }
+
   return createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Navigation } from "@/components/navigation"
@@ -14,7 +14,7 @@ const normalizeFolder = (value: string | null): MessageFolder => {
   return "inbox"
 }
 
-export default function MessagesPage() {
+function MessagesPageContent() {
   const searchParams = useSearchParams()
   const [activeFolder, setActiveFolder] = useState<MessageFolder>(() => normalizeFolder(searchParams?.get("folder") ?? null))
   const [messages, setMessages] = useState<Message[]>([])
@@ -150,5 +150,13 @@ export default function MessagesPage() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <MessagesPageContent />
+    </Suspense>
   )
 }

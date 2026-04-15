@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createServerClient } from "@supabase/ssr"
+import { getSupabasePublicEnv } from "@/lib/supabase-config"
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://localhost"
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "public-anon-key"
+const { url, anonKey: anon, isConfigured } = getSupabasePublicEnv()
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -25,8 +25,17 @@ export async function middleware(request: NextRequest) {
     },
   })
 
+  if (!isConfigured) {
+    console.warn("Supabase public environment variables are missing. Skipping auth refresh in middleware.")
+    return response
+  }
+
   // Touching auth ensures expired sessions get refreshed and cookies are updated.
-  await supabase.auth.getUser()
+  try {
+    await supabase.auth.getUser()
+  } catch (error) {
+    console.error("Supabase auth refresh failed in middleware; continuing without refreshed session.", error)
+  }
 
   return response
 }
