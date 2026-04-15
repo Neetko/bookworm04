@@ -148,12 +148,9 @@ export default async function DiaryEntryPage({
 
   const entries = (entriesRaw ?? []) as DiaryEntryRow[]
   const entryTitleIds = Array.from(new Set(entries.map((item) => item.title_id).filter(Boolean))) as string[]
-  const [entryTitlesRes, trackedRes] = await Promise.all([
+  const [entryTitlesRes] = await Promise.all([
     entryTitleIds.length
       ? supabase.from("titles").select("id,genre").in("id", entryTitleIds)
-      : Promise.resolve({ data: [] as any[] }),
-    entryTitleIds.length
-      ? supabase.from("tracked_books").select("title_id,genre").in("title_id", entryTitleIds)
       : Promise.resolve({ data: [] as any[] }),
   ])
 
@@ -163,12 +160,6 @@ export default async function DiaryEntryPage({
     const fallback = normalizeGenres(row.genre)
     const merged = Array.from(new Set([...(titleGenresByTitleId.get(row.id) ?? []), ...fallback]))
     titleGenresByTitleId.set(row.id, merged)
-  }
-  for (const row of trackedRes.data ?? []) {
-    if (!row?.title_id) continue
-    const fallback = normalizeGenres(row.genre)
-    const merged = Array.from(new Set([...(titleGenresByTitleId.get(row.title_id) ?? []), ...fallback]))
-    titleGenresByTitleId.set(row.title_id, merged)
   }
 
   const filteredEntries = applyDiaryFilters(

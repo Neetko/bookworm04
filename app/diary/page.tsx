@@ -206,31 +206,21 @@ export default async function DiaryPage({
 
   const titleIds = Array.from(uniqueTitles.keys())
 
-  const [trackedRes, trackedProgressRes] = await Promise.all([
-    titleIds.length
-      ? supabase.from("tracked_books").select("id,title_id").in("title_id", titleIds)
-      : Promise.resolve({ data: [] as any[] }),
-    supabase
-      .from("tracked_user_progress")
-      .select("tracked_book_id,current_page,total_pages,minutes_listened,total_minutes,progress_percent")
-      .eq("user_profile_id", profileId),
-  ])
+  const { data: progressRows } = await supabase
+    .from("title_user_progress")
+    .select("title_id,current_page,total_pages,minutes_listened,total_minutes,progress_percent")
+    .eq("user_profile_id", profileId)
 
-  const trackedByTitleId = new Map<string, string>()
-  for (const row of trackedRes.data ?? []) {
-    if (row?.title_id) trackedByTitleId.set(row.title_id, row.id)
-  }
-
-  const trackedProgressByBookId = new Map<string, {
+  const progressByTitleId = new Map<string, {
     currentPage: number | null
     totalPages: number | null
     minutesListened: number | null
     totalMinutes: number | null
     progressPercent: number | null
   }>()
-  for (const row of trackedProgressRes.data ?? []) {
-    if (!row?.tracked_book_id) continue
-    trackedProgressByBookId.set(row.tracked_book_id, {
+  for (const row of progressRows ?? []) {
+    if (!row?.title_id) continue
+    progressByTitleId.set(row.title_id, {
       currentPage: row.current_page ?? null,
       totalPages: row.total_pages ?? null,
       minutesListened: row.minutes_listened ?? null,
@@ -241,12 +231,10 @@ export default async function DiaryPage({
 
   const titleOptions: DiaryTitleOption[] = Array.from(uniqueTitles.values())
     .map((title) => {
-      const trackedBookId = trackedByTitleId.get(title.id) ?? null
-      const trackedProgress = trackedBookId ? trackedProgressByBookId.get(trackedBookId) : undefined
+      const trackedProgress = progressByTitleId.get(title.id)
       return {
         ...title,
         listTypes: Array.from(title.listTypes),
-        trackedBookId,
         lastProgress: trackedProgress ?? null,
       }
     })
@@ -262,12 +250,9 @@ export default async function DiaryPage({
 
   const entries = (entriesRaw ?? []) as DiaryEntryRow[]
   const entryTitleIds = Array.from(new Set(entries.map((item) => item.title_id).filter(Boolean))) as string[]
-  const [entryTitlesRes, entryTrackedRes] = await Promise.all([
+  const [entryTitlesRes] = await Promise.all([
     entryTitleIds.length
       ? supabase.from("titles").select("id,genre").in("id", entryTitleIds)
-      : Promise.resolve({ data: [] as any[] }),
-    entryTitleIds.length
-      ? supabase.from("tracked_books").select("title_id,genre").in("title_id", entryTitleIds)
       : Promise.resolve({ data: [] as any[] }),
   ])
 
@@ -277,12 +262,6 @@ export default async function DiaryPage({
     const fallback = normalizeGenres(row.genre)
     const merged = Array.from(new Set([...(titleGenresByTitleId.get(row.id) ?? []), ...fallback]))
     titleGenresByTitleId.set(row.id, merged)
-  }
-  for (const row of entryTrackedRes.data ?? []) {
-    if (!row?.title_id) continue
-    const fallback = normalizeGenres(row.genre)
-    const merged = Array.from(new Set([...(titleGenresByTitleId.get(row.title_id) ?? []), ...fallback]))
-    titleGenresByTitleId.set(row.title_id, merged)
   }
 
   const filteredEntries = applyDiaryFilters(

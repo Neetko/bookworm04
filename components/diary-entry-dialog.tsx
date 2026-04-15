@@ -18,7 +18,6 @@ export type DiaryTitleOption = {
   title: string
   author: string
   coverImageUrl: string | null
-  trackedBookId: string | null
   listTypes: Array<"to-read" | "current-reading">
   lastProgress?: {
     currentPage: number | null
@@ -139,7 +138,6 @@ export function DiaryEntryDialog({
       if (mode === "pages") {
         await trackTitleProgress({
           titleId: selectedTitle.id,
-          trackedBookId: selectedTitle.trackedBookId,
           progress: { mode: "pages", currentPage, totalPages },
           noteHtml,
           noteText,
@@ -147,7 +145,6 @@ export function DiaryEntryDialog({
       } else {
         await trackTitleProgress({
           titleId: selectedTitle.id,
-          trackedBookId: selectedTitle.trackedBookId,
           progress: { mode: "audiobook", minutesListened, totalMinutes },
           noteHtml,
           noteText,

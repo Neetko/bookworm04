@@ -10,13 +10,11 @@ import { useRouter } from "next/navigation"
 export function TitleTrackProgressButton({
   titleId,
   title,
-  trackedBookId,
   initialNoteHtml,
   initialNoteText,
 }: {
   titleId: string
   title: string
-  trackedBookId?: string | null
   initialNoteHtml?: string | null
   initialNoteText?: string | null
 }) {
@@ -27,7 +25,6 @@ export function TitleTrackProgressButton({
     try {
       await trackTitleProgress({
         titleId,
-        trackedBookId,
         progress,
         noteHtml: progress.noteHtml,
         noteText: progress.noteText,
@@ -39,8 +36,6 @@ export function TitleTrackProgressButton({
       toast.error(error?.message ?? "Failed to save progress")
     }
   }
-
-  if (!trackedBookId) return null
 
   return (
     <>
