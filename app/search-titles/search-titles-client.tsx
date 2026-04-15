@@ -13,6 +13,7 @@ type SearchTitlesClientProps = {
   includeExternal: boolean
   selectedGenres: Genre[]
   hasGoogleBooksKey: boolean
+  hasActiveSearch: boolean
 }
 
 type QueryState = {
@@ -36,6 +37,7 @@ export function SearchTitlesClient({
   includeExternal,
   selectedGenres,
   hasGoogleBooksKey,
+  hasActiveSearch,
 }: SearchTitlesClientProps) {
   const [query, setQuery] = useState<QueryState>({
     title: "",
@@ -71,7 +73,7 @@ export function SearchTitlesClient({
     <>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-4">Search Titles</h1>
-        <TrackReadingSearch onQueryChange={setQuery} />
+        <TrackReadingSearch onQueryChange={setQuery} hasActiveSearch={hasActiveSearch} />
       </div>
 
       {displayQuery && filteredResults.length === 0 ? (

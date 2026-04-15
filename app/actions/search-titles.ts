@@ -3,6 +3,7 @@
 import { createServerClient } from "@/lib/supabase-server"
 import { searchGoogleBooksWithOpenLibrary } from "@/lib/google-books"
 import { enforceGenreRulesFromList } from "@/lib/book-tagging"
+import { normalizeReferenceIsbns } from "@/lib/reference-data"
 import { isGenre, type Genre, type SearchTitleResult } from "@/lib/types"
 
 type LocalTitleRow = {
@@ -33,6 +34,18 @@ type NormalizedSearch = {
   raw: string
   genres: Genre[]
   includeExternal: boolean
+}
+
+function getMergedExternalIdentifiers(book: {
+  isbn?: string | null
+  googleIdentifiers?: string[]
+  identifiers?: string[]
+}): string[] {
+  return normalizeReferenceIsbns([
+    book.isbn,
+    ...(book.googleIdentifiers ?? []),
+    ...(book.identifiers ?? []),
+  ])
 }
 
 function normalizeSearchInput(input: SearchTitlesInput): NormalizedSearch {
@@ -67,10 +80,8 @@ async function getGenresForTitles(
 ): Promise<Map<string, Genre[]>> {
   if (titleIds.length === 0) return new Map()
 
-  const [titleRows, trackedByTitle, trackedById] = await Promise.all([
+  const [titleRows] = await Promise.all([
     supabase.from("titles").select("id,genre").in("id", titleIds),
-    supabase.from("tracked_books").select("title_id,genre").in("title_id", titleIds),
-    supabase.from("tracked_books").select("id,genre").in("id", titleIds),
   ])
 
   const map = new Map<string, Genre[]>()
@@ -79,19 +90,6 @@ async function getGenresForTitles(
     const fallback = enforceGenreRulesFromList(uniqueGenres(((row as any).genre ?? []).filter(isGenre)))
     map.set(row.id, fallback)
   }
-  for (const row of trackedByTitle.data ?? []) {
-    if (!row.title_id) continue
-    if (map.has(row.title_id)) continue
-    const fallback = enforceGenreRulesFromList(uniqueGenres(((row as any).genre ?? []).filter(isGenre)))
-    map.set(row.title_id, fallback)
-  }
-  for (const row of trackedById.data ?? []) {
-    if (!row.id) continue
-    if (map.has(row.id)) continue
-    const fallback = enforceGenreRulesFromList(uniqueGenres(((row as any).genre ?? []).filter(isGenre)))
-    map.set(row.id, fallback)
-  }
-
   return map
 }
 
@@ -188,7 +186,6 @@ async function buildLocalResults(
       coverImageUrl: book.cover_image_url ?? null,
       genres: uniqueGenres(localGenresMap.get(titleId) ?? []),
       engagement,
-      claimed: true,
     }
   })
 }
@@ -220,27 +217,25 @@ export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitl
     includeExternal ? searchGoogleBooksWithOpenLibrary(googleQuery) : Promise.resolve([]),
   ])
 
-  const volumeIds = googleBooks.map((book) => book.volumeId)
-  const titleSourceMap = new Map<string, string>()
+  const googleIdentifiers = normalizeReferenceIsbns(
+    googleBooks.flatMap((book) => getMergedExternalIdentifiers(book))
+  )
+  const suppressedGoogleIsbns = new Set<string>()
 
-  if (volumeIds.length > 0 && includeExternal) {
-    const { data: sources } = await supabase
-      .from("title_sources")
-      .select("external_id,title_id")
-      .eq("source", "google")
-      .in("external_id", volumeIds)
+  if (googleIdentifiers.length > 0 && includeExternal) {
+    const { data: referenceRows } = await supabase
+      .from("reference_isbns")
+      .select("isbn")
+      .in("isbn", googleIdentifiers)
 
-    for (const row of sources ?? []) {
-      if (row.external_id && row.title_id) {
-        titleSourceMap.set(row.external_id, row.title_id)
-      }
+    for (const row of referenceRows ?? []) {
+      if ((row as any).isbn) suppressedGoogleIsbns.add((row as any).isbn as string)
     }
   }
 
   const localTitleIds = localBooks.map((book) => book.id)
   const localGenresMap = await getGenresForTitles(supabase, localTitleIds)
-  const googleTitleIds = Array.from(titleSourceMap.values())
-  const allTitleIds = Array.from(new Set([...localTitleIds, ...googleTitleIds])).filter(Boolean)
+  const allTitleIds = Array.from(new Set(localTitleIds)).filter(Boolean)
 
   const reviewCounts = new Map<string, number>()
   const postCounts = new Map<string, number>()
@@ -276,7 +271,6 @@ export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitl
       coverImageUrl: book.cover_image_url ?? null,
       genres: uniqueGenres(localGenresMap.get(titleId) ?? []),
       engagement,
-      claimed: true,
     }
   })
 
@@ -287,24 +281,22 @@ export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitl
         )
       : localResults
 
-  const googleResults: SearchTitleResult[] = googleBooks.map((book) => {
-    const titleId = titleSourceMap.get(book.volumeId)
-    const engagement = titleId
-      ? (reviewCounts.get(titleId) ?? 0) + (postCounts.get(titleId) ?? 0)
-      : 0
+  const filteredGoogleBooks = googleBooks.filter((book) => {
+    const identifiers = getMergedExternalIdentifiers(book)
+    return !identifiers.some((isbn) => suppressedGoogleIsbns.has(isbn))
+  })
 
+  const googleResults: SearchTitleResult[] = filteredGoogleBooks.map((book) => {
     return {
       id: book.volumeId,
       source: "google" as const,
-      titleId,
       volumeId: book.volumeId,
       title: book.title,
       author: book.authors[0] ?? "Unknown author",
       description: book.description ?? null,
       coverImageUrl: book.thumbnailUrl ?? null,
       genres: [],
-      engagement,
-      claimed: Boolean(titleId),
+      engagement: 0,
     }
   })
 

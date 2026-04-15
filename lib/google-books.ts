@@ -49,6 +49,7 @@ export type MergedWork = {
   publishedYear: number | null
   description: string | null
   thumbnailUrl: string | null
+  googleIdentifiers: string[]
   identifiers: string[]
   isbn: string | null
   mainCategory: string | null
@@ -590,8 +591,9 @@ export async function searchGoogleBooksWithOpenLibrary(
     if (!refined) continue
 
     const openLibrary = group.openLibrary
+    const googleIdentifiers = extractIsbns(bestItem.volumeInfo?.industryIdentifiers)
     const identifiers = Array.from(
-      new Set([...(openLibrary?.identifiers ?? []), ...extractIsbns(bestItem.volumeInfo?.industryIdentifiers)])
+      new Set([...(openLibrary?.identifiers ?? []), ...googleIdentifiers])
     )
 
     const openLibraryCoverUrl =
@@ -608,6 +610,7 @@ export async function searchGoogleBooksWithOpenLibrary(
       publishedYear: openLibrary?.publishedYear ?? refined.publishedYear,
       description: refined.description,
       thumbnailUrl: refined.thumbnailUrl ?? openLibraryCoverUrl,
+      googleIdentifiers,
       identifiers,
       isbn: refined.isbn ?? identifiers[0] ?? null,
       mainCategory: refined.mainCategory ?? null,
@@ -631,6 +634,7 @@ export async function searchGoogleBooksWithOpenLibrary(
         publishedYear: item.publishedYear,
         description: item.description,
         thumbnailUrl: item.thumbnailUrl ?? fallbackCoverUrl,
+        googleIdentifiers: identifiers,
         identifiers,
         isbn: item.isbn ?? null,
         mainCategory: item.mainCategory ?? null,

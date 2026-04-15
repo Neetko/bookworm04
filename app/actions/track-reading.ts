@@ -1,16 +1,18 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase-server"
+import { createAdminClient, createServerClient } from "@/lib/supabase-server"
 import { extractAsins, getGoogleBook, getGoogleBookDetails, isIsbn10, isIsbn13 } from "@/lib/google-books"
 import {
   fetchOpenLibraryMetadataByIsbn,
   fetchOpenLibraryWorkCandidatesByTitleAuthor,
   fetchOpenLibraryWorkEditionsByIsbn,
-  fetchOpenLibraryWorkEditionsByWorkId,
   type OpenLibraryEdition,
   type OpenLibraryWorkCandidate,
 } from "@/lib/open-library"
 import { inferGenresFromMetadata } from "@/lib/book-tagging"
+import { getCoverChoicesForSelectedWorks } from "@/lib/cover-cache"
+import { isExactTitleAuthorMatch, normalizeMatchText, type SuggestionWorkMatchType, type WorkSnapshot } from "@/lib/suggestions"
+import { upsertReferenceIsbns, upsertTitleReferenceWorks } from "@/lib/reference-data"
 import { normalizeGenres, type Genre } from "@/lib/types"
 import { revalidatePath } from "next/cache"
 import { extractPlainTextFromHtml } from "@/lib/sanitize"
@@ -31,6 +33,20 @@ type WorkSelection = {
   dupeWorkIds: string[]
 }
 
+type SuggestionWorkMatchInsert = {
+  workId: string
+  matchType: SuggestionWorkMatchType
+  confidenceScore: number
+  reason: string
+  workSnapshot: WorkSnapshot
+}
+
+type IngestWorkMatchSummary = {
+  userReviewCandidates: OpenLibraryWorkCandidate[]
+  autoDupeMatches: SuggestionWorkMatchInsert[]
+  bookwormSuggestedMatches: SuggestionWorkMatchInsert[]
+}
+
 type FormatDerivationInput = {
   dimensions?: { height?: string; width?: string; thickness?: string } | null
   categories?: string[]
@@ -40,7 +56,125 @@ type FormatDerivationInput = {
 }
 
 function normalizeToken(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim()
+  return normalizeMatchText(value)
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0
+  if (!a.length) return b.length
+  if (!b.length) return a.length
+
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index)
+
+  for (let i = 1; i <= a.length; i += 1) {
+    let diagonal = previous[0]
+    previous[0] = i
+
+    for (let j = 1; j <= b.length; j += 1) {
+      const temp = previous[j]
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      previous[j] = Math.min(
+        previous[j] + 1,
+        previous[j - 1] + 1,
+        diagonal + cost
+      )
+      diagonal = temp
+    }
+  }
+
+  return previous[b.length]
+}
+
+function computeStringSimilarity(a: string, b: string): number {
+  const normalizedA = normalizeToken(a)
+  const normalizedB = normalizeToken(b)
+
+  if (!normalizedA && !normalizedB) return 1
+  if (!normalizedA || !normalizedB) return 0
+  if (normalizedA === normalizedB) return 1
+
+  const distance = levenshteinDistance(normalizedA, normalizedB)
+  return clamp(1 - distance / Math.max(normalizedA.length, normalizedB.length), 0, 1)
+}
+
+function computeTokenOverlap(a: string, b: string): number {
+  const tokensA = new Set(normalizeToken(a).split(" ").filter(Boolean))
+  const tokensB = new Set(normalizeToken(b).split(" ").filter(Boolean))
+
+  if (tokensA.size === 0 && tokensB.size === 0) return 1
+  if (tokensA.size === 0 || tokensB.size === 0) return 0
+
+  let shared = 0
+  for (const token of tokensA) {
+    if (tokensB.has(token)) shared += 1
+  }
+
+  return shared / Math.max(tokensA.size, tokensB.size)
+}
+
+function buildWorkSnapshotFromCandidate(
+  candidate: OpenLibraryWorkCandidate,
+  match?: { matchType: SuggestionWorkMatchType; confidenceScore: number; reason: string }
+): WorkSnapshot {
+  return {
+    workId: candidate.workId,
+    title: candidate.title,
+    author: candidate.author,
+    firstPublishYear: candidate.firstPublishYear,
+    editionCount: candidate.editionCount,
+    forSale: null,
+    coverUrl: candidate.coverUrl,
+    subjects: candidate.subjects,
+    matchCategory: match?.matchType ?? null,
+    matchConfidence: match?.confidenceScore ?? null,
+    matchReason: match?.reason ?? null,
+  }
+}
+
+function classifyOpenLibraryCandidateMatch(input: {
+  title: string
+  author: string
+  candidate: OpenLibraryWorkCandidate
+}): {
+  confidenceScore: number
+  matchType: SuggestionWorkMatchType | "user_review"
+  reason: string
+} {
+  if (isExactTitleAuthorMatch({
+    title: input.title,
+    author: input.author,
+    candidateTitle: input.candidate.title,
+    candidateAuthor: input.candidate.author,
+  })) {
+    return {
+      confidenceScore: 100,
+      matchType: "exact_auto_dupe",
+      reason: "Exact title and author match",
+    }
+  }
+
+  const titleSimilarity = computeStringSimilarity(input.title, input.candidate.title)
+  const authorSimilarity = input.author ? computeStringSimilarity(input.author, input.candidate.author) : 1
+  const titleOverlap = computeTokenOverlap(input.title, input.candidate.title)
+  const authorOverlap = input.author ? computeTokenOverlap(input.author, input.candidate.author) : 1
+
+  const confidenceScore = Math.round(
+    ((titleSimilarity * 0.55) + (titleOverlap * 0.2) + (authorSimilarity * 0.2) + (authorOverlap * 0.05)) * 100
+  )
+
+  if (confidenceScore >= 90 && titleSimilarity >= 0.82 && authorSimilarity >= 0.72) {
+    return {
+      confidenceScore,
+      matchType: "bookworm_suggested",
+      reason: "High-likelihood title and author match",
+    }
+  }
+
+  return {
+    confidenceScore,
+    matchType: "user_review",
+    reason: "Lower-confidence match left for user review",
+  }
 }
 
 function parseCmFromText(value?: string | null): number | null {
@@ -164,32 +298,18 @@ async function findLocalDuplicates(
   const titleQuery = `%${trimmedTitle}%`
   const authorQuery = trimmedAuthor ? `%${trimmedAuthor}%` : null
 
-  const [{ data: titleMatches }, { data: trackedMatches }] = await Promise.all([
-    authorQuery
-      ? supabase
-          .from("titles")
-          .select("id,title,author,cover_image_url")
-          .ilike("title", titleQuery)
-          .ilike("author", authorQuery)
-            .limit(15)
-      : supabase
-          .from("titles")
-          .select("id,title,author,cover_image_url")
-          .ilike("title", titleQuery)
-            .limit(15),
-    authorQuery
-      ? supabase
-          .from("tracked_books")
-          .select("id,title,author,cover_image_url")
-          .ilike("title", titleQuery)
-          .ilike("author", authorQuery)
-            .limit(15)
-      : supabase
-          .from("tracked_books")
-          .select("id,title,author,cover_image_url")
-          .ilike("title", titleQuery)
-            .limit(15),
-  ])
+  const { data: titleMatches } = await (authorQuery
+    ? supabase
+        .from("titles")
+        .select("id,title,author,cover_image_url")
+        .ilike("title", titleQuery)
+        .ilike("author", authorQuery)
+        .limit(15)
+    : supabase
+        .from("titles")
+        .select("id,title,author,cover_image_url")
+        .ilike("title", titleQuery)
+        .limit(15))
 
   const titles = (titleMatches ?? []).map((match) => ({
     id: match.id as string,
@@ -199,15 +319,7 @@ async function findLocalDuplicates(
     source: "title" as const,
   }))
 
-  const tracked = (trackedMatches ?? []).map((match) => ({
-    id: match.id as string,
-    title: match.title as string,
-    author: match.author as string,
-    coverImageUrl: (match as any).cover_image_url ?? null,
-    source: "tracked" as const,
-  }))
-
-  return [...titles, ...tracked].slice(0, 15)
+  return titles.slice(0, 15)
 }
 
 async function filterDedupedWorkCandidates(
@@ -219,27 +331,22 @@ async function filterDedupedWorkCandidates(
   const workIds = candidates.map((candidate) => candidate.workId)
   const orFilter = workIds.map((id) => `dupe_work_ids.cs.{${id}}`).join(",")
 
-  const [{ data: titleWorkMatches }, { data: trackedWorkMatches }, { data: titleDupes }, { data: trackedDupes }] =
-    await Promise.all([
-      supabase.from("titles").select("work_id").in("work_id", workIds),
-      supabase.from("tracked_books").select("work_id").in("work_id", workIds),
-      orFilter
-        ? supabase.from("titles").select("dupe_work_ids").or(orFilter)
-        : Promise.resolve({ data: [] as any[] } as any),
-      orFilter
-        ? supabase.from("tracked_books").select("dupe_work_ids").or(orFilter)
-        : Promise.resolve({ data: [] as any[] } as any),
-    ])
+  const [{ data: titleWorkMatches }, { data: titleDupes }, { data: pooledWorkMatches }] = await Promise.all([
+    supabase.from("titles").select("work_id").in("work_id", workIds),
+    orFilter
+      ? supabase.from("titles").select("dupe_work_ids").or(orFilter)
+      : Promise.resolve({ data: [] as any[] } as any),
+    supabase.from("title_reference_works").select("work_id").in("work_id", workIds),
+  ])
 
   const deduped = new Set<string>()
   for (const row of titleWorkMatches ?? []) {
     if ((row as any).work_id) deduped.add((row as any).work_id as string)
   }
-  for (const row of trackedWorkMatches ?? []) {
+  for (const row of pooledWorkMatches ?? []) {
     if ((row as any).work_id) deduped.add((row as any).work_id as string)
   }
-
-  const dupeRows = [...(titleDupes ?? []), ...(trackedDupes ?? [])]
+  const dupeRows = [...(titleDupes ?? [])]
   for (const row of dupeRows) {
     const values = (row as any).dupe_work_ids
     if (Array.isArray(values)) {
@@ -252,6 +359,85 @@ async function filterDedupedWorkCandidates(
   return candidates.filter((candidate) => !deduped.has(candidate.workId))
 }
 
+async function buildIngestWorkMatchSummary(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  input: { title: string; author: string; isbn: string | null }
+): Promise<IngestWorkMatchSummary> {
+  let workCandidates = await fetchOpenLibraryWorkCandidatesByTitleAuthor({
+    title: input.title,
+    author: input.author,
+    limit: 15,
+  })
+
+  if (input.isbn) {
+    const workByIsbn = await fetchOpenLibraryWorkEditionsByIsbn(input.isbn)
+    if (workByIsbn?.workId && !workCandidates.some((candidate) => candidate.workId === workByIsbn.workId)) {
+      workCandidates = [
+        {
+          workId: workByIsbn.workId,
+          title: input.title,
+          author: input.author,
+          coverUrl: null,
+          firstPublishYear: null,
+          editionCount: workByIsbn.editions.length || null,
+          subjects: [],
+        },
+        ...workCandidates,
+      ]
+    }
+  }
+
+  const uniqueCandidates = Array.from(
+    new Map(workCandidates.map((candidate) => [candidate.workId, candidate])).values()
+  )
+  const filteredCandidates = await filterDedupedWorkCandidates(supabase, uniqueCandidates)
+
+  const summary: IngestWorkMatchSummary = {
+    userReviewCandidates: [],
+    autoDupeMatches: [],
+    bookwormSuggestedMatches: [],
+  }
+
+  for (const candidate of filteredCandidates) {
+    const classification = classifyOpenLibraryCandidateMatch({
+      title: input.title,
+      author: input.author,
+      candidate,
+    })
+
+    if (classification.matchType === "user_review") {
+      summary.userReviewCandidates.push(candidate)
+      continue
+    }
+
+    const typedClassification: {
+      matchType: SuggestionWorkMatchType
+      confidenceScore: number
+      reason: string
+    } = {
+      matchType: classification.matchType,
+      confidenceScore: classification.confidenceScore,
+      reason: classification.reason,
+    }
+
+    const entry: SuggestionWorkMatchInsert = {
+      workId: candidate.workId,
+      matchType: typedClassification.matchType,
+      confidenceScore: typedClassification.confidenceScore,
+      reason: typedClassification.reason,
+      workSnapshot: buildWorkSnapshotFromCandidate(candidate, typedClassification),
+    }
+
+    if (classification.matchType === "exact_auto_dupe") {
+      summary.autoDupeMatches.push(entry)
+    } else {
+      summary.bookwormSuggestedMatches.push(entry)
+    }
+  }
+
+  return summary
+}
+
 function resolveWorkSelection(selectedWorkIds: string[] | null | undefined): WorkSelection {
   const normalized = (selectedWorkIds ?? []).filter((id) => typeof id === "string" && id.trim().length > 0)
   const unique = Array.from(new Set(normalized))
@@ -261,199 +447,190 @@ function resolveWorkSelection(selectedWorkIds: string[] | null | undefined): Wor
   }
 }
 
-async function ensureExternalGoogleMapping(
+async function getExistingTitleIdForVolume(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
-  googleVolumeId: string,
-  desiredBookId: string
-): Promise<string> {
-  // Critical: do NOT allow "remapping" an existing external_id to a different book_id.
-  // We create the mapping once and then treat it as immutable.
-  const { error: mapUpsertError } = await supabase.from("external_books").upsert(
-    {
-      source: "google",
-      external_id: googleVolumeId,
-      tracked_book_id: desiredBookId,
-    },
-    {
-      onConflict: "source,external_id",
-      ignoreDuplicates: true,
-    }
-  )
-
-  if (mapUpsertError) {
-    console.error("Failed to create external_books mapping", mapUpsertError)
-    throw new Error(
-      `Failed to save external mapping (external_books). ${mapUpsertError.code ?? ""} ${mapUpsertError.message}`.trim()
-    )
-  }
-
-  const { data: mapping, error: mappingError } = await supabase
-    .from("external_books")
-    .select("tracked_book_id")
-    .eq("source", "google")
-    .eq("external_id", googleVolumeId)
-    .maybeSingle()
-
-  if (mappingError) {
-    console.error("Failed to read external_books mapping", mappingError)
-    throw new Error(
-      `Failed to lookup book mapping (external_books). ${mappingError.code ?? ""} ${mappingError.message}`.trim()
-    )
-  }
-
-  if (!mapping?.tracked_book_id) {
-    // This usually means the table/migration wasn't applied, or RLS/policies block inserts.
-    throw new Error(
-      "Failed to lookup book mapping (external_books). Mapping row not found; ensure the Track Reading migration has been applied to your Supabase DB."
-    )
-  }
-
-  return mapping.tracked_book_id as string
-}
-
-async function ensureBookFromGoogleVolume(
-  volumeId: string,
-  selectedWorkIds: string[]
-): Promise<{ bookId: string; titleId: string }> {
-  const supabase = await createServerClient()
-
-  // 1) Check mapping first
-  const { data: existingMap, error: mapError } = await supabase
-    .from("external_books")
-    .select("tracked_book_id")
+  volumeId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("title_sources")
+    .select("title_id")
     .eq("source", "google")
     .eq("external_id", volumeId)
     .maybeSingle()
 
-  if (mapError) {
-    console.error("Error looking up external_books mapping", mapError)
+  if (error) {
+    console.error("Error looking up title_sources mapping", error)
     throw new Error(
-      `Failed to lookup book mapping (external_books). ${mapError.code ?? ""} ${mapError.message}`.trim()
+      `Failed to lookup title mapping (title_sources). ${error.code ?? ""} ${error.message}`.trim()
     )
   }
 
-  const existingTrackedBookId = existingMap?.tracked_book_id as string | undefined
+  return (data?.title_id as string | undefined) ?? null
+}
 
-  // 2) Fetch volume details (projection=full)
-  const details = await getGoogleBookDetails(volumeId)
-  if (!details) throw new Error("Unable to fetch Google book")
-  const volume = details.refined
-
-  const selection = resolveWorkSelection(selectedWorkIds)
-  let openLibrary = volume.isbn ? await fetchOpenLibraryWorkEditionsByIsbn(volume.isbn) : null
-
-  let workId = selection.primaryWorkId ?? openLibrary?.workId ?? null
-  if (!workId && volume.title) {
-    const candidates = await fetchOpenLibraryWorkCandidatesByTitleAuthor({
-      title: volume.title,
-      author: volume.authors[0] ?? "",
-      limit: 5,
-    })
-    workId = candidates[0]?.workId ?? null
-  }
-
-  if (workId && (!openLibrary || openLibrary.workId !== workId)) {
-    openLibrary = await fetchOpenLibraryWorkEditionsByWorkId(workId)
-  }
-
-  const extraWorkIds = selection.dupeWorkIds
-  const extraWorkEditions = await Promise.all(
-    extraWorkIds.map(async (extraWorkId) => ({
-      workId: extraWorkId,
-      data: await fetchOpenLibraryWorkEditionsByWorkId(extraWorkId),
-    }))
+async function ensureTitleSourceMapping(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  volumeId: string,
+  titleId: string
+) {
+  const { error } = await supabase.from("title_sources").upsert(
+    {
+      source: "google",
+      external_id: volumeId,
+      title_id: titleId,
+    },
+    {
+      onConflict: "source,external_id",
+    }
   )
 
-  const allIsbnsFromWorks = [
-    ...(openLibrary?.isbns ?? []),
-    ...extraWorkEditions.flatMap((entry) => entry.data?.isbns ?? []),
-  ]
+  if (error) {
+    console.error("Failed to upsert title_sources mapping", error)
+    throw new Error("Failed to save title source mapping")
+  }
+}
 
-  const identifiers = mergeIsbnLists(null, [
-    volume.isbn ?? "",
-    ...details.identifiers,
-    ...allIsbnsFromWorks,
-  ])
+async function ensureTitleForGoogleVolume(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  volumeId: string,
+  volume: {
+    title: string
+    authors: string[]
+    description: string | null
+    thumbnailUrl: string | null
+    publishedYear: number | null
+    isbn: string | null
+  },
+  workInfo?: { workId: string | null; isbnList: string[]; dupeWorkIds?: string[] }
+) {
+  const author = volume.authors?.[0] ?? "Unknown author"
+  const existingMappedTitleId = await getExistingTitleIdForVolume(supabase, volumeId)
+  const now = new Date().toISOString()
 
-  // 3) Insert local book (metadata-only)
-  let mappedBookId = existingTrackedBookId
-  if (!mappedBookId) {
+  const selectFields = "id,isbn_list,dupe_work_ids,cover_image_url,description,published_year,isbn,work_id"
+  let existingTitle: any = null
+  let titleId = existingMappedTitleId
+
+  if (titleId) {
+    const { data } = await supabase.from("titles").select(selectFields).eq("id", titleId).maybeSingle()
+    existingTitle = data ?? null
+  }
+
+  if (!titleId && volume.isbn) {
+    const { data } = await supabase.from("titles").select(selectFields).eq("isbn", volume.isbn).maybeSingle()
+    if (data?.id) {
+      titleId = data.id as string
+      existingTitle = data
+    }
+  }
+
+  if (!titleId && volume.title) {
+    const { data } = await supabase
+      .from("titles")
+      .select(selectFields)
+      .ilike("title", volume.title)
+      .ilike("author", author)
+      .maybeSingle()
+    if (data?.id) {
+      titleId = data.id as string
+      existingTitle = data
+    }
+  }
+
+  if (!titleId) {
     const { data: inserted, error: insertError } = await supabase
-      .from("tracked_books")
+      .from("titles")
       .insert({
         title: volume.title,
-        author: volume.authors[0] ?? "Unknown author",
+        author,
         description: volume.description,
         cover_image_url: volume.thumbnailUrl,
         published_year: volume.publishedYear,
         isbn: volume.isbn,
-        work_id: workId,
-        isbn_list: identifiers,
-        dupe_work_ids: extraWorkIds.length > 0 ? extraWorkIds : null,
-        genre: null,
+        work_id: workInfo?.workId ?? null,
+        isbn_list: (workInfo?.isbnList?.length ?? 0) > 0 ? workInfo?.isbnList : null,
+        dupe_work_ids: (workInfo?.dupeWorkIds?.length ?? 0) > 0 ? workInfo?.dupeWorkIds : null,
+        updated_at: now,
       })
       .select("id")
       .single()
 
     if (insertError || !inserted?.id) {
-      console.error("Failed to insert books row", insertError)
-      throw new Error("Failed to create book")
+      console.error("Failed to insert title", insertError)
+      throw new Error("Failed to create title")
     }
 
-    mappedBookId = await ensureExternalGoogleMapping(supabase, volumeId, inserted.id as string)
+    titleId = inserted.id as string
+  } else {
+    const mergedIsbns = mergeIsbnLists(existingTitle?.isbn_list ?? null, workInfo?.isbnList ?? [])
+    const updatePayload: Record<string, any> = {
+      updated_at: now,
+    }
+    if (workInfo?.workId) updatePayload.work_id = workInfo.workId
+    if (mergedIsbns.length > 0) updatePayload.isbn_list = mergedIsbns
+    if (workInfo?.dupeWorkIds?.length) {
+      updatePayload.dupe_work_ids = mergeDupeWorkIds(
+        existingTitle?.dupe_work_ids ?? null,
+        workInfo.dupeWorkIds,
+        workInfo.workId ?? null
+      )
+    }
+    if (!existingTitle?.cover_image_url && volume.thumbnailUrl) updatePayload.cover_image_url = volume.thumbnailUrl
+    if (!existingTitle?.description && volume.description) updatePayload.description = volume.description
+    if (!existingTitle?.published_year && volume.publishedYear) updatePayload.published_year = volume.publishedYear
+    if (!existingTitle?.isbn && volume.isbn) updatePayload.isbn = volume.isbn
 
-    // If we lost a race and the external_id was already mapped, clean up the extra book row.
-    if (mappedBookId !== inserted.id) {
-      const { error: cleanupError } = await supabase.from("tracked_books").delete().eq("id", inserted.id)
-      if (cleanupError) {
-        // Not fatal; the row is metadata-only but would be orphaned.
-        console.warn("Failed to cleanup duplicate books row", cleanupError)
-      }
+    const { error: updateError } = await supabase.from("titles").update(updatePayload).eq("id", titleId)
+    if (updateError) {
+      console.error("Failed to update title", updateError)
+      throw new Error("Failed to update title")
     }
   }
 
-  if (mappedBookId && (workId || identifiers.length > 0)) {
-    const { data: existingTracked } = await supabase
-      .from("tracked_books")
-      .select("isbn_list, dupe_work_ids")
-      .eq("id", mappedBookId)
-      .maybeSingle()
+  await ensureTitleSourceMapping(supabase, volumeId, titleId)
+  return titleId
+}
 
-    const mergedIsbns = mergeIsbnLists(existingTracked?.isbn_list ?? null, identifiers)
-    const trackedUpdate: Record<string, any> = {
-      work_id: workId ?? null,
-      isbn_list: mergedIsbns.length > 0 ? mergedIsbns : null,
-      updated_at: new Date().toISOString(),
-    }
-    if (extraWorkIds.length > 0) {
-      trackedUpdate.dupe_work_ids = mergeDupeWorkIds(existingTracked?.dupe_work_ids ?? null, extraWorkIds, workId)
-    }
-    await supabase.from("tracked_books").update(trackedUpdate).eq("id", mappedBookId)
-  }
+async function ensureBookFromGoogleVolume(
+  volumeId: string,
+  _selectedWorkIds: string[]
+): Promise<{ titleId: string }> {
+  const supabase = await createServerClient()
 
-  const titleId = await ensureTitleForTrackedBook(supabase, mappedBookId!, volumeId, volume, {
-    workId,
+  const details = await getGoogleBookDetails(volumeId)
+  if (!details) throw new Error("Unable to fetch Google book")
+  const volume = details.refined
+
+  const openLibrary = volume.isbn ? await fetchOpenLibraryWorkEditionsByIsbn(volume.isbn) : null
+  const identifiers = mergeIsbnLists(null, [
+    volume.isbn ?? "",
+    ...details.identifiers,
+    ...(openLibrary?.isbns ?? []),
+  ])
+
+  const titleId = await ensureTitleForGoogleVolume(supabase, volumeId, volume, {
+    workId: null,
     isbnList: identifiers,
-    dupeWorkIds: extraWorkIds,
+    dupeWorkIds: [],
   })
 
-  if (workId) {
-    await upsertEditionsForWorks({
-      supabase,
-      primaryWorkId: workId,
-      identifiers,
-      googleDetails: details,
-      googleCategories: volume.categories,
-      workEditions: [
-        { workId, editions: openLibrary?.editions ?? [] },
-        ...extraWorkEditions
-          .filter((entry) => entry.data?.workId)
-          .map((entry) => ({ workId: entry.data!.workId!, editions: entry.data!.editions })),
-      ],
+  if (openLibrary?.workId) {
+    await upsertTitleReferenceWorks(supabase, {
+      titleId,
+      workIds: [openLibrary.workId],
+      source: "google-ingest",
+      confidenceScore: 100,
+    })
+
+    await upsertReferenceIsbns(supabase, {
+      titleId,
+      workId: openLibrary.workId,
+      isbns: openLibrary.isbns,
+      source: "google-ingest",
     })
   }
 
-  return { bookId: mappedBookId!, titleId }
+  return { titleId }
 }
 
 export async function getGoogleIngestSuggestion(volumeId: string): Promise<{
@@ -463,6 +640,8 @@ export async function getGoogleIngestSuggestion(volumeId: string): Promise<{
   workCandidates: OpenLibraryWorkCandidate[]
   localDuplicates: LocalDuplicate[]
   requiresWorkConfirmation: boolean
+  autoDupeMatchCount: number
+  bookwormSuggestedMatchCount: number
 }> {
   const supabase = await createServerClient()
   await requireAuthedProfileId(supabase)
@@ -479,36 +658,12 @@ export async function getGoogleIngestSuggestion(volumeId: string): Promise<{
     openLibrary,
   })
 
-  let workCandidates = await fetchOpenLibraryWorkCandidatesByTitleAuthor({
+  const workMatchSummary = await buildIngestWorkMatchSummary(supabase, {
     title: volume.title,
     author: volume.authors[0] ?? "",
-    limit: 15,
+    isbn: volume.isbn ?? null,
   })
-
-  let requiresWorkConfirmation = workCandidates.length > 0
-  if (volume.isbn) {
-    const workByIsbn = await fetchOpenLibraryWorkEditionsByIsbn(volume.isbn)
-    if (workByIsbn?.workId) {
-      if (!workCandidates.some((candidate) => candidate.workId === workByIsbn.workId)) {
-        workCandidates = [
-          {
-            workId: workByIsbn.workId,
-            title: volume.title,
-            author: volume.authors[0] ?? "",
-            coverUrl: null,
-            firstPublishYear: null,
-            editionCount: workByIsbn.editions.length || null,
-            subjects: [],
-          },
-          ...workCandidates,
-        ]
-      }
-      requiresWorkConfirmation = true
-    }
-  }
-
-  workCandidates = await filterDedupedWorkCandidates(supabase, workCandidates)
-  requiresWorkConfirmation = workCandidates.length > 0
+  const requiresWorkConfirmation = workMatchSummary.userReviewCandidates.length > 0
 
   const localDuplicates = await findLocalDuplicates(
     supabase,
@@ -520,9 +675,11 @@ export async function getGoogleIngestSuggestion(volumeId: string): Promise<{
     title: volume.title,
     author: volume.authors[0] ?? "Unknown author",
     suggestedGenres: normalizeGenres(suggestedGenres),
-    workCandidates,
+    workCandidates: workMatchSummary.userReviewCandidates,
     localDuplicates,
     requiresWorkConfirmation,
+    autoDupeMatchCount: workMatchSummary.autoDupeMatches.length,
+    bookwormSuggestedMatchCount: workMatchSummary.bookwormSuggestedMatches.length,
   }
 }
 
@@ -531,6 +688,14 @@ export async function confirmGoogleBookIngest(input: {
   selectedGenres: Genre[]
   selectedWorkIds?: string[]
   requiresWorkSelection?: boolean
+  algorithmSuggestedGenres?: Genre[]
+  workCandidates?: Array<{
+    workId: string
+    title: string
+    author: string
+    firstPublishYear: number | null
+    editionCount: number | null
+  }>
 }) {
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
@@ -540,186 +705,121 @@ export async function confirmGoogleBookIngest(input: {
     throw new Error("Select at least one genre")
   }
 
-  if (input.requiresWorkSelection && (!input.selectedWorkIds || input.selectedWorkIds.length === 0)) {
-    throw new Error("Select a matching Open Library work before ingesting")
-  }
-
   const ensured = await ensureBookFromGoogleVolume(input.volumeId, input.selectedWorkIds ?? [])
+  const volume = await getGoogleBook(input.volumeId)
+  if (!volume) throw new Error("Unable to fetch Google book")
 
-  const { error: trackedUpdateError } = await supabase
-    .from("tracked_books")
-    .update({
-      genre: selectedGenres,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", ensured.bookId)
+  const workMatchSummary = await buildIngestWorkMatchSummary(supabase, {
+    title: volume.title,
+    author: volume.authors[0] ?? "",
+    isbn: volume.isbn ?? null,
+  })
 
-  if (trackedUpdateError) {
-    console.error("Failed to save tracked book genres", trackedUpdateError)
-    throw new Error("Failed to save genres")
+  const selection = resolveWorkSelection(input.selectedWorkIds)
+  const algorithmSuggestedGenres = normalizeGenres(input.algorithmSuggestedGenres ?? [])
+  const workCandidates = workMatchSummary.userReviewCandidates.length > 0
+    ? workMatchSummary.userReviewCandidates
+    : (input.workCandidates ?? [])
+  const candidateById = new Map(workCandidates.map((candidate) => [candidate.workId, candidate]))
+  const selectedWorkIds = [selection.primaryWorkId, ...selection.dupeWorkIds].filter(Boolean) as string[]
+
+  let saleabilityByWorkId = new Map<string, boolean | null>()
+  if (selectedWorkIds.length > 0) {
+    const { data: editionRows } = await supabase
+      .from("editions")
+      .select("work_id,saleability")
+      .in("work_id", selectedWorkIds)
+
+    const grouped = new Map<string, string[]>()
+    for (const row of editionRows ?? []) {
+      const workId = (row as any).work_id as string | undefined
+      if (!workId) continue
+      const list = grouped.get(workId) ?? []
+      list.push((row as any).saleability ?? null)
+      grouped.set(workId, list)
+    }
+
+    for (const workId of selectedWorkIds) {
+      const entries = grouped.get(workId) ?? []
+      if (entries.length === 0) {
+        saleabilityByWorkId.set(workId, null)
+        continue
+      }
+      saleabilityByWorkId.set(workId, entries.some((value) => value === "FOR_SALE"))
+    }
   }
 
-  const { error: titleUpdateError } = await supabase
-    .from("titles")
-    .update({
-      genre: selectedGenres,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", ensured.titleId)
+  const buildSnapshot = (workId: string) => {
+    const candidate = candidateById.get(workId)
+    if (!candidate) return null
+    return {
+      workId,
+      title: candidate.title,
+      author: candidate.author,
+      firstPublishYear: candidate.firstPublishYear,
+      editionCount: candidate.editionCount,
+      forSale: saleabilityByWorkId.get(workId) ?? null,
+      coverUrl: candidate.coverUrl ?? null,
+    }
+  }
 
-  if (titleUpdateError) {
-    console.error("Failed to save title genres", titleUpdateError)
-    throw new Error("Failed to save genres")
+  const selectedWorkSnapshots = selectedWorkIds
+    .map((workId) => buildSnapshot(workId))
+    .filter(Boolean)
+
+  const suggestionPayload: Record<string, any> = {
+    title_id: ensured.titleId,
+    suggested_genres: selectedGenres,
+    algorithm_suggested_genres: algorithmSuggestedGenres.length > 0 ? algorithmSuggestedGenres : null,
+    suggested_selected_work_ids: selectedWorkIds.length > 0 ? selectedWorkIds : null,
+    suggested_selected_work_snapshots: selectedWorkSnapshots.length > 0 ? selectedWorkSnapshots : null,
+    suggested_by_profile_id: profileId,
+  }
+  const { data: insertedSuggestion, error: suggestionError } = await supabase
+    .from("suggestions")
+    .insert(suggestionPayload)
+    .select("id")
+    .single()
+  if (suggestionError || !insertedSuggestion?.id) {
+    console.error("Failed to create suggestion", suggestionError)
+    throw new Error("Failed to submit suggestion")
+  }
+
+  const bookwormMatchRows = [...workMatchSummary.autoDupeMatches, ...workMatchSummary.bookwormSuggestedMatches]
+  if (bookwormMatchRows.length > 0) {
+    const { error: bookwormMatchError } = await supabase.from("suggestion_work_matches").insert(
+      bookwormMatchRows.map((match) => ({
+        suggestion_id: insertedSuggestion.id,
+        work_id: match.workId,
+        match_type: match.matchType,
+        confidence_score: match.confidenceScore,
+        reason: match.reason,
+        work_snapshot: match.workSnapshot,
+        updated_at: new Date().toISOString(),
+      }))
+    )
+
+    if (bookwormMatchError) {
+      console.error("Failed to create Bookworm work match rows", bookwormMatchError)
+      throw new Error("Failed to submit suggestion")
+    }
+  }
+
+  if (selectedWorkIds.length > 0) {
+    const admin = createAdminClient()
+    try {
+      await getCoverChoicesForSelectedWorks(admin as any, {
+        workIds: selectedWorkIds,
+        workSnapshots: selectedWorkSnapshots as WorkSnapshot[],
+      })
+    } catch (error) {
+      console.warn("Failed to warm work cover cache during suggestion creation", error)
+    }
   }
 
   revalidatePath("/search-titles")
   revalidatePath(`/titles/${ensured.titleId}`)
-  return { bookId: ensured.bookId, titleId: ensured.titleId }
-}
-
-async function ensureTitleForTrackedBook(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  trackedBookId: string,
-  volumeId: string,
-  volume?: {
-    title: string
-    authors: string[]
-    description: string | null
-    thumbnailUrl: string | null
-    publishedYear: number | null
-    isbn: string | null
-  },
-  workInfo?: { workId: string | null; isbnList: string[]; dupeWorkIds?: string[] }
-) {
-  const { data: tracked } = await supabase
-    .from("tracked_books")
-    .select("id,title_id,work_id,isbn_list,dupe_work_ids")
-    .eq("id", trackedBookId)
-    .single()
-
-  if (!tracked?.id) {
-    throw new Error("Tracked book not found")
-  }
-
-  const author = volume?.authors?.[0] ?? "Unknown author"
-
-  // Try to unify with canonical titles by ISBN
-  if (volume?.isbn) {
-    const { data: matchByIsbn } = await supabase
-      .from("titles")
-      .select("id")
-      .eq("isbn", volume.isbn)
-      .maybeSingle()
-
-    if (matchByIsbn?.id) {
-      await supabase
-        .from("tracked_books")
-        .update({ title_id: matchByIsbn.id })
-        .eq("id", trackedBookId)
-      if (workInfo?.workId || (workInfo?.isbnList?.length ?? 0) > 0) {
-        const { data: existingTitle } = await supabase
-          .from("titles")
-          .select("isbn_list,dupe_work_ids")
-          .eq("id", matchByIsbn.id)
-          .maybeSingle()
-        const mergedIsbns = mergeIsbnLists(existingTitle?.isbn_list ?? null, workInfo?.isbnList ?? [])
-        const updatePayload: Record<string, any> = {
-          isbn_list: mergedIsbns.length > 0 ? mergedIsbns : null,
-          updated_at: new Date().toISOString(),
-        }
-        if (workInfo?.workId) updatePayload.work_id = workInfo.workId
-        if (workInfo?.dupeWorkIds?.length) {
-          updatePayload.dupe_work_ids = mergeDupeWorkIds(
-            existingTitle?.dupe_work_ids ?? null,
-            workInfo.dupeWorkIds,
-            workInfo.workId ?? null
-          )
-        }
-        await supabase.from("titles").update(updatePayload).eq("id", matchByIsbn.id)
-      }
-      await supabase.from("title_sources").upsert(
-        { source: "google", external_id: volumeId, title_id: matchByIsbn.id },
-        { onConflict: "source,external_id" }
-      )
-      return matchByIsbn.id as string
-    }
-  }
-
-  // Try to unify with canonical titles by title+author (case-insensitive)
-  if (volume?.title) {
-    const { data: matchByTitle } = await supabase
-      .from("titles")
-      .select("id")
-      .ilike("title", volume.title)
-      .ilike("author", author)
-      .maybeSingle()
-
-    if (matchByTitle?.id) {
-      await supabase
-        .from("tracked_books")
-        .update({ title_id: matchByTitle.id })
-        .eq("id", trackedBookId)
-      if (workInfo?.workId || (workInfo?.isbnList?.length ?? 0) > 0) {
-        const { data: existingTitle } = await supabase
-          .from("titles")
-          .select("isbn_list,dupe_work_ids")
-          .eq("id", matchByTitle.id)
-          .maybeSingle()
-        const mergedIsbns = mergeIsbnLists(existingTitle?.isbn_list ?? null, workInfo?.isbnList ?? [])
-        const updatePayload: Record<string, any> = {
-          isbn_list: mergedIsbns.length > 0 ? mergedIsbns : null,
-          updated_at: new Date().toISOString(),
-        }
-        if (workInfo?.workId) updatePayload.work_id = workInfo.workId
-        if (workInfo?.dupeWorkIds?.length) {
-          updatePayload.dupe_work_ids = mergeDupeWorkIds(
-            existingTitle?.dupe_work_ids ?? null,
-            workInfo.dupeWorkIds,
-            workInfo.workId ?? null
-          )
-        }
-        await supabase.from("titles").update(updatePayload).eq("id", matchByTitle.id)
-      }
-      await supabase.from("title_sources").upsert(
-        { source: "google", external_id: volumeId, title_id: matchByTitle.id },
-        { onConflict: "source,external_id" }
-      )
-      return matchByTitle.id as string
-    }
-  }
-
-  // Default: use tracked book id as canonical title id
-  const titleId = tracked.title_id ?? trackedBookId
-
-  if (!tracked.title_id) {
-    await supabase.from("tracked_books").update({ title_id: titleId }).eq("id", trackedBookId)
-  }
-
-  if (volume) {
-    const mergedIsbns = mergeIsbnLists(tracked?.isbn_list ?? null, workInfo?.isbnList ?? [])
-    const mergedDupes = workInfo?.dupeWorkIds?.length
-      ? mergeDupeWorkIds(tracked?.dupe_work_ids ?? null, workInfo.dupeWorkIds, workInfo.workId ?? null)
-      : (tracked?.dupe_work_ids ?? null)
-    await supabase.from("titles").upsert({
-      id: titleId,
-      title: volume.title,
-      author,
-      description: volume.description,
-      cover_image_url: volume.thumbnailUrl,
-      published_year: volume.publishedYear,
-      isbn: volume.isbn,
-      work_id: workInfo?.workId ?? tracked?.work_id ?? null,
-      isbn_list: mergedIsbns.length > 0 ? mergedIsbns : null,
-      dupe_work_ids: mergedDupes,
-    })
-  }
-
-  await supabase.from("title_sources").upsert(
-    { source: "google", external_id: volumeId, title_id: titleId },
-    { onConflict: "source,external_id" }
-  )
-
-  return titleId
+  return { titleId: ensured.titleId }
 }
 
 async function upsertEditionsForWorks(input: {
@@ -825,9 +925,9 @@ async function upsertEditionsForWorks(input: {
 }
 
 export async function ensureGoogleBook(volumeId: string) {
-  const { bookId, titleId } = await ensureBookFromGoogleVolume(volumeId, [])
+  const { titleId } = await ensureBookFromGoogleVolume(volumeId, [])
   revalidatePath("/search-titles")
-  return { bookId, titleId }
+  return { titleId }
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -1024,7 +1124,6 @@ async function removeFromCurrentReadingList(
 
 export async function trackTitleProgress(input: {
   titleId: string
-  trackedBookId?: string | null
   progress: TrackProgressInput
   noteHtml?: string
   noteText?: string
@@ -1032,11 +1131,7 @@ export async function trackTitleProgress(input: {
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
 
-  const { titleId, trackedBookId, progress, noteHtml, noteText } = input
-
-  if (!trackedBookId) {
-    throw new Error("No ingested title available to track")
-  }
+  const { titleId, progress, noteHtml, noteText } = input
 
   const update: Record<string, any> = {
     user_profile_id: profileId,
@@ -1135,9 +1230,9 @@ export async function trackTitleProgress(input: {
     return null
   }
 
-  update.tracked_book_id = trackedBookId
-  const { error } = await supabase.from("tracked_user_progress").upsert(update, {
-    onConflict: "user_profile_id,tracked_book_id",
+  update.title_id = titleId
+  const { error } = await supabase.from("title_user_progress").upsert(update, {
+    onConflict: "user_profile_id,title_id",
   })
 
   if (error) {
@@ -1156,13 +1251,11 @@ export async function trackTitleProgress(input: {
     await ensureTitleReadAndReward(supabase, profileId, titleId)
   }
 
-  await upsertDiaryEntryForToday({
-    tracked_book_id: trackedBookId ?? null,
-  })
+  await upsertDiaryEntryForToday({})
 
   revalidatePath(`/titles/${titleId}`)
   revalidatePath("/diary")
-  return { trackedBookId, titleId }
+  return { titleId }
 }
 
 export async function updateDiaryEntry(input: {
@@ -1175,7 +1268,7 @@ export async function updateDiaryEntry(input: {
 
   const { data: entry, error: entryError } = await supabase
     .from("reading_diary_entries")
-    .select("id,title_id,tracked_book_id")
+    .select("id,title_id")
     .eq("user_profile_id", profileId)
     .eq("id", input.entryId)
     .single()
@@ -1220,7 +1313,7 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
 
   const update: Record<string, any> = {
     user_profile_id: profileId,
-    tracked_book_id: ensured.bookId,
+    title_id: ensured.titleId,
     last_read_at: new Date().toISOString(),
   }
   let isCompleted = false
@@ -1253,8 +1346,8 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
 
   update.is_completed = isCompleted
 
-  const { error } = await supabase.from("tracked_user_progress").upsert(update, {
-    onConflict: "user_profile_id,tracked_book_id",
+  const { error } = await supabase.from("title_user_progress").upsert(update, {
+    onConflict: "user_profile_id,title_id",
   })
 
   if (error) {
@@ -1274,6 +1367,6 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
   }
 
   revalidatePath("/search-titles")
-  return { bookId: ensured.bookId, titleId: ensured.titleId }
+  return { titleId: ensured.titleId }
 }
 

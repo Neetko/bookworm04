@@ -4,7 +4,12 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { getTitleDedupeCandidatesAction, updateTitleDedupeAction } from "@/app/actions/title"
+import { getTitleDedupeCandidatesAction, submitTitleDedupeSuggestionAction } from "@/app/actions/title"
+
+type LinkedTitleSummary = {
+  titleId: string
+  title: string
+}
 
 export function TitleDedupeDialog({ titleId }: { titleId: string }) {
   const [open, setOpen] = useState(false)
@@ -18,8 +23,11 @@ export function TitleDedupeDialog({ titleId }: { titleId: string }) {
     firstPublishYear: number | null
     editionCount: number | null
     subjects: string[]
+    linkedElsewhereTitles?: LinkedTitleSummary[]
+    alreadySelectedForReview?: boolean
   }>>([])
   const [selected, setSelected] = useState<string[]>([])
+  const [linkedElsewhere, setLinkedElsewhere] = useState<Record<string, LinkedTitleSummary[]>>({})
   const [error, setError] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
 
@@ -30,6 +38,7 @@ export function TitleDedupeDialog({ titleId }: { titleId: string }) {
       const res = await getTitleDedupeCandidatesAction(titleId)
       setCandidates(res.candidates)
       setSelected(res.selected)
+      setLinkedElsewhere(res.linkedElsewhere)
     } catch (e: any) {
       setError(e?.message ?? "Failed to load work matches")
     } finally {
@@ -38,6 +47,8 @@ export function TitleDedupeDialog({ titleId }: { titleId: string }) {
   }
 
   const toggleWork = (workId: string) => {
+    const candidate = candidates.find((entry) => entry.workId === workId)
+    if (candidate?.alreadySelectedForReview) return
     setSelected((prev) => (prev.includes(workId) ? prev.filter((id) => id !== workId) : [...prev, workId]))
   }
 
@@ -45,10 +56,14 @@ export function TitleDedupeDialog({ titleId }: { titleId: string }) {
     setSaving(true)
     setError(null)
     try {
-      await updateTitleDedupeAction(titleId, selected)
+      const selectedWorks = candidates.filter((candidate) => selected.includes(candidate.workId))
+      await submitTitleDedupeSuggestionAction({
+        titleId,
+        selectedWorks,
+      })
       setOpen(false)
     } catch (e: any) {
-      setError(e?.message ?? "Failed to update dedupe list")
+      setError(e?.message ?? "Failed to submit dedupe suggestion")
     } finally {
       setSaving(false)
     }
@@ -64,6 +79,9 @@ export function TitleDedupeDialog({ titleId }: { titleId: string }) {
           <DialogHeader>
             <DialogTitle>Dedupe work IDs</DialogTitle>
           </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            Select possible work IDs to send to admins for review. They will not be added to this title until approved.
+          </div>
           {loading ? (
             <div className="text-sm text-muted-foreground">Loading matches...</div>
           ) : error ? (
@@ -77,7 +95,11 @@ export function TitleDedupeDialog({ titleId }: { titleId: string }) {
                   key={candidate.workId}
                   className={cn(
                     "flex items-start gap-3 rounded-md border p-2",
-                    selected.includes(candidate.workId) ? "border-primary" : "border-border"
+                    candidate.alreadySelectedForReview
+                      ? "border-border bg-muted/40 opacity-70"
+                      : selected.includes(candidate.workId)
+                        ? "border-primary"
+                        : "border-border"
                   )}
                 >
                   <div className="flex-1 space-y-1">
@@ -89,13 +111,25 @@ export function TitleDedupeDialog({ titleId }: { titleId: string }) {
                     <div className="text-xs text-muted-foreground line-clamp-2">
                       {(candidate.subjects ?? []).slice(0, 3).join(" / ") || "No subjects"}
                     </div>
+                    {(linkedElsewhere[candidate.workId] ?? candidate.linkedElsewhereTitles ?? []).length > 0 ? (
+                      <div className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700 dark:text-amber-300">
+                        Linked to other titles: {(linkedElsewhere[candidate.workId] ?? candidate.linkedElsewhereTitles ?? [])
+                          .map((title) => title.title)
+                          .join(" • ")}
+                      </div>
+                    ) : null}
                   </div>
                   <Button
-                    variant={selected.includes(candidate.workId) ? "default" : "outline"}
+                    variant={candidate.alreadySelectedForReview ? "secondary" : selected.includes(candidate.workId) ? "default" : "outline"}
                     size="sm"
+                    disabled={candidate.alreadySelectedForReview}
                     onClick={() => toggleWork(candidate.workId)}
                   >
-                    {selected.includes(candidate.workId) ? "Selected" : "Select"}
+                    {candidate.alreadySelectedForReview
+                      ? "Already in review"
+                      : selected.includes(candidate.workId)
+                        ? "Selected"
+                        : "Select"}
                   </Button>
                 </div>
               ))}
@@ -110,8 +144,8 @@ export function TitleDedupeDialog({ titleId }: { titleId: string }) {
             <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={save} disabled={saving}>
-              {saving ? "Saving..." : "Save"}
+            <Button onClick={save} disabled={saving || selected.length === 0}>
+              {saving ? "Submitting..." : "Submit for review"}
             </Button>
           </div>
         </DialogContent>

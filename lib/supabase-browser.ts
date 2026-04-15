@@ -1,9 +1,9 @@
 import "client-only"
 
 import { createBrowserClient } from "@supabase/ssr"
+import { getSupabasePublicEnv } from "@/lib/supabase-config"
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://localhost"
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "public-anon-key"
+const { url, anonKey: anon } = getSupabasePublicEnv()
 
 // Browser client that stores the session in cookies (used by Auth UI + client components)
 export const supabase = createBrowserClient(url, anon)

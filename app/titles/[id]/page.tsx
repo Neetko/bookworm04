@@ -17,6 +17,7 @@ import { TitleDedupeDialog } from "@/components/title-dedupe-dialog"
 import { TitleBookmarkButton } from "@/components/title-bookmark-button"
 import { GENRE_BG_CLASS, isGenre, normalizeGenres } from "@/lib/types"
 import { enforceGenreRulesFromList } from "@/lib/book-tagging"
+import { getTitleReferenceWorkIds } from "@/lib/reference-data"
 import { cn } from "@/lib/utils"
 import { buildAmazonProductUrl, buildAmazonSearchUrl } from "@/lib/amazon"
 
@@ -43,11 +44,6 @@ type EditionRow = {
   saleability: string | null
 }
 
-function normalizeCoverUrl(url: string | null): string | null {
-  if (!url) return null
-  return url.replace(/^http:/, "https:")
-}
-
 async function getTitle(id: string): Promise<TitleRow | null> {
   const supabase = await createServerClient()
   const { data, error } = await supabase.from("titles").select("*").eq("id", id).maybeSingle()
@@ -56,22 +52,6 @@ async function getTitle(id: string): Promise<TitleRow | null> {
     return null
   }
   return data as TitleRow
-}
-
-async function getTrackedBookIdForTitle(titleId: string): Promise<string | null> {
-  const supabase = await createServerClient()
-  const { data, error } = await supabase
-    .from("tracked_books")
-    .select("id")
-    .eq("title_id", titleId)
-    .maybeSingle()
-
-  if (error) {
-    console.error("Error fetching tracked mapping:", error)
-    return null
-  }
-
-  return (data?.id as string | undefined) ?? null
 }
 
 async function getTodayDiaryNoteForTitle(titleId: string): Promise<{ noteHtml: string | null; noteText: string | null } | null> {
@@ -111,7 +91,10 @@ async function getTodayDiaryNoteForTitle(titleId: string): Promise<{ noteHtml: s
 
 async function getEditionsForTitle(title: TitleRow): Promise<EditionRow[]> {
   const supabase = await createServerClient()
-  const workIds = [title.work_id, ...(title.dupe_work_ids ?? [])].filter(Boolean) as string[]
+  const workIds = await getTitleReferenceWorkIds(supabase, {
+    titleId: title.id,
+    fallbackWorkIds: [title.work_id, ...(title.dupe_work_ids ?? [])],
+  })
   if (workIds.length === 0) return []
 
   const { data, error } = await supabase
@@ -152,17 +135,11 @@ function uniqueGenres(genres: string[]): string[] {
 
 async function getGenresForTitle(titleId: string): Promise<string[]> {
   const supabase = await createServerClient()
-  const [titleRow, trackedRow, trackedByIdRow] = await Promise.all([
-    supabase.from("titles").select("genre").eq("id", titleId).maybeSingle(),
-    supabase.from("tracked_books").select("genre").eq("title_id", titleId).maybeSingle(),
-    supabase.from("tracked_books").select("genre").eq("id", titleId).maybeSingle(),
-  ])
+  const titleRow = await supabase.from("titles").select("genre").eq("id", titleId).maybeSingle()
 
   const fallback = normalizeGenres(
     uniqueGenres([
       ...((titleRow.data?.genre ?? []).filter(isGenre)),
-      ...((trackedRow.data?.genre ?? []).filter(isGenre)),
-      ...((trackedByIdRow.data?.genre ?? []).filter(isGenre)),
     ])
   )
 
@@ -177,7 +154,6 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
     return <div className="min-h-screen bg-background"><Navigation /><div className="max-w-3xl mx-auto p-8">Title not found</div></div>
   }
 
-  const trackedBookId = await getTrackedBookIdForTitle(title.id)
   const genres = normalizeGenres(await getGenresForTitle(title.id))
   const reviews = await getReviews(title.id)
   const canRead = await getTitleReadStatus(title.id)
@@ -204,9 +180,9 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                 <div className="absolute inset-0 flex items-center justify-center">
                   <BookOpen className="h-16 w-16 text-muted-foreground" />
                 </div>
-                {normalizeCoverUrl(title.cover_image_url) ? (
+                {title.cover_image_url ? (
                   <CoverImage
-                    src={normalizeCoverUrl(title.cover_image_url) ?? undefined}
+                    src={title.cover_image_url ?? undefined}
                     alt={title.title}
                     className="absolute inset-0 h-full w-full object-cover"
                     loading="lazy"
@@ -305,7 +281,6 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                   <TitleTrackProgressButton
                     titleId={title.id}
                     title={title.title}
-                    trackedBookId={trackedBookId}
                     initialNoteHtml={todayDiaryNote?.noteHtml ?? null}
                     initialNoteText={todayDiaryNote?.noteText ?? null}
                   />

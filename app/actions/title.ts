@@ -1,8 +1,11 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase-server"
+import { createAdminClient, createServerClient } from "@/lib/supabase-server"
+import { getCoverChoicesForSelectedWorks } from "@/lib/cover-cache"
 import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
 import { fetchOpenLibraryWorkCandidatesByTitleAuthor, type OpenLibraryWorkCandidate } from "@/lib/open-library"
+import { getLinkedTitlesByWorkId, getTitleReferenceWorkIds, type LinkedTitleSummary } from "@/lib/reference-data"
+import { isExactTitleAuthorMatch, normalizeWorkIdList, normalizeWorkSnapshots, type WorkSnapshot } from "@/lib/suggestions"
 import { revalidatePath } from "next/cache"
 import { awardPointsForTitleAction } from "@/app/actions/rewards"
 
@@ -575,7 +578,10 @@ export type TitleEditionRow = {
   saleability: string | null
 }
 
-export type TitleDedupeCandidate = OpenLibraryWorkCandidate
+export type TitleDedupeCandidate = OpenLibraryWorkCandidate & {
+  linkedElsewhereTitles?: LinkedTitleSummary[]
+  alreadySelectedForReview?: boolean
+}
 
 async function getTitleCore(titleId: string) {
   const supabase = await createServerClient()
@@ -599,45 +605,99 @@ async function getTitleCore(titleId: string) {
   }
 }
 
+async function getTitleWorkIds(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  core: {
+    id: string
+    work_id: string | null
+    dupe_work_ids: string[] | null
+  }
+): Promise<string[]> {
+  return getTitleReferenceWorkIds(supabase, {
+    titleId: core.id,
+    fallbackWorkIds: [core.work_id, ...(core.dupe_work_ids ?? [])],
+  })
+}
+
 async function filterDedupedWorkCandidates(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
+  titleId: string,
+  title: string,
+  author: string,
+  existingWorkIds: string[],
+  pendingReviewWorkIds: string[],
   candidates: OpenLibraryWorkCandidate[]
 ) {
-  if (candidates.length === 0) return []
-  const workIds = candidates.map((candidate) => candidate.workId)
-  const orFilter = workIds.map((id) => `dupe_work_ids.cs.{${id}}`).join(",")
-
-  const [{ data: titleWorkMatches }, { data: trackedWorkMatches }, { data: titleDupes }, { data: trackedDupes }] =
-    await Promise.all([
-      supabase.from("titles").select("work_id").in("work_id", workIds),
-      supabase.from("tracked_books").select("work_id").in("work_id", workIds),
-      orFilter
-        ? supabase.from("titles").select("dupe_work_ids").or(orFilter)
-        : Promise.resolve({ data: [] as any[] } as any),
-      orFilter
-        ? supabase.from("tracked_books").select("dupe_work_ids").or(orFilter)
-        : Promise.resolve({ data: [] as any[] } as any),
-    ])
-
-  const deduped = new Set<string>()
-  for (const row of titleWorkMatches ?? []) {
-    if ((row as any).work_id) deduped.add((row as any).work_id as string)
-  }
-  for (const row of trackedWorkMatches ?? []) {
-    if ((row as any).work_id) deduped.add((row as any).work_id as string)
-  }
-
-  const dupeRows = [...(titleDupes ?? []), ...(trackedDupes ?? [])]
-  for (const row of dupeRows) {
-    const values = (row as any).dupe_work_ids
-    if (Array.isArray(values)) {
-      for (const id of values) {
-        if (typeof id === "string") deduped.add(id)
-      }
+  if (candidates.length === 0) {
+    return {
+      candidates: [] as TitleDedupeCandidate[],
+      linkedElsewhere: {} as Record<string, LinkedTitleSummary[]>,
     }
   }
 
-  return candidates.filter((candidate) => !deduped.has(candidate.workId))
+  const existingWorkIdSet = new Set(existingWorkIds)
+  const pendingReviewWorkIdSet = new Set(pendingReviewWorkIds)
+  const remainingCandidates = candidates.filter((candidate) => {
+    if (existingWorkIdSet.has(candidate.workId)) return false
+
+    return !isExactTitleAuthorMatch({
+      title,
+      author,
+      candidateTitle: candidate.title,
+      candidateAuthor: candidate.author,
+    })
+  })
+
+  if (remainingCandidates.length === 0) {
+    return {
+      candidates: [] as TitleDedupeCandidate[],
+      linkedElsewhere: {} as Record<string, LinkedTitleSummary[]>,
+    }
+  }
+
+  const linkedElsewhere = await getLinkedTitlesByWorkId(supabase, {
+    workIds: remainingCandidates.map((candidate) => candidate.workId),
+    excludeTitleId: titleId,
+  })
+
+  return {
+    candidates: remainingCandidates.map((candidate) => ({
+      ...candidate,
+      linkedElsewhereTitles: linkedElsewhere[candidate.workId] ?? [],
+      alreadySelectedForReview: pendingReviewWorkIdSet.has(candidate.workId),
+    })),
+    linkedElsewhere,
+  }
+}
+
+async function getPendingSuggestedWorkIdsForTitle(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  titleId: string
+): Promise<string[]> {
+  if (!titleId.trim()) return []
+
+  const { data, error } = await supabase
+    .from("suggestions")
+    .select("suggested_selected_work_ids,admin_final_selected_work_ids")
+    .eq("title_id", titleId)
+    .eq("status", "pending")
+
+  if (error) {
+    console.error("Failed to load pending title dedupe suggestions", error)
+    return []
+  }
+
+  const workIds = new Set<string>()
+  for (const row of data ?? []) {
+    for (const workId of normalizeWorkIdList((row as any)?.suggested_selected_work_ids)) {
+      workIds.add(workId)
+    }
+    for (const workId of normalizeWorkIdList((row as any)?.admin_final_selected_work_ids)) {
+      workIds.add(workId)
+    }
+  }
+
+  return Array.from(workIds)
 }
 
 export async function getTitleEditionsAction(titleId: string): Promise<TitleEditionRow[]> {
@@ -645,7 +705,7 @@ export async function getTitleEditionsAction(titleId: string): Promise<TitleEdit
   const core = await getTitleCore(titleId)
   if (!core) return []
 
-  const workIds = [core.work_id, ...(core.dupe_work_ids ?? [])].filter(Boolean) as string[]
+  const workIds = await getTitleWorkIds(supabase, core)
   if (workIds.length === 0) return []
 
   const { data, error } = await supabase
@@ -678,10 +738,14 @@ export async function getTitleEditionsAction(titleId: string): Promise<TitleEdit
 export async function getTitleDedupeCandidatesAction(titleId: string): Promise<{
   candidates: TitleDedupeCandidate[]
   selected: string[]
+  linkedElsewhere: Record<string, LinkedTitleSummary[]>
 }> {
   const supabase = await createServerClient()
   const core = await getTitleCore(titleId)
-  if (!core) return { candidates: [], selected: [] }
+  if (!core) return { candidates: [], selected: [], linkedElsewhere: {} }
+
+  const existingWorkIds = await getTitleWorkIds(supabase, core)
+  const pendingReviewWorkIds = await getPendingSuggestedWorkIdsForTitle(supabase, core.id)
 
   const baseCandidates = await fetchOpenLibraryWorkCandidatesByTitleAuthor({
     title: core.title,
@@ -689,49 +753,105 @@ export async function getTitleDedupeCandidatesAction(titleId: string): Promise<{
     limit: 15,
   })
 
-  const candidates = await filterDedupedWorkCandidates(supabase, baseCandidates)
-  const selected = (core.dupe_work_ids ?? []).filter((id) => id && id !== core.work_id)
+  const { candidates, linkedElsewhere } = await filterDedupedWorkCandidates(
+    supabase,
+    core.id,
+    core.title,
+    core.author,
+    existingWorkIds,
+    pendingReviewWorkIds,
+    baseCandidates
+  )
 
-  return { candidates, selected }
+  return { candidates, selected: [], linkedElsewhere }
 }
 
-export async function updateTitleDedupeAction(titleId: string, dupeWorkIds: string[]) {
+export async function submitTitleDedupeSuggestionAction(input: {
+  titleId: string
+  selectedWorks: WorkSnapshot[]
+}) {
   const supabase = await createServerClient()
-  await requireAuthedProfileId(supabase)
+  const profileId = await requireAuthedProfileId(supabase)
+
+  const titleId = input.titleId.trim()
 
   const core = await getTitleCore(titleId)
   if (!core) throw new Error("Title not found")
 
-  const normalized = Array.from(new Set(dupeWorkIds.filter(Boolean))).filter(
-    (id) => id !== core.work_id
-  )
+  const existingWorkIds = await getTitleWorkIds(supabase, core)
+  const existingWorkIdSet = new Set(existingWorkIds)
+  const pendingReviewWorkIds = await getPendingSuggestedWorkIdsForTitle(supabase, titleId)
+  const pendingReviewWorkIdSet = new Set(pendingReviewWorkIds)
+  const selectedWorkIds = normalizeWorkIdList(input.selectedWorks.map((work) => work.workId))
+  const selectedWorkSnapshots = normalizeWorkSnapshots(input.selectedWorks)
+    .filter((snapshot) => selectedWorkIds.includes(snapshot.workId))
+    .filter((snapshot) => !existingWorkIdSet.has(snapshot.workId))
+    .filter((snapshot) => !pendingReviewWorkIdSet.has(snapshot.workId))
+    .filter((snapshot) => !isExactTitleAuthorMatch({
+      title: core.title,
+      author: core.author,
+      candidateTitle: snapshot.title,
+      candidateAuthor: snapshot.author,
+    }))
 
-  const { error: titleError } = await supabase
-    .from("titles")
-    .update({
-      dupe_work_ids: normalized,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", titleId)
+  const normalizedSelectedWorkIds = selectedWorkIds
+    .filter((workId) => workId !== core.work_id)
+    .filter((workId) => !existingWorkIdSet.has(workId))
+    .filter((workId) => !pendingReviewWorkIdSet.has(workId))
+    .filter((workId) => selectedWorkSnapshots.some((snapshot) => snapshot.workId === workId))
 
-  if (titleError) {
-    console.error("Failed to update title dupes", titleError)
-    throw new Error("Failed to update dedupe list")
+  if (normalizedSelectedWorkIds.length === 0) {
+    throw new Error("Select at least one new work ID to submit for review")
   }
 
-  const { error: trackedError } = await supabase
-    .from("tracked_books")
-    .update({
-      dupe_work_ids: normalized,
-      updated_at: new Date().toISOString(),
-    })
-    .or(`title_id.eq.${titleId},id.eq.${titleId}`)
+  const finalSnapshots = normalizedSelectedWorkIds.map((workId) => {
+    return selectedWorkSnapshots.find((snapshot) => snapshot.workId === workId) ?? {
+      workId,
+      title: workId,
+      author: "",
+      firstPublishYear: null,
+      editionCount: null,
+      forSale: null,
+      coverUrl: null,
+      subjects: [],
+      matchCategory: null,
+      matchConfidence: null,
+      matchReason: null,
+    }
+  })
 
-  if (trackedError) {
-    console.error("Failed to update tracked dupes", trackedError)
-    throw new Error("Failed to update dedupe list")
+  const { error: suggestionError } = await supabase
+    .from("suggestions")
+    .insert({
+      title_id: titleId,
+      suggested_genres: null,
+      algorithm_suggested_genres: null,
+      suggested_selected_work_ids: normalizedSelectedWorkIds,
+      suggested_selected_work_snapshots: finalSnapshots,
+      suggested_by_profile_id: profileId,
+    })
+
+  if (suggestionError) {
+    console.error("Failed to submit title dedupe suggestion", suggestionError)
+    throw new Error("Failed to submit dedupe suggestion")
   }
 
+  if (normalizedSelectedWorkIds.length > 0) {
+    const admin = createAdminClient()
+    try {
+      await getCoverChoicesForSelectedWorks(admin as any, {
+        workIds: normalizedSelectedWorkIds,
+        workSnapshots: finalSnapshots,
+      })
+    } catch (error) {
+      console.warn("Failed to warm work cover cache during title dedupe suggestion creation", error)
+    }
+  }
+
+  revalidatePath("/admin/suggestions")
   revalidatePath(`/titles/${titleId}`)
-  return { titleId }
+  return {
+    titleId,
+    submittedWorkIds: normalizedSelectedWorkIds,
+  }
 }

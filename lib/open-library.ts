@@ -29,6 +29,14 @@ export type OpenLibraryWorkCandidate = {
   subjects: string[]
 }
 
+export type OpenLibraryWorkCoverCandidate = {
+  workId: string
+  coverId: number
+  sourceCoverKey: string
+  remoteUrl: string
+  editionKey: string | null
+}
+
 function normalizeArray(value: unknown): string[] {
   if (!value) return []
   if (Array.isArray(value)) {
@@ -80,9 +88,25 @@ function normalizeWorkOlid(value?: string | null): string | null {
   return trimmed
 }
 
-function buildOpenLibraryCoverUrlFromCoverId(coverId?: number | null, size: "M" | "L" = "M"): string | null {
+export function buildOpenLibraryCoverUrlFromCoverId(coverId?: number | null, size: "M" | "L" = "M"): string | null {
   if (!coverId || !Number.isFinite(coverId)) return null
   return `https://covers.openlibrary.org/b/id/${encodeURIComponent(String(coverId))}-${size}.jpg?default=false`
+}
+
+function normalizeCoverIds(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+
+  return Array.from(new Set(
+    value
+      .map((entry) => (typeof entry === "number" ? entry : typeof entry === "string" ? Number(entry) : NaN))
+      .filter((entry) => Number.isFinite(entry) && entry > 0)
+  )) as number[]
+}
+
+function normalizeEditionKey(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
 }
 
 async function fetchOpenLibraryWorkIdByIsbn(isbn: string): Promise<{ workId: string | null; isbns: string[] }> {
@@ -140,6 +164,69 @@ async function fetchOpenLibraryEditionsByWorkId(workId: string): Promise<OpenLib
     }))
   } catch (error) {
     console.warn("Open Library editions fetch failed (network/parse)", error)
+    return []
+  }
+}
+
+export async function fetchOpenLibraryWorkCoverCandidatesByWorkId(workId: string): Promise<OpenLibraryWorkCoverCandidate[]> {
+  const cleaned = normalizeWorkOlid(workId)
+  if (!cleaned) return []
+
+  const workUrl = new URL(`https://openlibrary.org/works/${encodeURIComponent(cleaned)}.json`)
+  const editionsUrl = new URL(`https://openlibrary.org/works/${encodeURIComponent(cleaned)}/editions.json`)
+  editionsUrl.searchParams.set("limit", "100")
+
+  try {
+    const [workRes, editionsRes] = await Promise.all([
+      fetch(workUrl.toString(), { cache: "no-store" }),
+      fetch(editionsUrl.toString(), { cache: "no-store" }),
+    ])
+
+    const candidates: OpenLibraryWorkCoverCandidate[] = []
+    const seen = new Set<string>()
+
+    if (workRes.ok) {
+      const workJson = (await workRes.json()) as Record<string, unknown>
+      for (const coverId of normalizeCoverIds(workJson.covers)) {
+        const sourceCoverKey = `ol-${coverId}`
+        if (seen.has(sourceCoverKey)) continue
+        const remoteUrl = buildOpenLibraryCoverUrlFromCoverId(coverId, "L")
+        if (!remoteUrl) continue
+        seen.add(sourceCoverKey)
+        candidates.push({
+          workId: cleaned,
+          coverId,
+          sourceCoverKey,
+          remoteUrl,
+          editionKey: null,
+        })
+      }
+    }
+
+    if (editionsRes.ok) {
+      const editionsJson = (await editionsRes.json()) as { entries?: Array<Record<string, unknown>> }
+      for (const entry of editionsJson.entries ?? []) {
+        const editionKey = normalizeEditionKey(entry.key)
+        for (const coverId of normalizeCoverIds(entry.covers)) {
+          const sourceCoverKey = `ol-${coverId}`
+          if (seen.has(sourceCoverKey)) continue
+          const remoteUrl = buildOpenLibraryCoverUrlFromCoverId(coverId, "L")
+          if (!remoteUrl) continue
+          seen.add(sourceCoverKey)
+          candidates.push({
+            workId: cleaned,
+            coverId,
+            sourceCoverKey,
+            remoteUrl,
+            editionKey,
+          })
+        }
+      }
+    }
+
+    return candidates
+  } catch (error) {
+    console.warn("Open Library cover candidate fetch failed", error)
     return []
   }
 }

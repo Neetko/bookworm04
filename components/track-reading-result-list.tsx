@@ -29,7 +29,7 @@ function Cover({
   onStatusChange?: (status: CoverStatus) => void
 }) {
   const [failed, setFailed] = useState(false)
-  const normalized = src ? src.replace(/^http:/, "https:") : null
+  const normalized = src ?? null
 
   useEffect(() => {
     if (!normalized) {
@@ -95,7 +95,6 @@ export function TrackReadingResultList({
   isActionDisabled,
 }: TrackReadingResultListProps) {
   const router = useRouter()
-  const [googleTitleIds, setGoogleTitleIds] = useState<Record<string, string>>({})
   const [ingestedVolumeIds, setIngestedVolumeIds] = useState<Set<string>>(new Set())
 
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -123,15 +122,10 @@ export function TrackReadingResultList({
   }>>([])
   const [requiresWorkConfirmation, setRequiresWorkConfirmation] = useState(false)
   const [showAllDuplicates, setShowAllDuplicates] = useState(false)
+  const [autoDupeMatchCount, setAutoDupeMatchCount] = useState(0)
+  const [bookwormSuggestedMatchCount, setBookwormSuggestedMatchCount] = useState(0)
 
   useEffect(() => {
-    const initialMap: Record<string, string> = {}
-    for (const item of results) {
-      if (item.source === "google" && item.volumeId && item.titleId) {
-        initialMap[item.volumeId] = item.titleId
-      }
-    }
-    setGoogleTitleIds(initialMap)
     setIngestedVolumeIds(new Set())
   }, [results])
 
@@ -147,6 +141,8 @@ export function TrackReadingResultList({
     setLocalDuplicates([])
     setRequiresWorkConfirmation(false)
     setShowAllDuplicates(false)
+    setAutoDupeMatchCount(0)
+    setBookwormSuggestedMatchCount(0)
     setLoadingSuggestion(true)
 
     try {
@@ -157,6 +153,8 @@ export function TrackReadingResultList({
       setWorkCandidates(suggestion.workCandidates ?? [])
       setRequiresWorkConfirmation(Boolean(suggestion.requiresWorkConfirmation))
       setLocalDuplicates(suggestion.localDuplicates ?? [])
+      setAutoDupeMatchCount(suggestion.autoDupeMatchCount ?? 0)
+      setBookwormSuggestedMatchCount(suggestion.bookwormSuggestedMatchCount ?? 0)
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to load ingest details")
       setDialogOpen(false)
@@ -179,11 +177,6 @@ export function TrackReadingResultList({
       return
     }
 
-    if (requiresWorkConfirmation && selectedWorkIds.length === 0) {
-      toast.error("Select a matching Open Library work")
-      return
-    }
-
     setSubmittingIngest(true)
     try {
       const res = await confirmGoogleBookIngest({
@@ -191,12 +184,10 @@ export function TrackReadingResultList({
         selectedGenres,
         selectedWorkIds,
         requiresWorkSelection: requiresWorkConfirmation,
+        algorithmSuggestedGenres: suggestedGenres,
+        workCandidates,
       })
       toast.success("Title ingested")
-
-      if (res.titleId && dialogResult.volumeId) {
-        setGoogleTitleIds((prev) => ({ ...prev, [dialogResult.volumeId as string]: res.titleId }))
-      }
 
       setIngestedVolumeIds((prev) => {
         const next = new Set(prev)
@@ -236,19 +227,14 @@ export function TrackReadingResultList({
     setLocalDuplicates([])
     setRequiresWorkConfirmation(false)
     setShowAllDuplicates(false)
+    setAutoDupeMatchCount(0)
+    setBookwormSuggestedMatchCount(0)
   }
 
   const toggleWorkCandidate = (workId: string) => {
     setSelectedWorkIds((prev) =>
       prev.includes(workId) ? prev.filter((id) => id !== workId) : [...prev, workId]
     )
-  }
-
-  const makePrimaryWork = (workId: string) => {
-    setSelectedWorkIds((prev) => {
-      if (!prev.includes(workId)) return [workId, ...prev]
-      return [workId, ...prev.filter((id) => id !== workId)]
-    })
   }
 
   return (
@@ -328,9 +314,9 @@ export function TrackReadingResultList({
 
                   {workCandidates.length > 0 ? (
                     <div className="space-y-2 rounded-lg border border-border p-3">
-                      <p className="text-sm font-medium">Open Library matches</p>
+                      <p className="text-sm font-medium">Open Library matches to review</p>
                       <p className="text-xs text-muted-foreground">
-                        Select the work that best matches this title.
+                        These are lower-confidence matches. Select any that you want an admin to review.
                       </p>
                       <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                         {workCandidates.map((candidate) => (
@@ -367,23 +353,27 @@ export function TrackReadingResultList({
                                 size="sm"
                                 onClick={() => toggleWorkCandidate(candidate.workId)}
                               >
-                                {selectedWorkIds.includes(candidate.workId) ? "Selected" : "Select"}
+                                {selectedWorkIds.includes(candidate.workId) ? "Selected for review" : "Select for review"}
                               </Button>
-                              {selectedWorkIds[0] === candidate.workId ? (
-                                <span className="text-xs text-primary text-center">Primary</span>
-                              ) : selectedWorkIds.includes(candidate.workId) ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => makePrimaryWork(candidate.workId)}
-                                >
-                                  Make primary
-                                </Button>
-                              ) : null}
                             </div>
                           </div>
                         ))}
                       </div>
+                    </div>
+                  ) : null}
+
+                  {autoDupeMatchCount > 0 || bookwormSuggestedMatchCount > 0 ? (
+                    <div className="rounded-lg border border-border p-3 text-xs text-muted-foreground space-y-1">
+                      {autoDupeMatchCount > 0 ? (
+                        <p>
+                          Bookworm auto-classified {autoDupeMatchCount} exact match{autoDupeMatchCount === 1 ? "" : "es"} and hid {autoDupeMatchCount === 1 ? "it" : "them"} from this picker.
+                        </p>
+                      ) : null}
+                      {bookwormSuggestedMatchCount > 0 ? (
+                        <p>
+                          Bookworm also queued {bookwormSuggestedMatchCount} high-likelihood match{bookwormSuggestedMatchCount === 1 ? "" : "es"} for admin review.
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -418,8 +408,7 @@ export function TrackReadingResultList({
                   disabled={
                     loadingSuggestion ||
                     submittingIngest ||
-                    selectedGenres.length === 0 ||
-                    (requiresWorkConfirmation && selectedWorkIds.length === 0)
+                    selectedGenres.length === 0
                   }
                 >
                   {submittingIngest ? "Ingesting..." : "Ingest"}
@@ -432,15 +421,11 @@ export function TrackReadingResultList({
 
       <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
       {results.map((result) => {
-        const resolvedTitleId =
-          result.source === "google" && result.volumeId
-            ? googleTitleIds[result.volumeId] ?? result.titleId
-            : result.titleId ?? result.id
+        const resolvedTitleId = result.source === "local" ? (result.titleId ?? result.id) : undefined
         const isClickable = Boolean(resolvedTitleId)
         const showOpenReady = Boolean(resolvedTitleId)
         const isIngested =
           result.source === "local" ||
-          result.claimed ||
           (result.volumeId ? ingestedVolumeIds.has(result.volumeId) : false)
         const showIngest = result.source === "google" && !isIngested
         const canTakeAction = Boolean(onAction && resolvedTitleId && !showIngest)
