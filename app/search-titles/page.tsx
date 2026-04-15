@@ -27,6 +27,7 @@ export default async function SearchTitlesPage({
         .map((value) => value.trim())
         .filter(isGenre)
     : []
+  const hasActiveSearch = Boolean(title || author || includeExternal || selectedGenres.length > 0)
 
   const hasGoogleBooksKey = Boolean(process.env.GOOGLE_BOOKS_API_KEY)
 
@@ -59,6 +60,7 @@ export default async function SearchTitlesPage({
           includeExternal={includeExternal}
           selectedGenres={selectedGenres}
           hasGoogleBooksKey={hasGoogleBooksKey}
+          hasActiveSearch={hasActiveSearch}
         />
       </div>
     </div>

@@ -67,5 +67,4 @@ export type SearchTitleResult = {
   coverImageUrl: string | null
   genres?: Genre[]
   engagement: number
-  claimed: boolean
 }
