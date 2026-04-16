@@ -76,13 +76,13 @@ begin
 end $$;
 
 insert into public.activity_events (user_profile_id, title_id, event_type)
-select up.user_profile_id, up.book_id
+select up.user_profile_id, up.book_id, 'title_finished'
 from public.user_progress up
 where up.is_completed = true
 ;
 
 insert into public.activity_events (user_profile_id, title_id, event_type)
-select tup.user_profile_id, tb.title_id
+select tup.user_profile_id, tb.title_id, 'title_finished'
 from public.tracked_user_progress tup
 join public.tracked_books tb on tb.id = tup.tracked_book_id
 where tup.is_completed = true

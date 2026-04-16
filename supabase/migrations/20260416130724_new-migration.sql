@@ -1,0 +1,5 @@
+-- No-op reconciliation migration.
+--
+-- This file is intentionally retained because the migration timestamp was
+-- recorded on the hosted project during the remote sync process. Keeping it in
+-- source control preserves local/remote migration history alignment.
