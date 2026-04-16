@@ -182,7 +182,7 @@ export async function getCoverChoicesForSelectedWorks(
 
   const existingChoices = (existingRows ?? [])
     .map((row: any) => toCoverChoice(row as WorkCoverCacheRow))
-    .filter((row): row is CoverChoice => Boolean(row))
+    .filter((row: CoverChoice | null): row is CoverChoice => Boolean(row))
 
   const choicesByWorkId = new Map<string, CoverChoice[]>()
   for (const choice of existingChoices) {

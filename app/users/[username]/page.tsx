@@ -11,8 +11,8 @@ import { FollowButton } from "@/components/follow-button"
 async function getUserProfile(profileId: string) {
   const supabase = await createServerClient()
   const { data, error } = await supabase
-    .from("user_profiles")
-    .select("id, username, avatar_url, bio, auth_user_id")
+    .from("public_profiles")
+    .select("id, username, avatar_url, bio")
     .eq("id", profileId)
     .maybeSingle()
 

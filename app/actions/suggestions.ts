@@ -19,9 +19,9 @@ async function requireAdminAccess() {
 
   const admin = createAdminClient()
   const { data: roleRow, error: roleError } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", user.id)
+    .from("user_profiles")
+    .select("id, role")
+    .eq("auth_user_id", user.id)
     .maybeSingle()
 
   if (roleError) {
@@ -29,22 +29,18 @@ async function requireAdminAccess() {
     throw new Error("Failed to verify admin access")
   }
 
-  if (roleRow?.role !== "admin") {
+  if ((roleRow?.role ?? "").toLowerCase() !== "admin") {
     throw new Error("Admin access required")
   }
 
-  const { data: profile, error: profileError } = await admin
-    .from("user_profiles")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .single()
-
-  if (profileError || !profile) throw new Error("Profile not found")
+  if (!roleRow?.id) {
+    throw new Error("Admin profile not found")
+  }
 
   return {
     admin,
     user,
-    profileId: profile.id as string,
+    profileId: roleRow.id as string,
   }
 }
 

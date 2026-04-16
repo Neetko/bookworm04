@@ -12,7 +12,7 @@ export default function AuthCallbackPage() {
       try {
         await supabase.auth.exchangeCodeForSession(window.location.href)
       } finally {
-        router.replace("/")
+        router.replace("/onboarding")
       }
     }
     exchange()

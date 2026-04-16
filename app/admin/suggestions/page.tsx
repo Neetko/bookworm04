@@ -24,12 +24,12 @@ export default async function SuggestionsAdminPage() {
 
   const admin = createAdminClient()
   const { data: adminRole, error: adminRoleError } = await admin
-    .from("user_roles")
+    .from("user_profiles")
     .select("role")
-    .eq("user_id", user.id)
+    .eq("auth_user_id", user.id)
     .maybeSingle()
 
-  if (adminRoleError || adminRole?.role !== "admin") {
+  if (adminRoleError || (adminRole?.role ?? "").toLowerCase() !== "admin") {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
@@ -37,7 +37,7 @@ export default async function SuggestionsAdminPage() {
           <h1 className="text-2xl font-semibold mb-2">Suggestions</h1>
           <p className="text-sm text-muted-foreground">Admin access required.</p>
           <p className="text-xs text-muted-foreground">Signed in as {user.email ?? "unknown user"}.</p>
-          <p className="text-xs text-muted-foreground">Admin rights are checked against the `user_roles` table by auth user id, not the community profile role.</p>
+          <p className="text-xs text-muted-foreground">Admin rights are checked against the profile role attached to your authenticated user.</p>
         </div>
       </div>
     )

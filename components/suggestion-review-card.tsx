@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -72,14 +72,14 @@ function GenreRow({ title, values }: { title: string; values: string[] }) {
 }
 
 export function SuggestionReviewCard({ suggestion }: SuggestionReviewCardProps) {
-  const isExactMatch = (snapshot: WorkSnapshot | null | undefined) => {
+  const isExactMatch = useCallback((snapshot: WorkSnapshot | null | undefined) => {
     return isExactWorkSnapshotMatch(snapshot, {
       title: suggestion.title,
       author: suggestion.author,
     })
-  }
+  }, [suggestion.author, suggestion.title])
 
-  const dedupeWorks = (works: WorkSnapshot[]) => {
+  const dedupeWorks = useCallback((works: WorkSnapshot[]) => {
     const unique: WorkSnapshot[] = []
     for (const snapshot of works) {
       if (!snapshot.workId) continue
@@ -88,7 +88,7 @@ export function SuggestionReviewCard({ suggestion }: SuggestionReviewCardProps) 
       unique.push(snapshot)
     }
     return unique
-  }
+  }, [isExactMatch])
 
   const suggestedWorks = useMemo(() => {
     const snapshots = suggestion.suggestedWorkIds.map((workId) => {
@@ -97,7 +97,7 @@ export function SuggestionReviewCard({ suggestion }: SuggestionReviewCardProps) 
     })
 
     return dedupeWorks(snapshots)
-  }, [suggestion.suggestedWorkIds, suggestion.suggestedWorkSnapshots])
+  }, [dedupeWorks, suggestion.suggestedWorkIds, suggestion.suggestedWorkSnapshots])
 
   const reviewedWorks = useMemo(() => {
     const snapshots = suggestion.adminFinalSelectedWorkIds.map((workId) => {
@@ -106,7 +106,7 @@ export function SuggestionReviewCard({ suggestion }: SuggestionReviewCardProps) 
     })
 
     return dedupeWorks(snapshots)
-  }, [suggestion.adminFinalSelectedWorkIds, suggestion.adminFinalSelectedWorkSnapshots])
+  }, [dedupeWorks, suggestion.adminFinalSelectedWorkIds, suggestion.adminFinalSelectedWorkSnapshots])
 
   const bookwormWorks = useMemo(() => {
     const works: WorkSnapshot[] = []
@@ -117,7 +117,7 @@ export function SuggestionReviewCard({ suggestion }: SuggestionReviewCardProps) 
       }
     }
     return works
-  }, [suggestion.author, suggestion.bookwormMatches, suggestion.title])
+  }, [isExactMatch, suggestion.bookwormMatches])
 
   const router = useRouter()
   const [removed, setRemoved] = useState(false)

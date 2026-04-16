@@ -6,8 +6,30 @@ import { createClient } from "@supabase/supabase-js"
 import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
 import { resizeAvatarImage } from "@/lib/avatar-image"
+import { normalizeUsernameLookup, sanitizeUsernameInput, validateUsernameInput } from "@/lib/onboarding"
 import { GENRES, type Genre } from "@/lib/types"
 import { summarizeGenrePoints } from "@/app/actions/rewards"
+
+async function findUsernameCollision(client: any, username: string, excludeAuthUserId?: string | null) {
+  const normalized = normalizeUsernameLookup(username)
+
+  const { data, error } = await client
+    .from("user_profiles")
+    .select("id, auth_user_id, username")
+    .ilike("username", username)
+
+  if (error) {
+    console.error("Error checking username availability", error)
+    throw new Error("Failed to check username availability")
+  }
+
+  return (data ?? []).find((row: any) => {
+    const rowUsername = normalizeUsernameLookup(row.username)
+    if (!rowUsername || rowUsername !== normalized) return false
+    if (excludeAuthUserId && row.auth_user_id === excludeAuthUserId) return false
+    return true
+  })
+}
 
 // Helper to verify user
 async function getUser(token: string) {
@@ -55,16 +77,7 @@ async function ensureUserProfile(user: { id: string; email?: string | null }, to
       const suffix = Math.floor(1000 + Math.random() * 9000)
       const candidate = `Bookworm${suffix}`
 
-      const { data: collision, error: collisionError } = await client
-        .from("user_profiles")
-        .select("id")
-        .eq("username", candidate)
-        .maybeSingle()
-
-      if (collisionError) {
-        console.error("Error checking username availability", collisionError)
-        throw new Error("Failed to generate username")
-      }
+      const collision = await findUsernameCollision(client, candidate)
 
       if (!collision) return candidate
     }
@@ -315,13 +328,23 @@ export async function updateUserProfile(token: string, formData: FormData) {
 
   await ensureUserProfile({ id: user.id, email: user.email }, token)
 
-  const username = formData.get("username") as string
+  const username = sanitizeUsernameInput(formData.get("username") as string)
   const bio = formData.get("bio") as string
   const avatarUrl = formData.get("avatarUrl") as string
 
   const supabase = await createServerClient()
 
+  const usernameError = validateUsernameInput(username)
+  if (usernameError) {
+    return { error: usernameError }
+  }
+
   try {
+    const collision = await findUsernameCollision(supabase, username, user.id)
+    if (collision) {
+      return { error: "That username is already taken" }
+    }
+
     const { error } = await supabase
       .from("user_profiles")
       .update({ 
@@ -335,6 +358,7 @@ export async function updateUserProfile(token: string, formData: FormData) {
     if (error) throw error
 
     revalidatePath("/profile")
+    revalidatePath("/onboarding")
     return { success: true }
   } catch (e) {
     console.error(e)

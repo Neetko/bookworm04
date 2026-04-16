@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Navigation } from "@/components/navigation"
 import { BookOpen, Sparkles, Star, TrendingUp, Users } from "lucide-react"
@@ -27,9 +28,13 @@ export default async function HomePage() {
   if (user) {
     const { data: profile } = await supabase
       .from("user_profiles")
-      .select("id")
+      .select("id,onboarding_completed_at")
       .eq("auth_user_id", user.id)
       .maybeSingle()
+
+    if (!profile?.onboarding_completed_at) {
+      redirect("/onboarding")
+    }
 
     const profileId = profile?.id as string | undefined
     const { data: followRows } = profileId
@@ -66,7 +71,7 @@ export default async function HomePage() {
 
     const { data: activityProfiles } = activityProfileIds.length > 0
       ? await supabase
-          .from("user_profiles")
+          .from("public_profiles")
           .select("id,username,avatar_url")
           .in("id", activityProfileIds)
       : { data: [] as Array<{ id: string; username: string | null; avatar_url: string | null }> }

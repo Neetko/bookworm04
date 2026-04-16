@@ -89,8 +89,8 @@ export async function GET(request: Request) {
   ) as string[]
 
   const { data: profiles } = await supabase
-    .from("user_profiles")
-    .select("id, username, avatar_url, email")
+    .from("public_profiles")
+    .select("id, username, avatar_url")
     .in("id", profileIds.length > 0 ? profileIds : ["00000000-0000-0000-0000-000000000000"])
 
   const profileMap = new Map(
@@ -100,8 +100,8 @@ export async function GET(request: Request) {
   const results = (rows ?? []).map((row: any) => {
     const sender = profileMap.get(row.sender_profile_id) as any
     const recipient = row.recipient_profile_id ? (profileMap.get(row.recipient_profile_id) as any) : null
-    const senderName = sender?.username ?? sender?.email ?? "Unknown"
-    const recipientName = recipient?.username ?? recipient?.email ?? row.recipient_username ?? "Unknown"
+    const senderName = sender?.username ?? "Unknown"
+    const recipientName = recipient?.username ?? row.recipient_username ?? "Unknown"
 
     return {
       id: row.id as string,
@@ -112,12 +112,12 @@ export async function GET(request: Request) {
       type: row.status === "draft" ? "draft" : folder === "sent" ? "sent" : "inbox",
       from: {
         name: senderName,
-        email: sender?.email ?? senderName,
+        email: senderName,
         avatarUrl: sender?.avatar_url ?? null,
       },
       to: {
         name: recipientName,
-        email: recipient?.email ?? recipientName,
+        email: recipientName,
         avatarUrl: recipient?.avatar_url ?? null,
       },
       replyTo: row.reply_to as string | null,
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
 
   if (recipient) {
     const { data: recipientProfile } = await supabase
-      .from("user_profiles")
+      .from("public_profiles")
       .select("id, username")
       .eq("username", recipient)
       .maybeSingle()

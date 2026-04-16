@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase-server"
+import { createAdminClient, createServerClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 
 async function requireAuthedProfileId() {
@@ -32,7 +32,7 @@ async function getActorMetadata(
   profileIds: string[]
 ) {
   const { data } = await supabase
-    .from("user_profiles")
+    .from("public_profiles")
     .select("id,username,avatar_url")
     .in("id", profileIds)
 
@@ -72,6 +72,7 @@ export async function getFollowState(targetProfileId: string) {
 
 export async function followUser(targetProfileId: string) {
   const { supabase, profileId } = await requireAuthedProfileId()
+  const admin = createAdminClient()
 
   if (profileId === targetProfileId) {
     throw new Error("Cannot follow yourself")
@@ -97,7 +98,7 @@ export async function followUser(targetProfileId: string) {
   const actorMap = await getActorMetadata(supabase, [profileId])
   const actorMeta = actorMap.get(profileId) ?? null
 
-  await supabase.from("notifications").insert({
+  await admin.from("notifications").insert({
     recipient_profile_id: targetProfileId,
     actor_profile_id: profileId,
     event_type: "followed",
@@ -128,7 +129,7 @@ export async function followUser(targetProfileId: string) {
 
     const wasFriend = (friendRows ?? []).some((row: any) => row?.is_friend)
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await admin
       .from("user_follows")
       .update({ is_friend: true })
       .or(
@@ -145,7 +146,7 @@ export async function followUser(targetProfileId: string) {
       const forTarget = metaMap.get(profileId) ?? null
       const forActor = metaMap.get(targetProfileId) ?? null
 
-      await supabase.from("notifications").insert([
+      await admin.from("notifications").insert([
         {
           recipient_profile_id: targetProfileId,
           actor_profile_id: profileId,
@@ -168,6 +169,7 @@ export async function followUser(targetProfileId: string) {
 
 export async function unfollowUser(targetProfileId: string) {
   const { supabase, profileId } = await requireAuthedProfileId()
+  const admin = createAdminClient()
 
   if (profileId === targetProfileId) {
     throw new Error("Cannot unfollow yourself")
@@ -184,7 +186,7 @@ export async function unfollowUser(targetProfileId: string) {
     throw new Error("Failed to unfollow user")
   }
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await admin
     .from("user_follows")
     .update({ is_friend: false })
     .eq("follower_profile_id", targetProfileId)

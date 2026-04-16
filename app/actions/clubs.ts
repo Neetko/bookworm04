@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase-server"
+import { createAdminClient, createServerClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 import { normalizeGenres, type Genre } from "@/lib/types"
 import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
@@ -188,17 +188,7 @@ export async function getClub(clubId: string) {
 
   const { data: club, error } = await supabase
     .from("clubs")
-    .select(
-      `
-      *,
-      owner:user_profiles!clubs_owner_user_id_user_profiles_id_fk (
-        username,
-        avatar_url,
-        role,
-        created_at
-      )
-    `
-    )
+    .select("*")
     .eq("id", clubId)
     .single()
 
@@ -207,7 +197,16 @@ export async function getClub(clubId: string) {
     return null
   }
 
-  return club as unknown as ClubWithOwner
+  const { data: owner } = await supabase
+    .from("public_profiles")
+    .select("username, avatar_url, role, created_at")
+    .eq("id", club.owner_user_id)
+    .maybeSingle()
+
+  return {
+    ...club,
+    owner: owner ?? null,
+  } as unknown as ClubWithOwner
 }
 
 async function requireMemberOrOwner(supabase: Awaited<ReturnType<typeof createServerClient>>, clubId: string) {
@@ -308,18 +307,7 @@ export async function getClubCurrentReadingComments(clubId: string) {
 
   const { data, error } = await supabase
     .from("club_reading_comments")
-    .select(
-      `
-      id,
-      content,
-      likes_count,
-      created_at,
-      user_profiles (
-        username,
-        avatar_url
-      )
-    `
-    )
+    .select("id, content, likes_count, created_at, user_id")
     .eq("club_id", clubId)
     .eq("title_id", club.current_title_id)
     .order("created_at", { ascending: false })
@@ -329,7 +317,20 @@ export async function getClubCurrentReadingComments(clubId: string) {
     return []
   }
 
-  return data ?? []
+  const userIds = Array.from(new Set((data ?? []).map((row: any) => row.user_id).filter(Boolean))) as string[]
+  const { data: profiles } = userIds.length
+    ? await supabase
+        .from("public_profiles")
+        .select("id, username, avatar_url")
+        .in("id", userIds)
+    : { data: [] as Array<{ id: string; username: string | null; avatar_url: string | null }> }
+
+  const profileMap = new Map((profiles ?? []).map((profile) => [profile.id as string, profile]))
+
+  return (data ?? []).map((row: any) => ({
+    ...row,
+    user_profiles: profileMap.get(row.user_id as string) ?? null,
+  }))
 }
 
 export async function addClubCurrentReadingComment(clubId: string, content: string) {
@@ -363,6 +364,7 @@ export async function addClubCurrentReadingComment(clubId: string, content: stri
 
 export async function upvoteClubCurrentReadingComment(commentId: string) {
   const supabase = await createServerClient()
+  const admin = createAdminClient()
 
   const { data: comment, error: commentError } = await supabase
     .from("club_reading_comments")
@@ -375,7 +377,7 @@ export async function upvoteClubCurrentReadingComment(commentId: string) {
   await requireMemberOrOwner(supabase, comment.club_id)
 
   const nextCount = (comment.likes_count ?? 0) + 1
-  const { error } = await supabase
+  const { error } = await admin
     .from("club_reading_comments")
     .update({ likes_count: nextCount })
     .eq("id", commentId)
@@ -479,7 +481,7 @@ export async function inviteMemberToClub(clubId: string, username: string) {
   if (!handle) throw new Error("Username required")
 
   const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
+    .from("public_profiles")
     .select("id")
     .eq("username", handle)
     .single()
@@ -703,17 +705,7 @@ export async function getClubMembers(clubId: string) {
 
   const { data, error } = await supabase
     .from("club_members")
-    .select(
-      `
-      user:user_profiles!club_members_user_id_user_profiles_id_fk (
-        id,
-        username,
-        avatar_url,
-        role
-      ),
-      created_at
-    `
-    )
+    .select("user_id, created_at")
     .eq("club_id", clubId)
     .order("created_at", { ascending: false })
 
@@ -722,27 +714,39 @@ export async function getClubMembers(clubId: string) {
     return [] as Array<{ id: string; username: string | null; avatar_url: string | null; role: string | null }>
   }
 
+  const memberIds = Array.from(
+    new Set((data ?? []).map((row: any) => row.user_id).filter(Boolean) as string[])
+  )
+
+  const { data: memberProfiles } = memberIds.length
+    ? await supabase
+        .from("public_profiles")
+        .select("id,username,avatar_url,role")
+        .in("id", memberIds)
+    : { data: [] as Array<{ id: string; username: string | null; avatar_url: string | null; role: string | null }> }
+
+  const memberMap = new Map(
+    (memberProfiles ?? []).map((member) => [member.id as string, member])
+  )
+
   const members = (data ?? [])
-    .map((row: any) => row.user)
+    .map((row: any) => memberMap.get(row.user_id as string))
     .filter(Boolean) as Array<{ id: string; username: string | null; avatar_url: string | null; role: string | null }>
 
   const { data: club } = await supabase
     .from("clubs")
-    .select(
-      `
-      owner:user_profiles!clubs_owner_user_id_user_profiles_id_fk (
-        id,
-        username,
-        avatar_url,
-        role
-      )
-    `
-    )
+    .select("owner_user_id")
     .eq("id", clubId)
     .maybeSingle()
 
-  const rawOwner = club?.owner ?? null
-  const owner = Array.isArray(rawOwner) ? rawOwner[0] ?? null : rawOwner
+  const { data: owner } = club?.owner_user_id
+    ? await supabase
+        .from("public_profiles")
+        .select("id,username,avatar_url,role")
+        .eq("id", club.owner_user_id)
+        .maybeSingle()
+    : { data: null as { id: string; username: string | null; avatar_url: string | null; role: string | null } | null }
+
   if (owner && !members.some((m) => m.id === owner.id)) {
     return [owner, ...members]
   }
