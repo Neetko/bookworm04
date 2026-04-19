@@ -1,46 +1,33 @@
 "use server"
 
 import { createAdminClient, createServerClient } from "@/lib/supabase-server"
-import { fetchOpenLibraryWorkCandidatesByTitleAuthor, fetchOpenLibraryWorkEditionsByWorkId } from "@/lib/open-library"
+import { fetchOpenLibraryWorkCandidatesByTitleAuthor } from "@/lib/open-library"
 import { getCoverChoicesForSelectedWorks } from "@/lib/cover-cache"
-import { getLinkedTitlesByWorkId, getTitleReferenceWorkIds, type LinkedTitleSummary, upsertReferenceIsbns, upsertTitleReferenceWorks } from "@/lib/reference-data"
-import { buildSuggestionReviewUpdate, isExactTitleAuthorMatch, normalizeCoverChoice, normalizeWorkIdList, type CoverChoice, type WorkSnapshot } from "@/lib/suggestions"
+import { getLinkedTitlesByWorkId, getTitleReferenceWorkIds, type LinkedTitleSummary } from "@/lib/reference-data"
+import { buildSuggestionReviewUpdate, isExactTitleAuthorMatch, normalizeWorkIdList, type CoverChoice, type WorkSnapshot } from "@/lib/suggestions"
 import { type Genre } from "@/lib/types"
+import { finalizeSuggestionApproval } from "@/lib/server/suggestion-approval"
+import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
 import { revalidatePath } from "next/cache"
 
-async function requireAdminAccess() {
-  const supabase = await createServerClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+async function requireSuggestionReviewerAccess() {
+  const access = await getCurrentUserAccess()
 
-  if (authError || !user) throw new Error("Unauthorized")
+  if (!access.user) throw new Error("Unauthorized")
 
-  const admin = createAdminClient()
-  const { data: roleRow, error: roleError } = await admin
-    .from("user_profiles")
-    .select("id, role")
-    .eq("auth_user_id", user.id)
-    .maybeSingle()
-
-  if (roleError) {
-    console.error("Failed to verify admin access", roleError)
-    throw new Error("Failed to verify admin access")
+  if (!canReviewSuggestions(access.role)) {
+    throw new Error("Moderator access required")
   }
 
-  if ((roleRow?.role ?? "").toLowerCase() !== "admin") {
-    throw new Error("Admin access required")
-  }
-
-  if (!roleRow?.id) {
-    throw new Error("Admin profile not found")
+  if (!access.profileId) {
+    throw new Error("Reviewer profile not found")
   }
 
   return {
-    admin,
-    user,
-    profileId: roleRow.id as string,
+    admin: createAdminClient(),
+    user: access.user,
+    profileId: access.profileId,
+    role: access.role,
   }
 }
 
@@ -63,7 +50,7 @@ export async function saveSuggestionReviewAction(input: {
 }) {
   const suggestionId = parseSuggestionId(input)
 
-  const { admin, profileId: reviewerProfileId } = await requireAdminAccess()
+  const { admin, profileId: reviewerProfileId } = await requireSuggestionReviewerAccess()
   const reviewUpdate = buildSuggestionReviewUpdate(input)
 
   const { error } = await admin
@@ -90,10 +77,10 @@ export async function saveSuggestionReviewAction(input: {
 export async function approveSuggestionAction(input: FormData | { suggestionId: string }) {
   const suggestionId = parseSuggestionId(input)
 
-  const { admin } = await requireAdminAccess()
+  const { admin, profileId: reviewerProfileId } = await requireSuggestionReviewerAccess()
   const { data: existing, error: existingError } = await admin
     .from("suggestions")
-    .select("title_id,admin_reviewed_at,admin_final_selected_work_ids,suggested_selected_work_ids,admin_final_cover_selection")
+    .select("title_id,suggested_genres,suggested_selected_work_ids,suggested_selected_work_snapshots,admin_reviewed_at,admin_final_genres,admin_final_selected_work_ids,admin_final_selected_work_snapshots,admin_final_cover_selection")
     .eq("id", suggestionId)
     .single()
 
@@ -106,67 +93,28 @@ export async function approveSuggestionAction(input: FormData | { suggestionId: 
     throw new Error("Review the suggestion before approving it")
   }
 
-  const approvedWorkIds = Array.from(new Set([
-    ...normalizeWorkIdList(existing.admin_final_selected_work_ids),
-    ...normalizeWorkIdList(existing.suggested_selected_work_ids),
-  ]))
-  const adminFinalCoverSelection = normalizeCoverChoice(existing.admin_final_cover_selection)
-
-  const { data, error } = await admin
-    .from("suggestions")
-    .update({ status: "approved", updated_at: new Date().toISOString() })
-    .eq("id", suggestionId)
-    .select("title_id")
-    .single()
-
-  if (error) {
-    console.error("Failed to approve suggestion", error)
-    throw new Error("Failed to approve suggestion")
-  }
-
-  if (data?.title_id && approvedWorkIds.length > 0) {
-    await upsertTitleReferenceWorks(admin, {
-      titleId: data.title_id,
-      workIds: approvedWorkIds,
-      source: "suggestion-approval",
-    })
-
-    for (const workId of approvedWorkIds) {
-      const workEditions = await fetchOpenLibraryWorkEditionsByWorkId(workId)
-      await upsertReferenceIsbns(admin, {
-        titleId: data.title_id,
-        workId,
-        isbns: workEditions?.isbns ?? [],
-        source: "suggestion-approval",
-      })
-    }
-  }
-
-  if (data?.title_id && adminFinalCoverSelection?.imageUrl) {
-    const { error: titleUpdateError } = await admin
-      .from("titles")
-      .update({
-        cover_image_url: adminFinalCoverSelection.imageUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", data.title_id)
-
-    if (titleUpdateError) {
-      console.error("Failed to apply approved cover image", titleUpdateError)
-      throw new Error("Failed to approve suggestion")
-    }
-  }
+  await finalizeSuggestionApproval({
+    admin,
+    suggestionId,
+    reviewerProfileId,
+    titleId: existing.title_id,
+    suggestedGenres: existing.suggested_genres,
+    adminFinalGenres: existing.admin_final_genres,
+    suggestedSelectedWorkIds: existing.suggested_selected_work_ids,
+    adminFinalSelectedWorkIds: existing.admin_final_selected_work_ids,
+    suggestedSelectedWorkSnapshots: existing.suggested_selected_work_snapshots,
+    adminFinalSelectedWorkSnapshots: existing.admin_final_selected_work_snapshots,
+    adminFinalCoverSelection: existing.admin_final_cover_selection,
+  })
 
   revalidatePath("/admin/suggestions")
-  if (data?.title_id) {
-    revalidatePath(`/titles/${data.title_id}`)
-  }
+  revalidatePath(`/titles/${existing.title_id}`)
 }
 
 export async function dismissSuggestionAction(input: FormData | { suggestionId: string }) {
   const suggestionId = parseSuggestionId(input)
 
-  const { admin } = await requireAdminAccess()
+  const { admin } = await requireSuggestionReviewerAccess()
   const { error } = await admin
     .from("suggestions")
     .delete()
@@ -188,7 +136,7 @@ export async function getSuggestionOpenLibraryCandidatesAction(input: {
   candidates: WorkSnapshot[]
   linkedElsewhere: Record<string, LinkedTitleSummary[]>
 }> {
-  await requireAdminAccess()
+  await requireSuggestionReviewerAccess()
 
   const supabase = await createServerClient()
   const titleId = String(input.titleId ?? "").trim()
@@ -242,7 +190,7 @@ export async function getSuggestionCoverChoicesAction(input: {
   selectedWorkIds: string[]
   selectedWorkSnapshots?: WorkSnapshot[]
 }): Promise<CoverChoice[]> {
-  const { admin } = await requireAdminAccess()
+  const { admin } = await requireSuggestionReviewerAccess()
 
   return getCoverChoicesForSelectedWorks(admin as any, {
     workIds: normalizeWorkIdList(input.selectedWorkIds),
