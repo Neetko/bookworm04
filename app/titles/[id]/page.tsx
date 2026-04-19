@@ -18,6 +18,7 @@ import { TitleBookmarkButton } from "@/components/title-bookmark-button"
 import { GENRE_BG_CLASS, isGenre, normalizeGenres } from "@/lib/types"
 import { enforceGenreRulesFromList } from "@/lib/book-tagging"
 import { getTitleReferenceWorkIds } from "@/lib/reference-data"
+import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
 import { cn } from "@/lib/utils"
 import { buildAmazonProductUrl, buildAmazonSearchUrl } from "@/lib/amazon"
 
@@ -160,6 +161,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
   const editions = await getEditionsForTitle(title)
   const featuredEditions = pickFeaturedEditions(editions)
   const todayDiaryNote = await getTodayDiaryNoteForTitle(title.id)
+  const access = await getCurrentUserAccess()
 
   const amazonSearchUrl = buildAmazonSearchUrl(`${title.title} ${title.author}`)
   const audibleSearchUrl = buildAmazonSearchUrl(`${title.title} ${title.author} Audible`)
@@ -285,7 +287,10 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                     initialNoteText={todayDiaryNote?.noteText ?? null}
                   />
                   <TitleEditionsDialog titleId={title.id} />
-                  <TitleDedupeDialog titleId={title.id} />
+                  <TitleDedupeDialog
+                    titleId={title.id}
+                    canAutoApprove={canReviewSuggestions(access.role)}
+                  />
                 </div>
               </div>
             </div>

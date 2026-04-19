@@ -6,6 +6,8 @@ import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
 import { fetchOpenLibraryWorkCandidatesByTitleAuthor, type OpenLibraryWorkCandidate } from "@/lib/open-library"
 import { getLinkedTitlesByWorkId, getTitleReferenceWorkIds, type LinkedTitleSummary } from "@/lib/reference-data"
 import { isExactTitleAuthorMatch, normalizeWorkIdList, normalizeWorkSnapshots, type WorkSnapshot } from "@/lib/suggestions"
+import { finalizeSuggestionApproval } from "@/lib/server/suggestion-approval"
+import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
 import { revalidatePath } from "next/cache"
 import { awardPointsForTitleAction } from "@/app/actions/rewards"
 
@@ -774,6 +776,7 @@ export async function submitTitleDedupeSuggestionAction(input: {
 }) {
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
+  const access = await getCurrentUserAccess()
 
   const titleId = input.titleId.trim()
 
@@ -822,7 +825,7 @@ export async function submitTitleDedupeSuggestionAction(input: {
     }
   })
 
-  const { error: suggestionError } = await supabase
+  const { data: insertedSuggestion, error: suggestionError } = await supabase
     .from("suggestions")
     .insert({
       title_id: titleId,
@@ -832,8 +835,10 @@ export async function submitTitleDedupeSuggestionAction(input: {
       suggested_selected_work_snapshots: finalSnapshots,
       suggested_by_profile_id: profileId,
     })
+    .select("id")
+    .single()
 
-  if (suggestionError) {
+  if (suggestionError || !insertedSuggestion?.id) {
     console.error("Failed to submit title dedupe suggestion", suggestionError)
     throw new Error("Failed to submit dedupe suggestion")
   }
@@ -850,10 +855,26 @@ export async function submitTitleDedupeSuggestionAction(input: {
     }
   }
 
+  const autoApproved = canReviewSuggestions(access.role) && Boolean(access.profileId)
+  if (autoApproved) {
+    const admin = createAdminClient()
+    await finalizeSuggestionApproval({
+      admin,
+      suggestionId: insertedSuggestion.id,
+      reviewerProfileId: access.profileId as string,
+      titleId,
+      suggestedSelectedWorkIds: normalizedSelectedWorkIds,
+      adminFinalSelectedWorkIds: normalizedSelectedWorkIds,
+      suggestedSelectedWorkSnapshots: finalSnapshots,
+      adminFinalSelectedWorkSnapshots: finalSnapshots,
+    })
+  }
+
   revalidatePath("/admin/suggestions")
   revalidatePath(`/titles/${titleId}`)
   return {
     titleId,
     submittedWorkIds: normalizedSelectedWorkIds,
+    autoApproved,
   }
 }

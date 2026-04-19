@@ -13,6 +13,8 @@ import { inferGenresFromMetadata } from "@/lib/book-tagging"
 import { getCoverChoicesForSelectedWorks } from "@/lib/cover-cache"
 import { isExactTitleAuthorMatch, normalizeMatchText, type SuggestionWorkMatchType, type WorkSnapshot } from "@/lib/suggestions"
 import { upsertReferenceIsbns, upsertTitleReferenceWorks } from "@/lib/reference-data"
+import { finalizeSuggestionApproval } from "@/lib/server/suggestion-approval"
+import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
 import { normalizeGenres, type Genre } from "@/lib/types"
 import { revalidatePath } from "next/cache"
 import { extractPlainTextFromHtml } from "@/lib/sanitize"
@@ -705,6 +707,7 @@ export async function confirmGoogleBookIngest(input: {
 }) {
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
+  const access = await getCurrentUserAccess()
 
   const selectedGenres = normalizeGenres(input.selectedGenres)
   if (selectedGenres.length === 0) {
@@ -823,9 +826,27 @@ export async function confirmGoogleBookIngest(input: {
     }
   }
 
+  const autoApproved = canReviewSuggestions(access.role) && Boolean(access.profileId)
+  if (autoApproved) {
+    const admin = createAdminClient()
+    await finalizeSuggestionApproval({
+      admin,
+      suggestionId: insertedSuggestion.id,
+      reviewerProfileId: access.profileId as string,
+      titleId: ensured.titleId,
+      suggestedGenres: selectedGenres,
+      adminFinalGenres: selectedGenres,
+      suggestedSelectedWorkIds: selectedWorkIds,
+      adminFinalSelectedWorkIds: selectedWorkIds,
+      suggestedSelectedWorkSnapshots: selectedWorkSnapshots,
+      adminFinalSelectedWorkSnapshots: selectedWorkSnapshots,
+    })
+  }
+
+  revalidatePath("/admin/suggestions")
   revalidatePath("/search-titles")
   revalidatePath(`/titles/${ensured.titleId}`)
-  return { titleId: ensured.titleId }
+  return { titleId: ensured.titleId, autoApproved }
 }
 
 async function upsertEditionsForWorks(input: {

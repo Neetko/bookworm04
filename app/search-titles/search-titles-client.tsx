@@ -14,6 +14,7 @@ type SearchTitlesClientProps = {
   selectedGenres: Genre[]
   hasGoogleBooksKey: boolean
   hasActiveSearch: boolean
+  canAutoApproveSuggestions: boolean
 }
 
 type QueryState = {
@@ -38,6 +39,7 @@ export function SearchTitlesClient({
   selectedGenres,
   hasGoogleBooksKey,
   hasActiveSearch,
+  canAutoApproveSuggestions,
 }: SearchTitlesClientProps) {
   const [query, setQuery] = useState<QueryState>({
     title: "",
@@ -90,7 +92,10 @@ export function SearchTitlesClient({
           </CardContent>
         </Card>
       ) : (
-        <TrackReadingResultList results={filteredResults} />
+        <TrackReadingResultList
+          results={filteredResults}
+          canAutoApproveSuggestions={canAutoApproveSuggestions}
+        />
       )}
     </>
   )

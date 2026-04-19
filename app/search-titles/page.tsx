@@ -1,5 +1,6 @@
 import { Navigation } from "@/components/navigation"
 import { createServerClient } from "@/lib/supabase-server"
+import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
 import { redirect } from "next/navigation"
 import { getInitialTitles, searchTitles } from "@/app/actions/search-titles"
 import { isGenre } from "@/lib/types"
@@ -40,6 +41,8 @@ export default async function SearchTitlesPage({
     redirect("/auth")
   }
 
+  const access = await getCurrentUserAccess()
+
   const results = displayQuery
     ? await searchTitles({ title, author, raw: params.q, includeExternal, genres: selectedGenres })
     : []
@@ -61,6 +64,7 @@ export default async function SearchTitlesPage({
           selectedGenres={selectedGenres}
           hasGoogleBooksKey={hasGoogleBooksKey}
           hasActiveSearch={hasActiveSearch}
+          canAutoApproveSuggestions={canReviewSuggestions(access.role)}
         />
       </div>
     </div>

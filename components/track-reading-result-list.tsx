@@ -79,6 +79,7 @@ function Cover({
 
 type TrackReadingResultListProps = {
   results: SearchTitleResult[]
+  canAutoApproveSuggestions?: boolean
   actionLabel?: string
   actionDisabledLabel?: string
   actionLoadingId?: string | null
@@ -88,6 +89,7 @@ type TrackReadingResultListProps = {
 
 export function TrackReadingResultList({
   results,
+  canAutoApproveSuggestions = false,
   actionLabel = "Add to list",
   actionDisabledLabel = "Added",
   actionLoadingId = null,
@@ -187,7 +189,7 @@ export function TrackReadingResultList({
         algorithmSuggestedGenres: suggestedGenres,
         workCandidates,
       })
-      toast.success("Title ingested")
+      toast.success(res.autoApproved ? "Title ingested and verified" : "Title ingested")
 
       setIngestedVolumeIds((prev) => {
         const next = new Set(prev)
@@ -316,7 +318,9 @@ export function TrackReadingResultList({
                     <div className="space-y-2 rounded-lg border border-border p-3">
                       <p className="text-sm font-medium">Open Library matches to review</p>
                       <p className="text-xs text-muted-foreground">
-                        These are lower-confidence matches. Select any that you want an admin to review.
+                        {canAutoApproveSuggestions
+                          ? "These are lower-confidence matches. Select any that you want to verify now."
+                          : "These are lower-confidence matches. Select any that you want a moderator to review."}
                       </p>
                       <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                         {workCandidates.map((candidate) => (
@@ -353,7 +357,9 @@ export function TrackReadingResultList({
                                 size="sm"
                                 onClick={() => toggleWorkCandidate(candidate.workId)}
                               >
-                                {selectedWorkIds.includes(candidate.workId) ? "Selected for review" : "Select for review"}
+                                {selectedWorkIds.includes(candidate.workId)
+                                  ? canAutoApproveSuggestions ? "Selected to verify" : "Selected for review"
+                                  : canAutoApproveSuggestions ? "Select to verify" : "Select for review"}
                               </Button>
                             </div>
                           </div>
@@ -371,7 +377,9 @@ export function TrackReadingResultList({
                       ) : null}
                       {bookwormSuggestedMatchCount > 0 ? (
                         <p>
-                          Bookworm also queued {bookwormSuggestedMatchCount} high-likelihood match{bookwormSuggestedMatchCount === 1 ? "" : "es"} for admin review.
+                          {canAutoApproveSuggestions
+                            ? `Bookworm also found ${bookwormSuggestedMatchCount} high-likelihood match${bookwormSuggestedMatchCount === 1 ? "" : "es"} you can verify right now.`
+                            : `Bookworm also queued ${bookwormSuggestedMatchCount} high-likelihood match${bookwormSuggestedMatchCount === 1 ? "" : "es"} for moderator review.`}
                         </p>
                       ) : null}
                     </div>

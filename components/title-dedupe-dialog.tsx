@@ -5,13 +5,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { getTitleDedupeCandidatesAction, submitTitleDedupeSuggestionAction } from "@/app/actions/title"
+import { toast } from "sonner"
 
 type LinkedTitleSummary = {
   titleId: string
   title: string
 }
 
-export function TitleDedupeDialog({ titleId }: { titleId: string }) {
+export function TitleDedupeDialog({
+  titleId,
+  canAutoApprove = false,
+}: {
+  titleId: string
+  canAutoApprove?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -61,6 +68,7 @@ export function TitleDedupeDialog({ titleId }: { titleId: string }) {
         titleId,
         selectedWorks,
       })
+      toast.success(canAutoApprove ? "Dedupe changes verified" : "Dedupe suggestion sent for review")
       setOpen(false)
     } catch (e: any) {
       setError(e?.message ?? "Failed to submit dedupe suggestion")
@@ -80,7 +88,9 @@ export function TitleDedupeDialog({ titleId }: { titleId: string }) {
             <DialogTitle>Dedupe work IDs</DialogTitle>
           </DialogHeader>
           <div className="text-sm text-muted-foreground">
-            Select possible work IDs to send to admins for review. They will not be added to this title until approved.
+            {canAutoApprove
+              ? "Select possible work IDs to verify now. They will be applied to this title immediately."
+              : "Select possible work IDs to send for moderator review. They will not be added to this title until approved."}
           </div>
           {loading ? (
             <div className="text-sm text-muted-foreground">Loading matches...</div>
@@ -145,7 +155,7 @@ export function TitleDedupeDialog({ titleId }: { titleId: string }) {
               Cancel
             </Button>
             <Button onClick={save} disabled={saving || selected.length === 0}>
-              {saving ? "Submitting..." : "Submit for review"}
+              {saving ? "Submitting..." : canAutoApprove ? "Verify now" : "Submit for review"}
             </Button>
           </div>
         </DialogContent>
