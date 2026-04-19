@@ -1,14 +1,15 @@
-import { createAdminClient, createServerClient } from "@/lib/supabase-server"
+import { createAdminClient } from "@/lib/supabase-server"
 import { Navigation } from "@/components/navigation"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 import { SuggestionReviewCard } from "@/components/suggestion-review-card"
+import { canManageRoles, canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
 import { isExactWorkSnapshotMatch, normalizeCoverChoice, normalizeSuggestionWorkMatches, normalizeWorkIdList, normalizeWorkSnapshots } from "@/lib/suggestions"
 import { normalizeGenres } from "@/lib/types"
 
 export default async function SuggestionsAdminPage() {
-  const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const access = await getCurrentUserAccess()
+  const user = access.user
 
   if (!user) {
     return (
@@ -22,26 +23,21 @@ export default async function SuggestionsAdminPage() {
     )
   }
 
-  const admin = createAdminClient()
-  const { data: adminRole, error: adminRoleError } = await admin
-    .from("user_profiles")
-    .select("role")
-    .eq("auth_user_id", user.id)
-    .maybeSingle()
-
-  if (adminRoleError || (adminRole?.role ?? "").toLowerCase() !== "admin") {
+  if (!canReviewSuggestions(access.role)) {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
         <div className="max-w-3xl mx-auto p-8 space-y-2">
           <h1 className="text-2xl font-semibold mb-2">Suggestions</h1>
-          <p className="text-sm text-muted-foreground">Admin access required.</p>
+          <p className="text-sm text-muted-foreground">Moderator or admin access required.</p>
           <p className="text-xs text-muted-foreground">Signed in as {user.email ?? "unknown user"}.</p>
-          <p className="text-xs text-muted-foreground">Admin rights are checked against the profile role attached to your authenticated user.</p>
+          <p className="text-xs text-muted-foreground">Suggestion review access is checked against your application role.</p>
         </div>
       </div>
     )
   }
+
+  const admin = createAdminClient()
 
   const { data, error } = await admin
     .from("suggestions")
@@ -68,9 +64,16 @@ export default async function SuggestionsAdminPage() {
     <div className="min-h-screen bg-background">
       <Navigation />
       <div className="max-w-5xl mx-auto p-8 space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Suggestions</h1>
-          <p className="text-sm text-muted-foreground">Review pending user-submitted metadata.</p>
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Suggestions</h1>
+            <p className="text-sm text-muted-foreground">Review pending user-submitted metadata.</p>
+          </div>
+          {canManageRoles(access.role) ? (
+            <Button asChild variant="outline">
+              <Link href="/admin/moderators">Manage moderators</Link>
+            </Button>
+          ) : null}
         </div>
 
         {(data ?? []).length === 0 ? (
