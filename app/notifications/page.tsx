@@ -16,6 +16,7 @@ interface NotificationRow {
   metadata?: {
     actor?: { id: string; username?: string | null; avatarUrl?: string | null }
     title?: { id: string; title?: string | null; coverUrl?: string | null }
+    role?: { name?: string | null }
   } | null
 }
 
@@ -34,6 +35,8 @@ const buildLabel = (notification: NotificationRow) => {
       return `${actorName} is now your friend.`
     case "bookmarked_discussion_post":
       return `New discussion post in ${titleName}.`
+    case "moderator_assigned":
+      return `${actorName} made you a moderator.`
     default:
       return `${actorName} sent you a notification.`
   }

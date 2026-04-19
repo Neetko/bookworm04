@@ -16,12 +16,14 @@ import { useAuth } from "@/lib/auth-provider"
 import { supabase } from "@/lib/supabase-browser"
 import { AuthModal } from "@/components/auth-modal"
 import { ModeToggle } from "@/components/mode-toggle"
+import type { AppRole } from "@/lib/server/roles"
 
 export function Navigation() {
   const { user, signOut } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authView, setAuthView] = useState<"sign_in" | "sign_up">("sign_in")
   const [profile, setProfile] = useState<{ username: string | null; avatar_url: string | null } | null>(null)
+  const [appRole, setAppRole] = useState<AppRole>("user")
   const [unreadCounts, setUnreadCounts] = useState({ notifications: 0, messages: 0, total: 0 })
 
   useEffect(() => {
@@ -30,16 +32,27 @@ export function Navigation() {
     const loadProfile = async () => {
       if (!user) {
         if (isMounted) setProfile(null)
+        if (isMounted) setAppRole("user")
         return
       }
 
-      const { data } = await supabase
-        .from("user_profiles")
-        .select("username, avatar_url")
-        .eq("auth_user_id", user.id)
-        .maybeSingle()
+      const [{ data: profileData }, { data: roleData }] = await Promise.all([
+        supabase
+          .from("user_profiles")
+          .select("username, avatar_url")
+          .eq("auth_user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ])
 
-      if (isMounted) setProfile(data ?? null)
+      if (isMounted) {
+        setProfile(profileData ?? null)
+        setAppRole(roleData?.role === "admin" || roleData?.role === "moderator" ? roleData.role : "user")
+      }
     }
 
     loadProfile()
@@ -179,6 +192,20 @@ export function Navigation() {
                         ) : null}
                       </Link>
                     </DropdownMenuItem>
+                    {appRole === "admin" || appRole === "moderator" ? (
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/suggestions" className="flex w-full items-center gap-2">
+                          <span>Review suggestions</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    ) : null}
+                    {appRole === "admin" ? (
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/moderators" className="flex w-full items-center gap-2">
+                          <span>Manage moderators</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    ) : null}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={signOut}>
                       <LogOut className="h-4 w-4" />
