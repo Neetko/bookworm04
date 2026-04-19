@@ -17,9 +17,21 @@ export const titles = pgTable("titles", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
 })
 
-export const appRole = pgEnum("app_role", ["admin", "user"])
+export const appRole = pgEnum("app_role", ["admin", "moderator", "user"])
 export const suggestionStatus = pgEnum("suggestion_status", ["pending", "approved", "dismissed"])
 export const suggestionMatchType = pgEnum("suggestion_match_type", ["exact_auto_dupe", "bookworm_suggested"])
+
+export const userRoles = pgTable(
+  "user_roles",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id").notNull(),
+    role: appRole("role").default("user").notNull(),
+  },
+  (t: any) => ({
+    uniqUserRoleUser: uniqueIndex("user_roles_user_id_unique").on(t.userId),
+  })
+)
 
 export const editions = pgTable(
   "editions",
@@ -227,7 +239,7 @@ export const userProfiles = pgTable(
     email: varchar("email", { length: 255 }),
     avatarUrl: text("avatar_url"),
     bio: text("bio"),
-    role: varchar("role", { length: 100 }).default("Reader"), // Community role: Reader, Book Club Leader, Critic, etc.
+    role: varchar("role", { length: 100 }).default("reader"), // Public role label: reader, moderator, or admin.
     signature: text("signature"), // User signature text
     signatureImage: text("signature_image"), // URL to signature GIF/image
     createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
