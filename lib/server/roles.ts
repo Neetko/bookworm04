@@ -1,7 +1,7 @@
 import "server-only"
 
 import { type User } from "@supabase/supabase-js"
-import { createAdminClient, createServerClient } from "@/lib/supabase-server"
+import { createServerClient } from "@/lib/supabase-server"
 
 export const APP_ROLES = ["user", "moderator", "admin"] as const
 
@@ -32,15 +32,15 @@ export async function getUserAccessForAuthUserId(input: {
   profileId: string | null
   role: AppRole
 }> {
-  const admin = createAdminClient()
+  const supabase = await createServerClient()
 
   const [{ data: roleRow, error: roleError }, { data: profileRow, error: profileError }] = await Promise.all([
-    admin
+    supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", input.userId)
       .maybeSingle(),
-    admin
+    supabase
       .from("user_profiles")
       .select("id")
       .eq("auth_user_id", input.userId)

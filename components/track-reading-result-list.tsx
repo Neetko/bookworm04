@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type KeyboardEvent, type MouseEvent } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
@@ -97,12 +97,16 @@ export function TrackReadingResultList({
   isActionDisabled,
 }: TrackReadingResultListProps) {
   const router = useRouter()
+  const ingestRequestIdRef = useRef(0)
   const [ingestedVolumeIds, setIngestedVolumeIds] = useState<Set<string>>(new Set())
+  const [ingestStep, setIngestStep] = useState<1 | 2>(1)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogResult, setDialogResult] = useState<SearchTitleResult | null>(null)
   const [loadingSuggestion, setLoadingSuggestion] = useState(false)
+  const [suggestionError, setSuggestionError] = useState<string | null>(null)
   const [submittingIngest, setSubmittingIngest] = useState(false)
+  const [previewToken, setPreviewToken] = useState<string | null>(null)
   const [suggestedGenres, setSuggestedGenres] = useState<Genre[]>([])
   const [selectedGenres, setSelectedGenres] = useState<Genre[]>([])
   const [workCandidates, setWorkCandidates] = useState<Array<{
@@ -131,13 +135,12 @@ export function TrackReadingResultList({
     setIngestedVolumeIds(new Set())
   }, [results])
 
-  const openIngestDialog = async (result: SearchTitleResult) => {
-    if (result.source !== "google" || !result.volumeId) return
-
-    setDialogResult(result)
-    setDialogOpen(true)
+  const resetIngestState = () => {
+    ingestRequestIdRef.current += 1
+    setIngestStep(1)
     setSuggestedGenres([])
     setSelectedGenres([])
+    setPreviewToken(null)
     setWorkCandidates([])
     setSelectedWorkIds([])
     setLocalDuplicates([])
@@ -145,25 +148,47 @@ export function TrackReadingResultList({
     setShowAllDuplicates(false)
     setAutoDupeMatchCount(0)
     setBookwormSuggestedMatchCount(0)
+    setSuggestionError(null)
+    setLoadingSuggestion(false)
+  }
+
+  const loadIngestSuggestion = async (volumeId: string) => {
+    const requestId = ingestRequestIdRef.current + 1
+    ingestRequestIdRef.current = requestId
     setLoadingSuggestion(true)
+    setSuggestionError(null)
 
     try {
-      const suggestion = await getGoogleIngestSuggestion(result.volumeId)
+      const suggestion = await getGoogleIngestSuggestion(volumeId)
+      if (ingestRequestIdRef.current !== requestId) return
+
       const initial = normalizeGenres(suggestion.suggestedGenres)
+      setPreviewToken(suggestion.previewToken ?? null)
       setSuggestedGenres(initial)
-      setSelectedGenres(initial)
       setWorkCandidates(suggestion.workCandidates ?? [])
       setRequiresWorkConfirmation(Boolean(suggestion.requiresWorkConfirmation))
       setLocalDuplicates(suggestion.localDuplicates ?? [])
       setAutoDupeMatchCount(suggestion.autoDupeMatchCount ?? 0)
       setBookwormSuggestedMatchCount(suggestion.bookwormSuggestedMatchCount ?? 0)
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to load ingest details")
-      setDialogOpen(false)
-      setDialogResult(null)
+      if (ingestRequestIdRef.current !== requestId) return
+
+      const message = e?.message ?? "Failed to load duplicate review details"
+      setSuggestionError(message)
+      toast.error(message)
     } finally {
+      if (ingestRequestIdRef.current !== requestId) return
       setLoadingSuggestion(false)
     }
+  }
+
+  const openIngestDialog = (result: SearchTitleResult) => {
+    if (result.source !== "google" || !result.volumeId) return
+
+    setDialogResult(result)
+    setDialogOpen(true)
+    resetIngestState()
+    void loadIngestSuggestion(result.volumeId)
   }
 
   const toggleGenre = (genre: Genre) => {
@@ -183,6 +208,7 @@ export function TrackReadingResultList({
     try {
       const res = await confirmGoogleBookIngest({
         volumeId: dialogResult.volumeId,
+        previewToken,
         selectedGenres,
         selectedWorkIds,
         requiresWorkSelection: requiresWorkConfirmation,
@@ -222,15 +248,7 @@ export function TrackReadingResultList({
     if (submittingIngest) return
     setDialogOpen(false)
     setDialogResult(null)
-    setSuggestedGenres([])
-    setSelectedGenres([])
-    setWorkCandidates([])
-    setSelectedWorkIds([])
-    setLocalDuplicates([])
-    setRequiresWorkConfirmation(false)
-    setShowAllDuplicates(false)
-    setAutoDupeMatchCount(0)
-    setBookwormSuggestedMatchCount(0)
+    resetIngestState()
   }
 
   const toggleWorkCandidate = (workId: string) => {
@@ -238,6 +256,22 @@ export function TrackReadingResultList({
       prev.includes(workId) ? prev.filter((id) => id !== workId) : [...prev, workId]
     )
   }
+
+  const handleNextStep = () => {
+    if (selectedGenres.length === 0) {
+      toast.error("Select at least one genre")
+      return
+    }
+
+    setIngestStep(2)
+  }
+
+  const retryDuplicateReview = () => {
+    if (!dialogResult?.volumeId) return
+    void loadIngestSuggestion(dialogResult.volumeId)
+  }
+
+  const duplicateReviewReady = !loadingSuggestion && !suggestionError
 
   return (
     <>
@@ -249,22 +283,108 @@ export function TrackReadingResultList({
 
           {!dialogResult ? null : (
             <div className="space-y-4">
-              <div className="text-sm text-muted-foreground">
-                {dialogResult.title} — {dialogResult.author}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm text-muted-foreground">
+                    {dialogResult.title} — {dialogResult.author}
+                  </div>
+                  <div className="rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground">
+                    Step {ingestStep} of 2
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div
+                    className={cn(
+                      "rounded-lg border p-3",
+                      ingestStep === 1 ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step 1</p>
+                    <p className="mt-1 text-sm font-medium">Select genres</p>
+                    <p className="text-xs text-muted-foreground">Choose at least one genre before continuing.</p>
+                  </div>
+                  <div
+                    className={cn(
+                      "rounded-lg border p-3",
+                      ingestStep === 2 ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step 2</p>
+                    <p className="mt-1 text-sm font-medium">Review duplicates</p>
+                    <p className="text-xs text-muted-foreground">Check local duplicates and Open Library matches.</p>
+                  </div>
+                </div>
               </div>
 
-              {loadingSuggestion ? (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Loading suggestions...</p>
-                  <p className="text-xs text-muted-foreground">
-                    Fetching genre tags and duplicate matches.
-                  </p>
-                </div>
-              ) : null}
-
-              {!loadingSuggestion ? (
+              {ingestStep === 1 ? (
                 <div className="space-y-3">
-                  {localDuplicates.length > 0 ? (
+                  <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
+                    Choose the genres first. Duplicate and work-match review happens in the second step.
+                  </div>
+
+                  {loadingSuggestion ? (
+                    <div className="flex items-start gap-3 rounded-lg border border-border p-3 text-sm text-muted-foreground">
+                      <Loader2 className="mt-0.5 h-4 w-4 animate-spin" />
+                      <div>
+                        <p className="font-medium text-foreground">Preparing suggestions</p>
+                        <p>Genre suggestions and duplicate review data are loading in the background.</p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <p className="text-sm font-medium">Choose genres</p>
+                  <p className="text-xs text-muted-foreground">
+                    {suggestedGenres.length > 0
+                      ? "Bookworm suggestions are marked by a genre-colored border around each matching genre. Select only the genres you want to apply."
+                      : loadingSuggestion
+                        ? "Loading Bookworm suggestions. You can already choose genres manually."
+                        : "No Bookworm suggestions found. Please select at least one genre."}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {GENRES.map((genre) => (
+                      <GenreToggleButton
+                        key={genre}
+                        genre={genre}
+                        selected={selectedGenres.includes(genre)}
+                        onToggle={toggleGenre}
+                        showSuggestedIndicator={suggestedGenres.includes(genre)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground">Selected genres</p>
+                    <p className="mt-1">
+                      {selectedGenres.length > 0 ? selectedGenres.join(", ") : "No genres selected."}
+                    </p>
+                  </div>
+
+                  {loadingSuggestion ? (
+                    <div className="flex items-start gap-3 rounded-lg border border-border p-3 text-sm text-muted-foreground">
+                      <Loader2 className="mt-0.5 h-4 w-4 animate-spin" />
+                      <div>
+                        <p className="font-medium text-foreground">Checking for duplicates</p>
+                        <p>Hang tight while Bookworm loads local duplicates and Open Library matches.</p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {suggestionError ? (
+                    <div className="space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                      <div>
+                        <p className="font-medium text-foreground">Duplicate review could not be loaded</p>
+                        <p className="text-muted-foreground">{suggestionError}</p>
+                      </div>
+                      <Button variant="outline" onClick={retryDuplicateReview} disabled={loadingSuggestion}>
+                        Retry duplicate review
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {duplicateReviewReady && localDuplicates.length > 0 ? (
                     <div className="space-y-2 rounded-lg border border-border p-3">
                       <p className="text-sm font-medium">Possible duplicates</p>
                       <p className="text-xs text-muted-foreground">
@@ -314,7 +434,7 @@ export function TrackReadingResultList({
                     </div>
                   ) : null}
 
-                  {workCandidates.length > 0 ? (
+                  {duplicateReviewReady && workCandidates.length > 0 ? (
                     <div className="space-y-2 rounded-lg border border-border p-3">
                       <p className="text-sm font-medium">Open Library matches to review</p>
                       <p className="text-xs text-muted-foreground">
@@ -368,7 +488,7 @@ export function TrackReadingResultList({
                     </div>
                   ) : null}
 
-                  {autoDupeMatchCount > 0 || bookwormSuggestedMatchCount > 0 ? (
+                  {duplicateReviewReady && (autoDupeMatchCount > 0 || bookwormSuggestedMatchCount > 0) ? (
                     <div className="rounded-lg border border-border p-3 text-xs text-muted-foreground space-y-1">
                       {autoDupeMatchCount > 0 ? (
                         <p>
@@ -385,42 +505,48 @@ export function TrackReadingResultList({
                     </div>
                   ) : null}
 
-                  <p className="text-sm font-medium">Review suggested tags and adjust if needed</p>
-                  {suggestedGenres.length > 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      Suggested: {suggestedGenres.join(", ")}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">No suggested tags found. Please select at least one.</p>
-                  )}
-                  <div className="flex flex-wrap gap-2">
-                    {GENRES.map((genre) => (
-                      <GenreToggleButton
-                        key={genre}
-                        genre={genre}
-                        selected={selectedGenres.includes(genre)}
-                        onToggle={toggleGenre}
-                      />
-                    ))}
-                  </div>
+                  {duplicateReviewReady &&
+                  !suggestionError &&
+                  localDuplicates.length === 0 &&
+                  workCandidates.length === 0 &&
+                  autoDupeMatchCount === 0 &&
+                  bookwormSuggestedMatchCount === 0 ? (
+                    <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
+                      No likely duplicates were found. You can safely continue with ingest.
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
+              )}
               
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={closeDialog} disabled={submittingIngest}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={confirmIngest}
-                  disabled={
-                    loadingSuggestion ||
-                    submittingIngest ||
-                    selectedGenres.length === 0
-                  }
-                >
-                  {submittingIngest ? "Ingesting..." : "Ingest"}
-                </Button>
+                {ingestStep === 1 ? (
+                  <>
+                    <Button variant="outline" onClick={closeDialog} disabled={submittingIngest}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleNextStep} disabled={selectedGenres.length === 0 || submittingIngest}>
+                      Continue to duplicate review
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" onClick={() => setIngestStep(1)} disabled={submittingIngest}>
+                      Back
+                    </Button>
+                    <Button
+                      onClick={confirmIngest}
+                      disabled={
+                        loadingSuggestion ||
+                        submittingIngest ||
+                        selectedGenres.length === 0 ||
+                        Boolean(suggestionError)
+                      }
+                    >
+                      {submittingIngest ? "Ingesting..." : "Ingest"}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           )}
