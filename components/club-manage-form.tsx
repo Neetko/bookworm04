@@ -67,13 +67,14 @@ type InviteCandidate = {
   id: string
   username: string | null
   avatar_url: string | null
-  relationship: "friend" | "following" | "follows_you"
+  relationship: "friend" | "following" | "follows_you" | "other"
 }
 
 const RELATIONSHIP_LABEL: Record<InviteCandidate["relationship"], string> = {
   friend: "Friend",
   following: "You follow",
   follows_you: "Follows you",
+  other: "Reader",
 }
 
 type ReadingItem = {
@@ -167,6 +168,8 @@ export function ClubManageForm({
   const [loadingInviteSuggestions, setLoadingInviteSuggestions] = useState(false)
   const [applicationActionId, setApplicationActionId] = useState<string | null>(null)
   const inviteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const connectedInviteSuggestions = inviteSuggestions.filter((candidate) => candidate.relationship !== "other")
+  const otherInviteSuggestions = inviteSuggestions.filter((candidate) => candidate.relationship === "other")
 
   useEffect(() => {
     if (selectedInvitee && selectedInvitee.username !== inviteUsername.trim()) {
@@ -197,11 +200,11 @@ export function ClubManageForm({
         const data = await response.json()
         const results = Array.isArray(data?.results) ? (data.results as InviteCandidate[]) : []
         setInviteSuggestions(results)
-        setInviteSuggestionsOpen(results.length > 0)
+        setInviteSuggestionsOpen(true)
       } catch (error) {
         console.error(error)
         setInviteSuggestions([])
-        setInviteSuggestionsOpen(false)
+        setInviteSuggestionsOpen(true)
       } finally {
         setLoadingInviteSuggestions(false)
       }
@@ -215,14 +218,17 @@ export function ClubManageForm({
   }, [club.id, inviteUsername])
 
   const onInvite = async () => {
-    if (!inviteUsername.trim()) return
+    if (!selectedInvitee?.id) {
+      toast.error("Pick a reader from the suggestions before inviting")
+      return
+    }
+
     setIsInviting(true)
     try {
       await inviteMemberToClub(club.id, {
-        profileId: selectedInvitee?.id ?? null,
-        username: inviteUsername,
+        profileId: selectedInvitee.id,
       })
-      toast.success("Member invited")
+      toast.success(`Invited ${selectedInvitee.username ?? "reader"}`)
       setInviteUsername("")
       setSelectedInvitee(null)
       setInviteSuggestions([])
@@ -230,7 +236,7 @@ export function ClubManageForm({
       router.refresh()
     } catch (e) {
       console.error(e)
-      toast.error("Failed to invite")
+      toast.error(e instanceof Error ? e.message : "Failed to invite")
     } finally {
       setIsInviting(false)
     }
@@ -493,9 +499,9 @@ export function ClubManageForm({
                   onBlur={() => {
                     window.setTimeout(() => setInviteSuggestionsOpen(false), 150)
                   }}
-                  placeholder="Search friends and followers"
+                  placeholder="Search readers by username"
                 />
-                <Button onClick={onInvite} disabled={isInviting || !inviteUsername.trim()}>
+                <Button onClick={onInvite} disabled={isInviting || !selectedInvitee?.id}>
                   {isInviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Invite
                 </Button>
@@ -510,32 +516,62 @@ export function ClubManageForm({
                           Loading suggestions...
                         </div>
                       ) : inviteSuggestions.length === 0 ? (
-                        <CommandEmpty>No matching connected users.</CommandEmpty>
+                        <CommandEmpty>No matching readers.</CommandEmpty>
                       ) : (
-                        <CommandGroup heading="Connected readers">
-                          {inviteSuggestions.map((candidate) => (
-                            <CommandItem
-                              key={candidate.id}
-                              value={`${candidate.username ?? ""}-${candidate.id}`}
-                              onSelect={() => {
-                                setInviteUsername(candidate.username ?? "")
-                                setSelectedInvitee(candidate)
-                                setInviteSuggestionsOpen(false)
-                              }}
-                            >
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={candidate.avatar_url ?? undefined} />
-                                <AvatarFallback>
-                                  {(candidate.username ?? "?").slice(0, 1).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate font-medium">{candidate.username ?? "Unnamed"}</div>
-                              </div>
-                              <Badge variant="secondary">{RELATIONSHIP_LABEL[candidate.relationship]}</Badge>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
+                        <>
+                          {connectedInviteSuggestions.length > 0 ? (
+                            <CommandGroup heading="Connected readers">
+                              {connectedInviteSuggestions.map((candidate) => (
+                                <CommandItem
+                                  key={candidate.id}
+                                  value={`${candidate.username ?? ""}-${candidate.id}`}
+                                  onSelect={() => {
+                                    setInviteUsername(candidate.username ?? "")
+                                    setSelectedInvitee(candidate)
+                                    setInviteSuggestionsOpen(false)
+                                  }}
+                                >
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarImage src={candidate.avatar_url ?? undefined} />
+                                    <AvatarFallback>
+                                      {(candidate.username ?? "?").slice(0, 1).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate font-medium">{candidate.username ?? "Unnamed"}</div>
+                                  </div>
+                                  <Badge variant="secondary">{RELATIONSHIP_LABEL[candidate.relationship]}</Badge>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          ) : null}
+                          {otherInviteSuggestions.length > 0 ? (
+                            <CommandGroup heading="Other readers">
+                              {otherInviteSuggestions.map((candidate) => (
+                                <CommandItem
+                                  key={candidate.id}
+                                  value={`${candidate.username ?? ""}-${candidate.id}`}
+                                  onSelect={() => {
+                                    setInviteUsername(candidate.username ?? "")
+                                    setSelectedInvitee(candidate)
+                                    setInviteSuggestionsOpen(false)
+                                  }}
+                                >
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarImage src={candidate.avatar_url ?? undefined} />
+                                    <AvatarFallback>
+                                      {(candidate.username ?? "?").slice(0, 1).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate font-medium">{candidate.username ?? "Unnamed"}</div>
+                                  </div>
+                                  <Badge variant="outline">{RELATIONSHIP_LABEL[candidate.relationship]}</Badge>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          ) : null}
+                        </>
                       )}
                     </CommandList>
                   </Command>
@@ -543,7 +579,7 @@ export function ClubManageForm({
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Suggestions only include friends, people you follow, and people who follow you.
+              Search all readers. Friends and follows are ranked first, and you can only invite someone after selecting them from the list.
             </p>
           </div>
 
