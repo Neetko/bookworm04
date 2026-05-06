@@ -1037,7 +1037,7 @@ async function upsertEditionsForWorks(input: {
 }
 
 export async function ensureGoogleBook(volumeId: string) {
-  const { titleId } = await ensureBookFromGoogleVolume(volumeId, [])
+  const { titleId } = await ensureBookFromGoogleVolume(volumeId)
   revalidatePath("/search-titles")
   return { titleId }
 }
@@ -1421,7 +1421,7 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
 
-  const ensured = await ensureBookFromGoogleVolume(volumeId, [])
+  const ensured = await ensureBookFromGoogleVolume(volumeId)
 
   const update: Record<string, any> = {
     user_profile_id: profileId,
