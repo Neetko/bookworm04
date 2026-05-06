@@ -21,6 +21,16 @@ export const GENRE_BG_CLASS: Record<Genre, string> = {
   "NON-FICTION": "bg-cyan-500/65",
 } as const
 
+export const GENRE_BORDER_CLASS: Record<Genre, string> = {
+  HORROR: "border-red-500",
+  ROMANCE: "border-pink-500",
+  FANTASY: "border-green-500",
+  "SCI-FI": "border-blue-500",
+  ADVENTURE: "border-yellow-500",
+  MYSTERY: "border-purple-500",
+  "NON-FICTION": "border-cyan-500",
+} as const
+
 // Hover tint (faint) for buttons.
 export const GENRE_HOVER_BG_TINT_CLASS: Record<Genre, string> = {
   HORROR: "hover:bg-red-500/55",

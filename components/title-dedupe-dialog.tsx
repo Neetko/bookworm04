@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { GitMerge } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getTitleDedupeCandidatesAction, submitTitleDedupeSuggestionAction } from "@/app/actions/title"
 import { toast } from "sonner"
@@ -79,7 +80,8 @@ export function TitleDedupeDialog({
 
   return (
     <>
-      <Button variant="outline" onClick={() => { setOpen(true); loadCandidates() }}>
+      <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => { setOpen(true); loadCandidates() }}>
+        <GitMerge className="h-4 w-4" />
         Dedupe
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>

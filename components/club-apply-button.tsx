@@ -4,15 +4,23 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
-import { applyToClub } from "@/app/actions/clubs"
+import { acceptClubInvitation, applyToClub, declineClubInvitation } from "@/app/actions/clubs"
 import { useRouter } from "next/navigation"
 
-export function ClubApplyButton({ clubId }: { clubId: string }) {
-  const [isLoading, setIsLoading] = useState(false)
+export function ClubApplyButton({
+  clubId,
+  pending = false,
+  invitationId = null,
+}: {
+  clubId: string
+  pending?: boolean
+  invitationId?: string | null
+}) {
+  const [isLoading, setIsLoading] = useState<"apply" | "accept" | "decline" | null>(null)
   const router = useRouter()
 
   const onApply = async () => {
-    setIsLoading(true)
+    setIsLoading("apply")
     try {
       await applyToClub(clubId)
       toast.success("Application submitted")
@@ -21,14 +29,59 @@ export function ClubApplyButton({ clubId }: { clubId: string }) {
       console.error(e)
       toast.error("Failed to apply")
     } finally {
-      setIsLoading(false)
+      setIsLoading(null)
     }
   }
 
+  const onAcceptInvite = async () => {
+    if (!invitationId) return
+    setIsLoading("accept")
+    try {
+      await acceptClubInvitation(invitationId)
+      toast.success("Invitation accepted")
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      toast.error("Failed to accept invitation")
+    } finally {
+      setIsLoading(null)
+    }
+  }
+
+  const onDeclineInvite = async () => {
+    if (!invitationId) return
+    setIsLoading("decline")
+    try {
+      await declineClubInvitation(invitationId)
+      toast.success("Invitation declined")
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      toast.error("Failed to decline invitation")
+    } finally {
+      setIsLoading(null)
+    }
+  }
+
+  if (invitationId) {
+    return (
+      <div className="flex items-center gap-2">
+        <Button onClick={onAcceptInvite} disabled={isLoading !== null}>
+          {isLoading === "accept" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Accept invite
+        </Button>
+        <Button onClick={onDeclineInvite} disabled={isLoading !== null} variant="outline">
+          {isLoading === "decline" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Decline
+        </Button>
+      </div>
+    )
+  }
+
   return (
-    <Button onClick={onApply} disabled={isLoading}>
-      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-      Apply
+    <Button onClick={onApply} disabled={pending || isLoading !== null} variant={pending ? "outline" : "default"}>
+      {isLoading === "apply" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      {pending ? "Application pending" : "Apply"}
     </Button>
   )
 }

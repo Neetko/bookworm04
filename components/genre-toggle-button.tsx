@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
   GENRE_BG_CLASS,
+  GENRE_BORDER_CLASS,
   GENRE_HOVER_BG_TINT_CLASS,
   type Genre,
 } from "@/lib/types"
@@ -11,11 +12,13 @@ export function GenreToggleButton({
   selected,
   onToggle,
   className,
+  showSuggestedIndicator = false,
 }: {
   genre: Genre
   selected: boolean
   onToggle: (genre: Genre) => void
   className?: string
+  showSuggestedIndicator?: boolean
 }) {
   return (
     <Button
@@ -29,11 +32,13 @@ export function GenreToggleButton({
           ? cn(
               GENRE_BG_CLASS[genre],
               GENRE_HOVER_BG_TINT_CLASS[genre],
-              "border-transparent text-foreground"
+              showSuggestedIndicator ? GENRE_BORDER_CLASS[genre] : "border-transparent",
+              "text-foreground"
             )
           : cn(
               "bg-background text-foreground",
-              GENRE_HOVER_BG_TINT_CLASS[genre]
+              GENRE_HOVER_BG_TINT_CLASS[genre],
+              showSuggestedIndicator ? GENRE_BORDER_CLASS[genre] : null
             ),
         className
       )}

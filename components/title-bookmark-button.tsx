@@ -54,13 +54,15 @@ export function TitleBookmarkButton({ titleId }: TitleBookmarkButtonProps) {
    return (
      <Button
        variant={isBookmarked ? "default" : "outline"}
+       size="sm"
        onClick={handleToggle}
        disabled={isLoading}
+       className="gap-1.5"
      >
        {isLoading ? (
-         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+         <Loader2 className="h-4 w-4 animate-spin" />
        ) : (
-         <Bookmark className={`h-4 w-4 mr-2 ${isBookmarked ? "fill-current" : ""}`} />
+         <Bookmark className={`h-4 w-4 ${isBookmarked ? "fill-current" : ""}`} />
        )}
        {isBookmarked ? "Bookmarked" : "Bookmark"}
      </Button>

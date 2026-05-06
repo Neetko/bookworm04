@@ -9,10 +9,18 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 type ClubType = "book" | "writer"
+type ClubJoinPolicy = "open" | "approval_required" | "invite_only"
+
+const JOIN_POLICY_LABEL: Record<ClubJoinPolicy, string> = {
+  open: "Open",
+  approval_required: "Approval required",
+  invite_only: "Invite only",
+}
 
 export type ClubCardClub = {
   id: string
   type: ClubType
+  join_policy: ClubJoinPolicy
   name: string
   description: string | null
   categories: Genre[] | null
@@ -40,9 +48,14 @@ export function ClubCard({ club }: { club: ClubCardClub }) {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col gap-2 min-w-0">
                   <CardTitle className="text-xl leading-tight">{club.name}</CardTitle>
-                  <Badge variant={club.type === "book" ? "default" : "secondary"} className="w-fit">
-                    {club.type === "book" ? "Book club" : "Writer club"}
-                  </Badge>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={club.type === "book" ? "default" : "secondary"} className="w-fit">
+                      {club.type === "book" ? "Book club" : "Writer club"}
+                    </Badge>
+                    <Badge variant="outline" className="w-fit">
+                      {JOIN_POLICY_LABEL[club.join_policy]}
+                    </Badge>
+                  </div>
                 </div>
                 {club.avatar_url ? (
                   <Avatar className="h-12 w-12 shrink-0">
@@ -86,8 +99,10 @@ export function ClubCard({ club }: { club: ClubCardClub }) {
         <div className="space-y-3">
           <div className="min-w-0">
             <div className="truncate font-semibold">{club.name}</div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              {club.type === "book" ? "Book club" : "Writer club"}
+            <div className="mt-1 flex flex-wrap gap-2 text-sm text-muted-foreground">
+              <span>{club.type === "book" ? "Book club" : "Writer club"}</span>
+              <span>•</span>
+              <span>{JOIN_POLICY_LABEL[club.join_policy]}</span>
             </div>
           </div>
 

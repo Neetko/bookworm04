@@ -55,27 +55,6 @@ export async function finalizeSuggestionApproval(input: {
   })
   const adminFinalCoverSelection = normalizeCoverChoice(input.adminFinalCoverSelection)
 
-  if (input.suggestionId) {
-    const { error: suggestionError } = await input.admin
-      .from("suggestions")
-      .update({
-        admin_final_genres: finalGenres,
-        admin_final_selected_work_ids: approvedWorkIds,
-        admin_final_selected_work_snapshots: approvedWorkSnapshots,
-        admin_final_cover_selection: adminFinalCoverSelection,
-        admin_reviewed_at: reviewedAt,
-        admin_reviewed_by_profile_id: input.reviewerProfileId,
-        status: "approved",
-        updated_at: reviewedAt,
-      })
-      .eq("id", input.suggestionId)
-
-    if (suggestionError) {
-      console.error("Failed to update suggestion approval", suggestionError)
-      throw new Error("Failed to approve suggestion")
-    }
-  }
-
   const titleUpdate: Record<string, unknown> = {
     updated_at: reviewedAt,
   }
@@ -93,15 +72,46 @@ export async function finalizeSuggestionApproval(input: {
     titleUpdate.cover_image_url = adminFinalCoverSelection.imageUrl
   }
 
-  const { error: titleUpdateError } = await input.admin
-    .from("titles")
-    .update(titleUpdate)
-    .eq("id", input.titleId)
+  const writeOperations: Promise<unknown>[] = []
 
-  if (titleUpdateError) {
-    console.error("Failed to apply approved suggestion to title", titleUpdateError)
-    throw new Error("Failed to approve suggestion")
+  if (input.suggestionId) {
+    writeOperations.push(
+      input.admin
+        .from("suggestions")
+        .update({
+          admin_final_genres: finalGenres,
+          admin_final_selected_work_ids: approvedWorkIds,
+          admin_final_selected_work_snapshots: approvedWorkSnapshots,
+          admin_final_cover_selection: adminFinalCoverSelection,
+          admin_reviewed_at: reviewedAt,
+          admin_reviewed_by_profile_id: input.reviewerProfileId,
+          status: "approved",
+          updated_at: reviewedAt,
+        })
+        .eq("id", input.suggestionId)
+        .then(({ error }: { error: unknown }) => {
+          if (error) {
+            console.error("Failed to update suggestion approval", error)
+            throw new Error("Failed to approve suggestion")
+          }
+        })
+    )
   }
+
+  writeOperations.push(
+    input.admin
+      .from("titles")
+      .update(titleUpdate)
+      .eq("id", input.titleId)
+      .then(({ error }: { error: unknown }) => {
+        if (error) {
+          console.error("Failed to apply approved suggestion to title", error)
+          throw new Error("Failed to approve suggestion")
+        }
+      })
+  )
+
+  await Promise.all(writeOperations)
 
   if (approvedWorkIds.length > 0) {
     await upsertTitleReferenceWorks(input.admin, {
@@ -110,15 +120,17 @@ export async function finalizeSuggestionApproval(input: {
       source: input.suggestionId ? "suggestion-approval" : "moderation-bypass",
     })
 
-    for (const workId of approvedWorkIds) {
-      const workEditions = await fetchOpenLibraryWorkEditionsByWorkId(workId)
-      await upsertReferenceIsbns(input.admin, {
-        titleId: input.titleId,
-        workId,
-        isbns: workEditions?.isbns ?? [],
-        source: input.suggestionId ? "suggestion-approval" : "moderation-bypass",
+    await Promise.all(
+      approvedWorkIds.map(async (workId) => {
+        const workEditions = await fetchOpenLibraryWorkEditionsByWorkId(workId)
+        await upsertReferenceIsbns(input.admin, {
+          titleId: input.titleId,
+          workId,
+          isbns: workEditions?.isbns ?? [],
+          source: input.suggestionId ? "suggestion-approval" : "moderation-bypass",
+        })
       })
-    }
+    )
   }
 
   return {

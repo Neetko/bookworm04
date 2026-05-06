@@ -9,6 +9,10 @@ import { resizeAvatarImage } from "@/lib/avatar-image"
 import { normalizeUsernameLookup, sanitizeUsernameInput, validateUsernameInput } from "@/lib/onboarding"
 import { GENRES, type Genre } from "@/lib/types"
 import { summarizeGenrePoints } from "@/app/actions/rewards"
+import { getSupabasePublicEnv, getSupabaseServiceRoleEnv } from "@/lib/supabase-config"
+
+const { url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabasePublicEnv()
+const { isConfigured: hasServiceRoleKey } = getSupabaseServiceRoleEnv()
 
 async function findUsernameCollision(client: any, username: string, excludeAuthUserId?: string | null) {
   const normalized = normalizeUsernameLookup(username)
@@ -33,24 +37,16 @@ async function findUsernameCollision(client: any, username: string, excludeAuthU
 
 // Helper to verify user
 async function getUser(token: string) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClient(supabaseUrl, supabaseAnonKey)
   const { data: { user }, error } = await supabase.auth.getUser(token)
   if (error || !user) return null
   return user
 }
 
 async function ensureUserProfile(user: { id: string; email?: string | null }, token: string) {
-  const anonUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  const client = serviceKey
+  const client = hasServiceRoleKey
     ? createAdminClient()
-    : createClient(anonUrl, anonKey, {
+    : createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: `Bearer ${token}` } },
         auth: { persistSession: false, autoRefreshToken: false },
       })
@@ -387,11 +383,8 @@ export async function uploadUserAvatar(token: string, formData: FormData) {
     return { error: "Unsupported image type" as const }
   }
 
-  const anonUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
   // Use the user's JWT so Storage RLS can enforce auth.uid() folder rules.
-  const authed = createClient(anonUrl, anonKey, {
+  const authed = createClient(supabaseUrl, supabaseAnonKey, {
     global: {
       headers: {
         Authorization: `Bearer ${token}`,

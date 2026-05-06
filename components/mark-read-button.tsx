@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, Circle, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { getTitleReadStatus, setTitleReadStatus } from "@/app/actions/title"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -52,28 +53,29 @@ export function MarkReadButton({ titleId }: MarkReadButtonProps) {
 
   if (isLoading) {
     return (
-      <Button variant="outline" disabled>
-        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+      <Button variant="outline" size="sm" className="gap-1.5" disabled>
+        <Loader2 className="h-4 w-4 animate-spin" />
         Loading...
       </Button>
     )
   }
 
   return (
-    <Button 
-      variant={isRead ? "default" : "outline"} 
+    <Button
+      variant={isRead ? "default" : "outline"}
+      size="sm"
       onClick={handleToggle}
       disabled={isLoading}
-      className={isRead ? "bg-green-600 hover:bg-green-700" : ""}
+      className={cn("gap-1.5", isRead ? "bg-green-600 hover:bg-green-700" : "")}
     >
       {isRead ? (
         <>
-          <CheckCircle className="h-4 w-4 mr-2" />
+          <CheckCircle className="h-4 w-4" />
           Read
         </>
       ) : (
         <>
-          <Circle className="h-4 w-4 mr-2" />
+          <Circle className="h-4 w-4" />
           Mark as Read
         </>
       )}
