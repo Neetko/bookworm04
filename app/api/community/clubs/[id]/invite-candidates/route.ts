@@ -2,12 +2,23 @@ import { NextResponse } from "next/server"
 
 import { createServerClient } from "@/lib/supabase-server"
 
-type InviteRelationship = "friend" | "following" | "follows_you"
+type InviteRelationship = "friend" | "following" | "follows_you" | "other"
 
 const RELATIONSHIP_PRIORITY: Record<InviteRelationship, number> = {
   friend: 0,
   following: 1,
   follows_you: 2,
+  other: 3,
+}
+
+function getMatchPriority(username: string | null, query: string) {
+  const normalizedUsername = (username ?? "").toLocaleLowerCase()
+  const normalizedQuery = query.toLocaleLowerCase()
+
+  if (!normalizedQuery) return 3
+  if (normalizedUsername === normalizedQuery) return 0
+  if (normalizedUsername.startsWith(normalizedQuery)) return 1
+  return 2
 }
 
 export async function GET(
@@ -17,6 +28,10 @@ export async function GET(
   const { id: clubId } = await params
   const { searchParams } = new URL(request.url)
   const q = (searchParams.get("q") ?? "").trim()
+
+  if (!q) {
+    return NextResponse.json({ results: [] })
+  }
 
   const supabase = await createServerClient()
   const {
@@ -95,30 +110,32 @@ export async function GET(
     relationshipById.set(followerId, "follows_you")
   }
 
-  const candidateIds = Array.from(relationshipById.keys())
-  if (candidateIds.length === 0) {
-    return NextResponse.json({ results: [] })
-  }
-
-  const baseQuery = supabase
+  const { data: profiles } = await supabase
     .from("public_profiles")
     .select("id, username, avatar_url")
-    .in("id", candidateIds)
-
-  const filteredQuery = q ? baseQuery.ilike("username", `%${q}%`) : baseQuery
-  const { data: profiles } = await filteredQuery.limit(12)
+    .ilike("username", `%${q}%`)
+    .limit(40)
 
   const results = ((profiles ?? []) as Array<{ id: string; username: string | null; avatar_url: string | null }>)
+    .filter((profileRow) => {
+      if (!profileRow.id || excludedIds.has(profileRow.id)) return false
+      if (!(profileRow.username ?? "").trim()) return false
+      return true
+    })
     .map((profileRow) => ({
       ...profileRow,
-      relationship: relationshipById.get(profileRow.id) ?? "following",
+      relationship: relationshipById.get(profileRow.id) ?? "other",
     }))
     .sort((a, b) => {
       const relationshipDelta = RELATIONSHIP_PRIORITY[a.relationship] - RELATIONSHIP_PRIORITY[b.relationship]
       if (relationshipDelta !== 0) return relationshipDelta
+
+      const matchDelta = getMatchPriority(a.username, q) - getMatchPriority(b.username, q)
+      if (matchDelta !== 0) return matchDelta
+
       return (a.username ?? "").localeCompare(b.username ?? "", undefined, { sensitivity: "base" })
     })
-    .slice(0, 8)
+    .slice(0, 12)
 
   return NextResponse.json({ results })
 }

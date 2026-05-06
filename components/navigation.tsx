@@ -17,12 +17,14 @@ import { supabase } from "@/lib/supabase-browser"
 import { AuthModal } from "@/components/auth-modal"
 import { ModeToggle } from "@/components/mode-toggle"
 import type { AppRole } from "@/lib/server/roles"
+import { sanitizeUsernameInput } from "@/lib/onboarding"
 
 export function Navigation() {
   const { user, signOut } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authView, setAuthView] = useState<"sign_in" | "sign_up">("sign_in")
   const [profile, setProfile] = useState<{ username: string | null; avatar_url: string | null } | null>(null)
+  const [isProfileLoading, setIsProfileLoading] = useState(false)
   const [appRole, setAppRole] = useState<AppRole>("user")
   const [unreadCounts, setUnreadCounts] = useState({ notifications: 0, messages: 0, total: 0 })
 
@@ -32,9 +34,12 @@ export function Navigation() {
     const loadProfile = async () => {
       if (!user) {
         if (isMounted) setProfile(null)
+        if (isMounted) setIsProfileLoading(false)
         if (isMounted) setAppRole("user")
         return
       }
+
+      if (isMounted) setIsProfileLoading(true)
 
       const [{ data: profileData }, { data: roleData }] = await Promise.all([
         supabase
@@ -51,6 +56,7 @@ export function Navigation() {
 
       if (isMounted) {
         setProfile(profileData ?? null)
+        setIsProfileLoading(false)
         setAppRole(roleData?.role === "admin" || roleData?.role === "moderator" ? roleData.role : "user")
       }
     }
@@ -97,7 +103,7 @@ export function Navigation() {
     return initials.toUpperCase()
   }
 
-  const displayName = profile?.username ?? user?.email?.split("@")[0] ?? "Account"
+  const displayName = sanitizeUsernameInput(profile?.username) || (user && isProfileLoading ? "Loading profile" : "Account")
 
   const handleSignIn = () => {
     setAuthView("sign_in")
