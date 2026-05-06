@@ -1,6 +1,6 @@
 import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getClub, getClubMembers, getClubReadingItems, getMyProfile } from "@/app/actions/clubs"
+import { getClub, getClubApplications, getClubInvitations, getClubMembers, getClubReadingItems, getMyProfile } from "@/app/actions/clubs"
 import { ClubManageForm } from "@/components/club-manage-form"
 
 export default async function ClubManagePage({ params }: { params: Promise<{ id: string }> }) {
@@ -39,8 +39,12 @@ export default async function ClubManagePage({ params }: { params: Promise<{ id:
     )
   }
 
-  const members = await getClubMembers(id)
-  const readingItems = await getClubReadingItems(id)
+  const [members, readingItems, pendingApplications, pendingInvitations] = await Promise.all([
+    getClubMembers(id),
+    getClubReadingItems(id),
+    getClubApplications(id),
+    getClubInvitations(id),
+  ])
 
   return (
     <div className="min-h-screen bg-background">
@@ -49,10 +53,16 @@ export default async function ClubManagePage({ params }: { params: Promise<{ id:
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Manage club</h1>
-          <p className="text-muted-foreground mt-1">Update details, genres, planned reading, and members.</p>
+          <p className="text-muted-foreground mt-1">Update details, manage join settings, review applications, and track invitations.</p>
         </div>
 
-        <ClubManageForm club={club} members={members} readingItems={readingItems} />
+        <ClubManageForm
+          club={club}
+          members={members}
+          readingItems={readingItems}
+          pendingApplications={pendingApplications}
+          pendingInvitations={pendingInvitations}
+        />
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createAdminClient, createServerClient } from "@/lib/supabase-server"
+import { createServerClient } from "@/lib/supabase-server"
 
 const getProfileId = async () => {
   const supabase = await createServerClient()
@@ -42,7 +42,6 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const { supabase, profileId } = await getProfileId()
-  const admin = createAdminClient()
 
   if (!profileId) {
     return NextResponse.json({ success: false }, { status: 401 })
@@ -52,7 +51,7 @@ export async function PATCH(request: Request) {
   const notificationId = typeof body?.id === "string" ? body.id : null
 
   if (notificationId) {
-    const { error } = await admin
+    const { error } = await supabase
       .from("notifications")
       .update({ is_read: true })
       .eq("id", notificationId)
@@ -66,7 +65,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: true })
   }
 
-  const { error } = await admin
+  const { error } = await supabase
     .from("notifications")
     .update({ is_read: true })
     .eq("recipient_profile_id", profileId)

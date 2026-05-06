@@ -1,16 +1,23 @@
 import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { getClub, getClubCurrentReading, getClubCurrentReadingComments, getClubMembers, getClubReadingItems, getMyMembership, getMyProfile } from "@/app/actions/clubs"
+import { getClub, getClubCurrentReading, getClubCurrentReadingComments, getClubMemberCurrentProgress, getClubMembers, getClubReadingItems, getMyMembership, getMyProfile } from "@/app/actions/clubs"
 import { ClubMembershipButton } from "@/components/club-membership-button"
 import { ClubApplyButton } from "@/components/club-apply-button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
 import { normalizeGenres } from "@/lib/types"
 import { ClubCurrentReadingSection, type ClubCurrentReadingComment } from "@/components/club-current-reading"
+
+const JOIN_POLICY_LABEL = {
+  open: "Open",
+  approval_required: "Approval required",
+  invite_only: "Invite only",
+} as const
 
 export default async function ClubPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -29,10 +36,11 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
     )
   }
 
-  const { isMember } = await getMyMembership(id)
+  const membership = await getMyMembership(id)
   const me = await getMyProfile()
   const isOwner = !!me.profileId && me.profileId === club.owner_user_id
   const canManage = isOwner
+  const isMember = membership.isMember
 
   const members = await getClubMembers(id)
   const readingItems = (await getClubReadingItems(id)) as Array<{
@@ -49,7 +57,9 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
     } | null
   }>
   const currentReading = await getClubCurrentReading(id)
-  const rawComments = (await getClubCurrentReadingComments(id)) as Array<{
+  const memberProgress = isMember && currentReading ? await getClubMemberCurrentProgress(id) : []
+  const memberProgressMap = new Map(memberProgress.map((item) => [item.user_id, item]))
+  const rawComments = (isMember ? await getClubCurrentReadingComments(id) : []) as Array<{
     id: string
     content: string
     created_at: string
@@ -80,6 +90,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
                   <Badge variant={club.type === "book" ? "default" : "secondary"}>
                     {club.type === "book" ? "Book club" : "Writer club"}
                   </Badge>
+                  <Badge variant="outline">{JOIN_POLICY_LABEL[club.join_policy]}</Badge>
                 </div>
               </div>
 
@@ -94,8 +105,16 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
                   {!canManage &&
                     (isMember ? (
                       <ClubMembershipButton clubId={club.id} initialIsMember={isMember} />
+                    ) : membership.pendingInvitation && membership.invitationId ? (
+                      <ClubApplyButton clubId={club.id} invitationId={membership.invitationId} />
+                    ) : club.join_policy === "open" ? (
+                      <ClubMembershipButton clubId={club.id} initialIsMember={false} />
+                    ) : club.join_policy === "invite_only" ? (
+                      <Button variant="outline" disabled>
+                        Invite only
+                      </Button>
                     ) : (
-                      <ClubApplyButton clubId={club.id} />
+                      <ClubApplyButton clubId={club.id} pending={membership.pendingApplication} />
                     ))}
                 </div>
 
@@ -149,6 +168,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
                     ) : (
                       members.map((m) => {
                         const isOwnerMember = m.id === club.owner_user_id
+                        const progress = memberProgressMap.get(m.id)
                         const content = (
                           <div className="flex items-center gap-3">
                             <Avatar className="h-8 w-8">
@@ -157,13 +177,29 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
                                 {(m.username ?? "?").slice(0, 1).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <div className="truncate text-sm font-medium">
                                 {m.username ?? "Unnamed"}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {isOwnerMember ? "Owner 👑" : "Member"}
                               </div>
+                              {progress ? (
+                                <div className="mt-2 space-y-1">
+                                  <Progress value={progress.progress_percent} className="h-2" />
+                                  <div className="text-[11px] text-muted-foreground">
+                                    {progress.is_completed
+                                      ? "Finished"
+                                      : progress.total_pages
+                                        ? `${progress.progress_percent}% • ${progress.current_page ?? 0}/${progress.total_pages} pages`
+                                        : progress.total_minutes
+                                          ? `${progress.progress_percent}% • ${progress.minutes_listened ?? 0}/${progress.total_minutes} min`
+                                          : `${progress.progress_percent}% complete`}
+                                  </div>
+                                </div>
+                              ) : isMember && currentReading ? (
+                                <div className="mt-2 text-[11px] text-muted-foreground">No progress shared yet.</div>
+                              ) : null}
                             </div>
                           </div>
                         )
@@ -240,7 +276,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
           clubId={club.id}
           title={currentReading}
           canPost={isMember}
-          canView={true}
+          canView={isMember}
           initialComments={currentComments}
         />
 

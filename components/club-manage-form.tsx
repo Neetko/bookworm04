@@ -1,12 +1,13 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Loader2, UploadCloud, X } from "lucide-react"
+import { Check, Loader2, Mail, UploadCloud, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -17,7 +18,9 @@ import { GENRES, normalizeGenres, type Genre } from "@/lib/types"
 import { GenreToggleButton } from "@/components/genre-toggle-button"
 import { ClubTitleSearch } from "@/components/club-title-search"
 import {
+  acceptClubApplication,
   addClubReadingItem,
+  declineClubApplication,
   inviteMemberToClub,
   kickMemberFromClub,
   removeClubReadingItem,
@@ -27,10 +30,18 @@ import {
 } from "@/app/actions/clubs"
 
 type ClubType = "book" | "writer"
+type ClubJoinPolicy = "open" | "approval_required" | "invite_only"
+
+const JOIN_POLICY_LABEL: Record<ClubJoinPolicy, string> = {
+  open: "Open",
+  approval_required: "Approval required",
+  invite_only: "Invite only",
+}
 
 type Club = {
   id: string
   type: ClubType
+  join_policy: ClubJoinPolicy
   name: string
   description: string | null
   categories: Genre[] | null
@@ -39,6 +50,31 @@ type Club = {
 }
 
 type Member = { id: string; username: string | null; avatar_url: string | null; role: string | null }
+type PendingApplication = {
+  id: string
+  user_id: string
+  created_at: string
+  user: Member | null
+}
+type PendingInvitation = {
+  id: string
+  invitee_user_id: string
+  created_at: string
+  invitee: Member | null
+}
+
+type InviteCandidate = {
+  id: string
+  username: string | null
+  avatar_url: string | null
+  relationship: "friend" | "following" | "follows_you"
+}
+
+const RELATIONSHIP_LABEL: Record<InviteCandidate["relationship"], string> = {
+  friend: "Friend",
+  following: "You follow",
+  follows_you: "Follows you",
+}
 
 type ReadingItem = {
   id: string
@@ -52,10 +88,14 @@ export function ClubManageForm({
   club,
   members,
   readingItems,
+  pendingApplications,
+  pendingInvitations,
 }: {
   club: Club
   members: Member[]
   readingItems: ReadingItem[]
+  pendingApplications: PendingApplication[]
+  pendingInvitations: PendingInvitation[]
 }) {
   const router = useRouter()
 
@@ -65,6 +105,7 @@ export function ClubManageForm({
   const [avatarUrl, setAvatarUrl] = useState(club.avatar_url ?? "")
   const [description, setDescription] = useState(club.description ?? "")
   const [categories, setCategories] = useState<Genre[]>(initialCategories)
+  const [joinPolicy, setJoinPolicy] = useState<ClubJoinPolicy>(club.join_policy ?? "approval_required")
   const [currentTitleId, setCurrentTitleId] = useState<string | null>(club.current_title_id ?? null)
   const [isSavingCurrent, setIsSavingCurrent] = useState(false)
 
@@ -88,6 +129,7 @@ export function ClubManageForm({
         avatarUrl,
         description,
         categories,
+        joinPolicy,
       })
       toast.success("Club updated")
       router.push(`/community/clubs/${club.id}`)
@@ -118,21 +160,107 @@ export function ClubManageForm({
   }
 
   const [inviteUsername, setInviteUsername] = useState("")
+  const [selectedInvitee, setSelectedInvitee] = useState<InviteCandidate | null>(null)
   const [isInviting, setIsInviting] = useState(false)
+  const [inviteSuggestions, setInviteSuggestions] = useState<InviteCandidate[]>([])
+  const [inviteSuggestionsOpen, setInviteSuggestionsOpen] = useState(false)
+  const [loadingInviteSuggestions, setLoadingInviteSuggestions] = useState(false)
+  const [applicationActionId, setApplicationActionId] = useState<string | null>(null)
+  const inviteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (selectedInvitee && selectedInvitee.username !== inviteUsername.trim()) {
+      setSelectedInvitee(null)
+    }
+  }, [inviteUsername, selectedInvitee])
+
+  useEffect(() => {
+    const query = inviteUsername.trim()
+
+    if (!query) {
+      setInviteSuggestions([])
+      setInviteSuggestionsOpen(false)
+      setLoadingInviteSuggestions(false)
+      return
+    }
+
+    if (inviteTimer.current) {
+      clearTimeout(inviteTimer.current)
+    }
+
+    inviteTimer.current = setTimeout(async () => {
+      setLoadingInviteSuggestions(true)
+      try {
+        const response = await fetch(
+          `/api/community/clubs/${encodeURIComponent(club.id)}/invite-candidates?q=${encodeURIComponent(query)}`
+        )
+        const data = await response.json()
+        const results = Array.isArray(data?.results) ? (data.results as InviteCandidate[]) : []
+        setInviteSuggestions(results)
+        setInviteSuggestionsOpen(results.length > 0)
+      } catch (error) {
+        console.error(error)
+        setInviteSuggestions([])
+        setInviteSuggestionsOpen(false)
+      } finally {
+        setLoadingInviteSuggestions(false)
+      }
+    }, 200)
+
+    return () => {
+      if (inviteTimer.current) {
+        clearTimeout(inviteTimer.current)
+      }
+    }
+  }, [club.id, inviteUsername])
 
   const onInvite = async () => {
     if (!inviteUsername.trim()) return
     setIsInviting(true)
     try {
-      await inviteMemberToClub(club.id, inviteUsername)
+      await inviteMemberToClub(club.id, {
+        profileId: selectedInvitee?.id ?? null,
+        username: inviteUsername,
+      })
       toast.success("Member invited")
       setInviteUsername("")
+      setSelectedInvitee(null)
+      setInviteSuggestions([])
+      setInviteSuggestionsOpen(false)
       router.refresh()
     } catch (e) {
       console.error(e)
       toast.error("Failed to invite")
     } finally {
       setIsInviting(false)
+    }
+  }
+
+  const onApproveApplication = async (applicationId: string) => {
+    setApplicationActionId(applicationId)
+    try {
+      await acceptClubApplication(club.id, applicationId)
+      toast.success("Application approved")
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      toast.error("Failed to approve application")
+    } finally {
+      setApplicationActionId(null)
+    }
+  }
+
+  const onDeclineApplication = async (applicationId: string) => {
+    setApplicationActionId(applicationId)
+    try {
+      await declineClubApplication(club.id, applicationId)
+      toast.success("Application declined")
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      toast.error("Failed to decline application")
+    } finally {
+      setApplicationActionId(null)
     }
   }
 
@@ -241,6 +369,22 @@ export function ClubManageForm({
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium mb-2">Join policy</label>
+            <select
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={joinPolicy}
+              onChange={(event) => setJoinPolicy(event.target.value as ClubJoinPolicy)}
+            >
+              <option value="open">Open — anyone can join instantly</option>
+              <option value="approval_required">Approval required — applications stay pending until you review them</option>
+              <option value="invite_only">Invite only — only invited readers can join</option>
+            </select>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Current setting: {JOIN_POLICY_LABEL[joinPolicy]}
+            </p>
+          </div>
+
         </CardContent>
       </Card>
 
@@ -340,13 +484,154 @@ export function ClubManageForm({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <div className="text-sm font-medium">Invite by username</div>
-            <div className="flex gap-2">
-              <Input value={inviteUsername} onChange={(e) => setInviteUsername(e.target.value)} />
-              <Button onClick={onInvite} disabled={isInviting}>
-                {isInviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Invite
-              </Button>
+            <div className="relative">
+              <div className="flex gap-2">
+                <Input
+                  value={inviteUsername}
+                  onChange={(e) => setInviteUsername(e.target.value)}
+                  onFocus={() => setInviteSuggestionsOpen(inviteSuggestions.length > 0)}
+                  onBlur={() => {
+                    window.setTimeout(() => setInviteSuggestionsOpen(false), 150)
+                  }}
+                  placeholder="Search friends and followers"
+                />
+                <Button onClick={onInvite} disabled={isInviting || !inviteUsername.trim()}>
+                  {isInviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Invite
+                </Button>
+              </div>
+              {(inviteSuggestionsOpen || loadingInviteSuggestions) && (
+                <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-md border bg-popover shadow-md">
+                  <Command shouldFilter={false}>
+                    <CommandList>
+                      {loadingInviteSuggestions ? (
+                        <div className="flex items-center gap-2 px-3 py-4 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading suggestions...
+                        </div>
+                      ) : inviteSuggestions.length === 0 ? (
+                        <CommandEmpty>No matching connected users.</CommandEmpty>
+                      ) : (
+                        <CommandGroup heading="Connected readers">
+                          {inviteSuggestions.map((candidate) => (
+                            <CommandItem
+                              key={candidate.id}
+                              value={`${candidate.username ?? ""}-${candidate.id}`}
+                              onSelect={() => {
+                                setInviteUsername(candidate.username ?? "")
+                                setSelectedInvitee(candidate)
+                                setInviteSuggestionsOpen(false)
+                              }}
+                            >
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={candidate.avatar_url ?? undefined} />
+                                <AvatarFallback>
+                                  {(candidate.username ?? "?").slice(0, 1).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate font-medium">{candidate.username ?? "Unnamed"}</div>
+                              </div>
+                              <Badge variant="secondary">{RELATIONSHIP_LABEL[candidate.relationship]}</Badge>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
+                    </CommandList>
+                  </Command>
+                </div>
+              )}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Suggestions only include friends, people you follow, and people who follow you.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm font-medium">Pending applications</div>
+            {pendingApplications.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No pending applications.</div>
+            ) : (
+              pendingApplications.map((application) => (
+                <div
+                  key={application.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-dashed bg-muted/30 p-3 opacity-80"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={application.user?.avatar_url ?? undefined} />
+                      <AvatarFallback>
+                        {(application.user?.username ?? "?").slice(0, 1).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
+                        {application.user?.username ?? "Unnamed"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Awaiting review</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => onApproveApplication(application.id)}
+                      disabled={applicationActionId === application.id}
+                    >
+                      {applicationActionId === application.id ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="mr-2 h-4 w-4" />
+                      )}
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onDeclineApplication(application.id)}
+                      disabled={applicationActionId === application.id}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm font-medium">Pending invitations</div>
+            {pendingInvitations.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No pending invitations.</div>
+            ) : (
+              pendingInvitations.map((invitation) => (
+                <div
+                  key={invitation.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-dashed bg-muted/30 p-3 opacity-80"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={invitation.invitee?.avatar_url ?? undefined} />
+                      <AvatarFallback>
+                        {(invitation.invitee?.username ?? "?").slice(0, 1).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
+                        {invitation.invitee?.username ?? "Unnamed"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Invite sent — waiting for reply</div>
+                    </div>
+                  </div>
+
+                  <Badge variant="outline" className="gap-1">
+                    <Mail className="h-3.5 w-3.5" />
+                    Pending
+                  </Badge>
+                </div>
+              ))
+            )}
           </div>
 
           <ScrollArea className="h-72">

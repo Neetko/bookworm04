@@ -371,10 +371,34 @@ export const clubApplications = pgTable(
       .references(() => userProfiles.id, { onDelete: "cascade" })
       .notNull(),
     status: varchar("status", { length: 20 }).default("pending").notNull(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedByUserId: uuid("reviewed_by_user_id").references(() => userProfiles.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
   },
   (t: any) => ({
     uniqUserClub: uniqueIndex("club_applications_user_club_unique").on(t.userId, t.clubId),
+  })
+)
+
+export const clubInvitations = pgTable(
+  "club_invitations",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    clubId: uuid("club_id")
+      .references(() => clubs.id, { onDelete: "cascade" })
+      .notNull(),
+    inviterUserId: uuid("inviter_user_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    inviteeUserId: uuid("invitee_user_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    status: varchar("status", { length: 20 }).default("pending").notNull(),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqInviteeClub: uniqueIndex("club_invitations_invitee_club_unique").on(t.inviteeUserId, t.clubId),
   })
 )
 
@@ -531,6 +555,7 @@ export const notifications = pgTable(
 export const clubs = pgTable("clubs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   type: varchar("type", { length: 20 }).notNull(), // "book" | "writer"
+  joinPolicy: varchar("join_policy", { length: 20 }).default("approval_required").notNull(),
   name: varchar("name", { length: 200 }).notNull(),
   description: text("description"),
   avatarUrl: text("avatar_url"),
