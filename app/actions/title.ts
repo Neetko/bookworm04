@@ -217,6 +217,30 @@ async function removeFromCurrentReadingList(
     .eq("title_id", titleId)
 }
 
+async function backfillCompletedTitleProgress(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string,
+  titleId: string
+) {
+  const { error } = await supabase.from("title_user_progress").upsert(
+    {
+      user_profile_id: profileId,
+      title_id: titleId,
+      progress_percent: 100,
+      is_completed: true,
+      last_read_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "user_profile_id,title_id",
+    }
+  )
+
+  if (error) {
+    console.error("Failed to backfill completed title progress", error)
+    throw new Error("Failed to update read status")
+  }
+}
+
 export async function getTitleReadStatus(titleId: string) {
   const supabase = await createServerClient()
 
@@ -288,6 +312,8 @@ export async function setTitleReadStatus(titleId: string, isRead: boolean) {
       })
 
     }
+
+    await backfillCompletedTitleProgress(supabase, profileId, titleId)
 
     await removeFromCurrentReadingList(supabase, profileId, titleId)
     await removeFromToReadList(supabase, profileId, titleId)
