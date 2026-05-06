@@ -417,11 +417,36 @@ async function getClubViewerState(
   clubId: string,
   profileId: string | null
 ) {
-  const { data: club, error } = await supabase
+  const clubQuery = await supabase
     .from("clubs")
     .select("id, owner_user_id, join_policy")
     .eq("id", clubId)
     .maybeSingle()
+
+  let club = clubQuery.data as { id: string; owner_user_id: string; join_policy?: string | null } | null
+  let error = clubQuery.error
+
+  if (error) {
+    const message = `${error.message ?? ""}`
+    const isMissingJoinPolicy =
+      error.code === "42703" || (message.includes("column") && message.includes("join_policy"))
+
+    if (isMissingJoinPolicy) {
+      const fallbackQuery = await supabase
+        .from("clubs")
+        .select("id, owner_user_id")
+        .eq("id", clubId)
+        .maybeSingle()
+
+      club = fallbackQuery.data
+        ? {
+            ...(fallbackQuery.data as { id: string; owner_user_id: string }),
+            join_policy: null,
+          }
+        : null
+      error = fallbackQuery.error
+    }
+  }
 
   if (error || !club) throw new Error("Club not found")
 
