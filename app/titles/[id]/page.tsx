@@ -3,7 +3,8 @@ import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Star, BookOpen } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Star, BookOpen, ExternalLink, Headphones, ShoppingCart } from "lucide-react"
 import { createServerClient } from "@/lib/supabase-server"
 import { getReviews } from "@/app/actions/reviews"
 import { TitleEngagementTabs } from "@/components/title-engagement-tabs"
@@ -226,19 +227,6 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                   />
                 ) : null}
 
-                <div className="mb-6 flex flex-wrap gap-2">
-                  <Button variant="outline" asChild>
-                    <a href={amazonSearchUrl} target="_blank" rel="noreferrer">
-                      Search Amazon
-                    </a>
-                  </Button>
-                  <Button variant="outline" asChild>
-                    <a href={audibleSearchUrl} target="_blank" rel="noreferrer">
-                      Search Audible
-                    </a>
-                  </Button>
-                </div>
-
                 {featuredEditions.length > 0 ? (
                   <div className="mb-6 rounded-lg border border-border p-3 space-y-3">
                     <div className="text-sm font-medium">Featured editions for sale</div>
@@ -277,20 +265,58 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                   </div>
                 ) : null}
 
-                <div className="flex flex-wrap gap-3">
-                  <MarkReadButton titleId={title.id} />
-                  <TitleBookmarkButton titleId={title.id} />
-                  <TitleTrackProgressButton
-                    titleId={title.id}
-                    title={title.title}
-                    initialNoteHtml={todayDiaryNote?.noteHtml ?? null}
-                    initialNoteText={todayDiaryNote?.noteText ?? null}
-                  />
-                  <TitleEditionsDialog titleId={title.id} />
-                  <TitleDedupeDialog
-                    titleId={title.id}
-                    canAutoApprove={canReviewSuggestions(access.role)}
-                  />
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <MarkReadButton titleId={title.id} />
+                    <TitleBookmarkButton titleId={title.id} />
+                    <TitleTrackProgressButton
+                      titleId={title.id}
+                      title={title.title}
+                      initialNoteHtml={todayDiaryNote?.noteHtml ?? null}
+                      initialNoteText={todayDiaryNote?.noteText ?? null}
+                    />
+
+                    <div className="hidden h-8 w-px bg-border md:block" aria-hidden="true" />
+                    <div className="h-px w-full bg-border md:hidden" aria-hidden="true" />
+
+                    <TitleEditionsDialog titleId={title.id} />
+                    <TitleDedupeDialog
+                      titleId={title.id}
+                      canAutoApprove={canReviewSuggestions(access.role)}
+                    />
+                  </div>
+
+                  <TooltipProvider>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Shop</span>
+                      <div className="flex items-center gap-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={amazonSearchUrl} target="_blank" rel="noreferrer" className="gap-1.5">
+                                <ShoppingCart className="h-3.5 w-3.5" />
+                                Amazon
+                                <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                              </a>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Search on Amazon</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={audibleSearchUrl} target="_blank" rel="noreferrer" className="gap-1.5">
+                                <Headphones className="h-3.5 w-3.5" />
+                                Audible
+                                <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                              </a>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Search on Audible</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </TooltipProvider>
                 </div>
               </div>
             </div>

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { BookCopy } from "lucide-react"
 import { getTitleEditionsAction, type TitleEditionRow } from "@/app/actions/title"
 
 export function TitleEditionsDialog({ titleId }: { titleId: string }) {
@@ -26,7 +27,8 @@ export function TitleEditionsDialog({ titleId }: { titleId: string }) {
 
   return (
     <>
-      <Button variant="outline" onClick={() => { setOpen(true); loadEditions() }}>
+      <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => { setOpen(true); loadEditions() }}>
+        <BookCopy className="h-4 w-4" />
         Editions
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>

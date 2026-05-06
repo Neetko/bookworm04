@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { BarChart3 } from "lucide-react"
 import { TrackReadingProgressDialog, type TrackReadingProgress } from "@/components/track-reading-progress-dialog"
 import { trackTitleProgress } from "@/app/actions/track-reading"
 import { toast } from "sonner"
@@ -39,7 +40,8 @@ export function TitleTrackProgressButton({
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
+      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setOpen(true)}>
+        <BarChart3 className="h-4 w-4" />
         Track
       </Button>
       <TrackReadingProgressDialog
