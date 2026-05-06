@@ -89,6 +89,51 @@ function normalizeJoinPolicy(value: string | null | undefined): ClubJoinPolicy {
   return "approval_required"
 }
 
+type ClubStatusRow = {
+  id: string
+  status: string | null
+  created_at?: string | null
+  responded_at?: string | null
+}
+
+function getStatusRowTimestamp(value: string | null | undefined) {
+  if (!value) return 0
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function compareClubStatusRows<T extends ClubStatusRow>(a: T, b: T) {
+  const pendingDelta = Number(b.status === "pending") - Number(a.status === "pending")
+  if (pendingDelta !== 0) return pendingDelta
+
+  const createdDelta = getStatusRowTimestamp(b.created_at) - getStatusRowTimestamp(a.created_at)
+  if (createdDelta !== 0) return createdDelta
+
+  return getStatusRowTimestamp(b.responded_at) - getStatusRowTimestamp(a.responded_at)
+}
+
+function pickPreferredClubStatusRow<T extends ClubStatusRow>(rows: T[] | null | undefined) {
+  if (!rows?.length) return null
+  return [...rows].sort(compareClubStatusRows)[0] ?? null
+}
+
+function dedupeClubStatusRows<T extends ClubStatusRow>(
+  rows: T[] | null | undefined,
+  getKey: (row: T) => string | null | undefined
+) {
+  if (!rows?.length) return [] as T[]
+
+  const uniqueRows = new Map<string, T>()
+
+  for (const row of [...rows].sort(compareClubStatusRows)) {
+    const key = getKey(row)?.trim()
+    if (!key || uniqueRows.has(key)) continue
+    uniqueRows.set(key, row)
+  }
+
+  return Array.from(uniqueRows.values())
+}
+
 async function getAuthedProfileIdOrNull(supabase: Awaited<ReturnType<typeof createServerClient>>) {
   const {
     data: { user },
@@ -401,27 +446,34 @@ async function getClubViewerState(
       .maybeSingle(),
     supabase
       .from("club_applications")
-      .select("id, status")
+      .select("id, status, created_at, reviewed_at")
       .eq("club_id", clubId)
       .eq("user_id", profileId)
-      .maybeSingle(),
+      .order("created_at", { ascending: false }),
     supabase
       .from("club_invitations")
-      .select("id, status")
+      .select("id, status, created_at, responded_at")
       .eq("club_id", clubId)
       .eq("invitee_user_id", profileId)
-      .maybeSingle(),
+      .order("created_at", { ascending: false }),
   ])
+
+  const activeApplication = pickPreferredClubStatusRow(
+    (application ?? []) as Array<{ id: string; status: string | null; created_at: string | null; reviewed_at: string | null }>
+  )
+  const activeInvitation = pickPreferredClubStatusRow(
+    (invitation ?? []) as Array<{ id: string; status: string | null; created_at: string | null; responded_at: string | null }>
+  )
 
   return {
     club,
     isOwner,
     isMember: isOwner || !!membership,
-    application: application
-      ? { id: application.id as string, status: application.status as string }
+    application: activeApplication
+      ? { id: activeApplication.id as string, status: activeApplication.status as string }
       : null,
-    invitation: invitation
-      ? { id: invitation.id as string, status: invitation.status as string }
+    invitation: activeInvitation
+      ? { id: activeInvitation.id as string, status: activeInvitation.status as string }
       : null,
   }
 }
@@ -908,23 +960,35 @@ export async function inviteMemberToClub(
 
   if (existing) return
 
-  const { data: pendingApplication } = await supabase
+  const { data: applicationRows } = await supabase
     .from("club_applications")
-    .select("id, status")
+    .select("id, status, created_at, reviewed_at")
     .eq("club_id", clubId)
     .eq("user_id", profile.id)
-    .maybeSingle()
+    .order("created_at", { ascending: false })
+
+  const pendingApplication = pickPreferredClubStatusRow(
+    (applicationRows ?? []) as Array<{ id: string; status: string | null; created_at: string | null; reviewed_at: string | null }>
+  )
 
   if (pendingApplication?.status === "pending") {
     throw new Error("This reader already has a pending application")
   }
 
-  const { data: existingInvitation } = await supabase
+  const { data: invitationRows } = await supabase
     .from("club_invitations")
-    .select("id, status")
+    .select("id, status, created_at, responded_at")
     .eq("club_id", clubId)
     .eq("invitee_user_id", profile.id)
-    .maybeSingle()
+    .order("created_at", { ascending: false })
+
+  const existingInvitationRows = (invitationRows ?? []) as Array<{
+    id: string
+    status: string | null
+    created_at: string | null
+    responded_at: string | null
+  }>
+  const existingInvitation = pickPreferredClubStatusRow(existingInvitationRows)
 
   const now = new Date().toISOString()
 
@@ -953,15 +1017,15 @@ export async function inviteMemberToClub(
 
   if (error) throw new Error("Failed to invite")
 
-  const { data: pendingInvitation } = await supabase
+  const { data: pendingInvitations } = await supabase
     .from("club_invitations")
     .select("id")
     .eq("club_id", clubId)
     .eq("invitee_user_id", profile.id)
     .eq("status", "pending")
-    .maybeSingle()
+    .order("created_at", { ascending: false })
 
-  const pendingInvitationId = pendingInvitation?.id as string | undefined
+  const pendingInvitationId = (pendingInvitations?.[0]?.id as string | undefined) ?? undefined
   if (!pendingInvitationId) throw new Error("Failed to create invitation")
 
   await notifyClubInvitee(supabase, {
@@ -1280,7 +1344,12 @@ export async function getClubApplications(clubId: string) {
 
   const profileMap = new Map((profiles ?? []).map((profile) => [profile.id as string, profile]))
 
-  return (data ?? []).map((row: any) => ({
+  const uniqueRows = dedupeClubStatusRows(
+    (data ?? []) as Array<{ id: string; user_id: string | null; status: string | null; created_at: string | null }>,
+    (row) => row.user_id
+  )
+
+  return uniqueRows.map((row: any) => ({
     ...row,
     user: profileMap.get(row.user_id as string) ?? null,
   })) as ClubApplicationListItem[]
@@ -1309,7 +1378,12 @@ export async function getClubInvitations(clubId: string) {
 
   const profileMap = new Map((profiles ?? []).map((profile) => [profile.id as string, profile]))
 
-  return (data ?? []).map((row: any) => ({
+  const uniqueRows = dedupeClubStatusRows(
+    (data ?? []) as Array<{ id: string; invitee_user_id: string | null; status: string | null; created_at: string | null; responded_at: string | null }>,
+    (row) => row.invitee_user_id
+  )
+
+  return uniqueRows.map((row: any) => ({
     ...row,
     invitee: profileMap.get(row.invitee_user_id as string) ?? null,
   })) as ClubInvitationListItem[]
