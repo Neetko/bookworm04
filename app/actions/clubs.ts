@@ -198,7 +198,9 @@ async function createClubNotification(
     metadata?: Record<string, unknown> | null
   }
 ) {
-  const { error } = await supabase.from("notifications").insert({
+  const admin = createAdminClient()
+
+  const { error } = await admin.from("notifications").insert({
     recipient_profile_id: payload.recipient_profile_id,
     actor_profile_id: payload.actor_profile_id ?? null,
     event_type: payload.event_type,
@@ -417,36 +419,11 @@ async function getClubViewerState(
   clubId: string,
   profileId: string | null
 ) {
-  const clubQuery = await supabase
+  const { data: club, error } = await supabase
     .from("clubs")
     .select("id, owner_user_id, join_policy")
     .eq("id", clubId)
     .maybeSingle()
-
-  let club = clubQuery.data as { id: string; owner_user_id: string; join_policy?: string | null } | null
-  let error = clubQuery.error
-
-  if (error) {
-    const message = `${error.message ?? ""}`
-    const isMissingJoinPolicy =
-      error.code === "42703" || (message.includes("column") && message.includes("join_policy"))
-
-    if (isMissingJoinPolicy) {
-      const fallbackQuery = await supabase
-        .from("clubs")
-        .select("id, owner_user_id")
-        .eq("id", clubId)
-        .maybeSingle()
-
-      club = fallbackQuery.data
-        ? {
-            ...(fallbackQuery.data as { id: string; owner_user_id: string }),
-            join_policy: null,
-          }
-        : null
-      error = fallbackQuery.error
-    }
-  }
 
   if (error || !club) throw new Error("Club not found")
 
@@ -1502,13 +1479,23 @@ export async function applyToClub(clubId: string) {
   if (!pendingApplicationId) throw new Error("Failed to create application")
 
   if (state.club.owner_user_id !== profileId) {
-    await notifyClubOwnerOfApplication(supabase, {
-      ownerProfileId: state.club.owner_user_id as string,
-      applicantProfileId: profileId,
-      clubId,
-      applicationId: pendingApplicationId,
-      submittedAt: now,
-    })
+    try {
+      await notifyClubOwnerOfApplication(supabase, {
+        ownerProfileId: state.club.owner_user_id as string,
+        applicantProfileId: profileId,
+        clubId,
+        applicationId: pendingApplicationId,
+        submittedAt: now,
+      })
+    } catch (notificationError) {
+      console.error("Failed to notify club owner of application", {
+        clubId,
+        applicantProfileId: profileId,
+        ownerProfileId: state.club.owner_user_id as string,
+        applicationId: pendingApplicationId,
+        notificationError,
+      })
+    }
   }
 
   revalidatePath(`/community/clubs/${clubId}`)

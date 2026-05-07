@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
@@ -17,12 +17,18 @@ export function ClubApplyButton({
   invitationId?: string | null
 }) {
   const [isLoading, setIsLoading] = useState<"apply" | "accept" | "decline" | null>(null)
+  const [hasPendingApplication, setHasPendingApplication] = useState(pending)
   const router = useRouter()
+
+  useEffect(() => {
+    setHasPendingApplication(pending)
+  }, [pending])
 
   const onApply = async () => {
     setIsLoading("apply")
     try {
       await applyToClub(clubId)
+      setHasPendingApplication(true)
       toast.success("Application submitted")
       router.refresh()
     } catch (e) {
@@ -79,9 +85,13 @@ export function ClubApplyButton({
   }
 
   return (
-    <Button onClick={onApply} disabled={pending || isLoading !== null} variant={pending ? "outline" : "default"}>
+    <Button
+      onClick={onApply}
+      disabled={hasPendingApplication || isLoading !== null}
+      variant={hasPendingApplication ? "outline" : "default"}
+    >
       {isLoading === "apply" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-      {pending ? "Application pending" : "Apply"}
+      {hasPendingApplication ? "Application pending" : "Apply"}
     </Button>
   )
 }
