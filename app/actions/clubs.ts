@@ -1,6 +1,7 @@
 "use server"
 
 import { createAdminClient, createServerClient } from "@/lib/supabase-server"
+import { requireAuthedProfileId } from "@/lib/server/auth"
 import { revalidatePath } from "next/cache"
 import { normalizeGenres, type Genre } from "@/lib/types"
 import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
@@ -429,36 +430,11 @@ async function getClubViewerState(
   clubId: string,
   profileId: string | null
 ) {
-  const clubQuery = await supabase
+  const { data: club, error } = await supabase
     .from("clubs")
     .select("id, owner_user_id, join_policy")
     .eq("id", clubId)
     .maybeSingle()
-
-  let club = clubQuery.data as { id: string; owner_user_id: string; join_policy?: string | null } | null
-  let error = clubQuery.error
-
-  if (error) {
-    const message = `${error.message ?? ""}`
-    const isMissingJoinPolicy =
-      error.code === "42703" || (message.includes("column") && message.includes("join_policy"))
-
-    if (isMissingJoinPolicy) {
-      const fallbackQuery = await supabase
-        .from("clubs")
-        .select("id, owner_user_id")
-        .eq("id", clubId)
-        .maybeSingle()
-
-      club = fallbackQuery.data
-        ? {
-            ...(fallbackQuery.data as { id: string; owner_user_id: string }),
-            join_policy: null,
-          }
-        : null
-      error = fallbackQuery.error
-    }
-  }
 
   if (error || !club) throw new Error("Club not found")
 
@@ -513,25 +489,6 @@ async function getClubViewerState(
       ? { id: activeInvitation.id as string, status: activeInvitation.status as string }
       : null,
   }
-}
-
-async function requireAuthedProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) throw new Error("Unauthorized")
-
-  const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .single()
-
-  if (profileError || !profile) throw new Error("Profile not found")
-
-  return profile.id as string
 }
 
 async function requireOwnerProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>, clubId: string) {

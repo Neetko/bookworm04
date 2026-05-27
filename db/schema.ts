@@ -568,6 +568,48 @@ export const clubs = pgTable("clubs", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
 })
 
+export const clubWriterWorks = pgTable(
+  "club_writer_works",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    clubId: uuid("club_id")
+      .references(() => clubs.id, { onDelete: "cascade" })
+      .notNull(),
+    authorUserId: uuid("author_user_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    title: varchar("title", { length: 200 }).notNull(),
+    contentHtml: text("content_html").default("").notNull(),
+    contentText: text("content_text").default("").notNull(),
+    isPublic: boolean("is_public").default(false).notNull(),
+    isCompleted: boolean("is_completed").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    clubWriterWorksClubIdx: index("club_writer_works_club_idx").on(t.clubId, t.updatedAt),
+    clubWriterWorksAuthorIdx: index("club_writer_works_author_idx").on(t.authorUserId, t.updatedAt),
+  })
+)
+
+export const clubWriterWorkLikes = pgTable(
+  "club_writer_work_likes",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workId: uuid("work_id")
+      .references(() => clubWriterWorks.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    uniqUserWriterWorkLike: uniqueIndex("club_writer_work_likes_user_work_unique").on(t.userId, t.workId),
+    clubWriterWorkLikesWorkIdx: index("club_writer_work_likes_work_idx").on(t.workId),
+  })
+)
+
 export const clubReadingComments = pgTable("club_reading_comments", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   clubId: uuid("club_id")

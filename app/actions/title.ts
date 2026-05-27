@@ -8,27 +8,10 @@ import { getLinkedTitlesByWorkId, getTitleReferenceWorkIds, type LinkedTitleSumm
 import { isExactTitleAuthorMatch, normalizeWorkIdList, normalizeWorkSnapshots, type WorkSnapshot } from "@/lib/suggestions"
 import { finalizeSuggestionApproval } from "@/lib/server/suggestion-approval"
 import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
+import { requireAuthedProfileId } from "@/lib/server/auth"
+import { ensureCurrentReadingListForProfile, ensureFinishedReadingListForProfile, ensureToReadListForProfile } from "@/lib/server/title-lists"
 import { revalidatePath } from "next/cache"
 import { awardPointsForTitleAction } from "@/app/actions/rewards"
-
-async function requireAuthedProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) throw new Error("Unauthorized")
-
-  const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .single()
-
-  if (profileError || !profile) throw new Error("Profile not found")
-
-  return profile.id as string
-}
 
 async function requireTitleRead(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
@@ -88,105 +71,6 @@ async function buildTitleMetadata(
     title: data.title,
     coverUrl: (data as any).cover_image_url ?? null,
   }
-}
-
-async function ensureToReadListForProfile(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string
-) {
-  const { data: existing } = await supabase
-    .from("title_lists")
-    .select("id")
-    .eq("user_profile_id", profileId)
-    .eq("list_type", "to-read")
-    .maybeSingle()
-
-  if (existing?.id) return existing.id as string
-
-  const { data: created, error } = await supabase
-    .from("title_lists")
-    .insert({
-      user_profile_id: profileId,
-      name: "Planned Reading",
-      list_type: "to-read",
-      is_public: false,
-      is_default: true,
-    })
-    .select("id")
-    .single()
-
-  if (error || !created?.id) {
-    console.error("Failed to create to-read list", error)
-    return null
-  }
-
-  return created.id as string
-}
-
-async function ensureCurrentReadingListForProfile(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string
-) {
-  const { data: existing } = await supabase
-    .from("title_lists")
-    .select("id")
-    .eq("user_profile_id", profileId)
-    .eq("list_type", "current-reading")
-    .maybeSingle()
-
-  if (existing?.id) return existing.id as string
-
-  const { data: created, error } = await supabase
-    .from("title_lists")
-    .insert({
-      user_profile_id: profileId,
-      name: "Current Reading",
-      list_type: "current-reading",
-      is_public: false,
-      is_default: true,
-    })
-    .select("id")
-    .single()
-
-  if (error || !created?.id) {
-    console.error("Failed to create current reading list", error)
-    return null
-  }
-
-  return created.id as string
-}
-
-async function ensureFinishedReadingListForProfile(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string
-) {
-  const { data: existing } = await supabase
-    .from("title_lists")
-    .select("id")
-    .eq("user_profile_id", profileId)
-    .eq("list_type", "finished-reading")
-    .maybeSingle()
-
-  if (existing?.id) return existing.id as string
-
-  const { data: created, error } = await supabase
-    .from("title_lists")
-    .insert({
-      user_profile_id: profileId,
-      name: "Finished Reading",
-      list_type: "finished-reading",
-      is_public: false,
-      is_default: true,
-    })
-    .select("id")
-    .single()
-
-  if (error || !created?.id) {
-    console.error("Failed to create finished reading list", error)
-    return null
-  }
-
-  return created.id as string
 }
 
 async function removeFromToReadList(

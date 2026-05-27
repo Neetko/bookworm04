@@ -228,6 +228,7 @@ export function ClubManageForm({
       await inviteMemberToClub(club.id, {
         profileId: selectedInvitee.id,
       })
+
       toast.success(`Invited ${selectedInvitee.username ?? "reader"}`)
       setInviteUsername("")
       setSelectedInvitee(null)

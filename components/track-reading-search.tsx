@@ -20,9 +20,14 @@ type TrackReadingSearchQuery = {
 type TrackReadingSearchProps = {
   onQueryChange?: (query: TrackReadingSearchQuery) => void
   hasActiveSearch?: boolean
+  allowExternalSearch?: boolean
 }
 
-function TrackReadingSearchContent({ onQueryChange, hasActiveSearch = false }: TrackReadingSearchProps) {
+function TrackReadingSearchContent({
+  onQueryChange,
+  hasActiveSearch = false,
+  allowExternalSearch = true,
+}: TrackReadingSearchProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -42,7 +47,7 @@ function TrackReadingSearchContent({ onQueryChange, hasActiveSearch = false }: T
     const genresParam = searchParams.get("genres")
     setTitle(titleParam)
     setAuthor(authorParam)
-    setIncludeExternal(includeExternalParam === "1" || includeExternalParam === "true")
+    setIncludeExternal(allowExternalSearch && (includeExternalParam === "1" || includeExternalParam === "true"))
     const nextGenres = genresParam
       ? genresParam
           .split(",")
@@ -50,7 +55,7 @@ function TrackReadingSearchContent({ onQueryChange, hasActiveSearch = false }: T
           .filter(isGenre)
       : []
     setSelectedGenres(nextGenres)
-  }, [searchParams])
+  }, [searchParams, allowExternalSearch])
 
   const titleQuery = useMemo(() => title.trim(), [title])
   const authorQuery = useMemo(() => author.trim(), [author])
@@ -64,7 +69,7 @@ function TrackReadingSearchContent({ onQueryChange, hasActiveSearch = false }: T
     const params = new URLSearchParams()
     if (input.title) params.set("title", input.title)
     if (input.author) params.set("author", input.author)
-    if (input.includeExternal) params.set("includeExternal", "1")
+    if (input.includeExternal && allowExternalSearch) params.set("includeExternal", "1")
     if (!input.includeExternal && input.genres.length > 0) params.set("genres", input.genres.join(","))
     router.push(`/search-titles?${params.toString()}`)
   }
@@ -73,13 +78,13 @@ function TrackReadingSearchContent({ onQueryChange, hasActiveSearch = false }: T
     onQueryChange?.({
       title: titleQuery,
       author: authorQuery,
-      includeExternal,
+      includeExternal: includeExternal && allowExternalSearch,
       genres: selectedGenres,
     })
-  }, [titleQuery, authorQuery, includeExternal, selectedGenres, onQueryChange])
+  }, [titleQuery, authorQuery, includeExternal, selectedGenres, onQueryChange, allowExternalSearch])
 
   useEffect(() => {
-    if (hasActiveSearch || !includeExternal) {
+    if (hasActiveSearch || !includeExternal || !allowExternalSearch) {
       abortRef.current?.abort()
       setSuggestions([])
       setOpen(false)
@@ -119,13 +124,13 @@ function TrackReadingSearchContent({ onQueryChange, hasActiveSearch = false }: T
       clearTimeout(handle)
       controller.abort()
     }
-  }, [titleQuery, authorQuery, selectedGenres, includeExternal, hasActiveSearch])
+  }, [titleQuery, authorQuery, selectedGenres, includeExternal, hasActiveSearch, allowExternalSearch])
 
   const submit = () => {
     pushSearch({
       title: titleQuery,
       author: authorQuery,
-      includeExternal,
+      includeExternal: includeExternal && allowExternalSearch,
       genres: selectedGenres,
     })
     setOpen(false)
@@ -148,6 +153,8 @@ function TrackReadingSearchContent({ onQueryChange, hasActiveSearch = false }: T
   }
 
   const handleIncludeExternalChange = (checked: boolean) => {
+    if (!allowExternalSearch) return
+
     setIncludeExternal(checked)
     setSuggestions([])
     setOpen(false)
@@ -193,8 +200,9 @@ function TrackReadingSearchContent({ onQueryChange, hasActiveSearch = false }: T
         <div className="mt-3 flex items-center gap-2">
           <Switch
             id="includeExternal"
-            checked={includeExternal}
+            checked={includeExternal && allowExternalSearch}
             onCheckedChange={handleIncludeExternalChange}
+            disabled={!allowExternalSearch}
           />
           <Label htmlFor="includeExternal" className="text-sm text-muted-foreground">
             Include external results
@@ -210,7 +218,7 @@ function TrackReadingSearchContent({ onQueryChange, hasActiveSearch = false }: T
               genre={genre}
               selected={selectedGenres.includes(genre)}
               onToggle={toggleGenre}
-              className={includeExternal ? "opacity-50 pointer-events-none" : undefined}
+              className={includeExternal && allowExternalSearch ? "opacity-50 pointer-events-none" : undefined}
             />
           ))}
         </div>
@@ -239,7 +247,11 @@ function TrackReadingSearchContent({ onQueryChange, hasActiveSearch = false }: T
   )
 }
 
-export function TrackReadingSearch({ onQueryChange, hasActiveSearch = false }: TrackReadingSearchProps) {
+export function TrackReadingSearch({
+  onQueryChange,
+  hasActiveSearch = false,
+  allowExternalSearch = true,
+}: TrackReadingSearchProps) {
   return (
     <Suspense
       fallback={
@@ -249,7 +261,11 @@ export function TrackReadingSearch({ onQueryChange, hasActiveSearch = false }: T
         </div>
       }
     >
-      <TrackReadingSearchContent onQueryChange={onQueryChange} hasActiveSearch={hasActiveSearch} />
+      <TrackReadingSearchContent
+        onQueryChange={onQueryChange}
+        hasActiveSearch={hasActiveSearch}
+        allowExternalSearch={allowExternalSearch}
+      />
     </Suspense>
   )
 }

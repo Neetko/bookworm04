@@ -85,6 +85,7 @@ type TrackReadingResultListProps = {
   actionLoadingId?: string | null
   onAction?: (titleId: string, result: SearchTitleResult) => void | Promise<void>
   isActionDisabled?: (titleId: string, result: SearchTitleResult) => boolean
+  allowIngest?: boolean
 }
 
 export function TrackReadingResultList({
@@ -95,6 +96,7 @@ export function TrackReadingResultList({
   actionLoadingId = null,
   onAction,
   isActionDisabled,
+  allowIngest = true,
 }: TrackReadingResultListProps) {
   const router = useRouter()
   const ingestRequestIdRef = useRef(0)
@@ -561,7 +563,7 @@ export function TrackReadingResultList({
         const isIngested =
           result.source === "local" ||
           (result.volumeId ? ingestedVolumeIds.has(result.volumeId) : false)
-        const showIngest = result.source === "google" && !isIngested
+        const showIngest = allowIngest && result.source === "google" && !isIngested
         const canTakeAction = Boolean(onAction && resolvedTitleId && !showIngest)
         const isActionLoading = Boolean(actionLoadingId && resolvedTitleId && actionLoadingId === resolvedTitleId)
         const actionDisabled = Boolean(

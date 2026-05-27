@@ -1,5 +1,5 @@
 {
-  "name": "my-v0-project",
+  "name": "bookworm",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -16,6 +16,7 @@
   "dependencies": {
     "@fontsource/im-fell-english": "^5.2.6",
     "@fontsource/im-fell-english-sc": "^5.2.6",
+    "@fontsource/raleway": "^5.2.8",
     "@fontsource/source-code-pro": "^5.2.7",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "1.2.2",

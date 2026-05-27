@@ -2,6 +2,7 @@ import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { getClub, getClubCurrentReading, getClubCurrentReadingComments, getClubMemberCurrentProgress, getClubMembers, getClubReadingItems, getMyMembership, getMyProfile } from "@/app/actions/clubs"
+import { getVisibleClubWriterWorks } from "@/app/actions/club-writer-works"
 import { ClubMembershipButton } from "@/components/club-membership-button"
 import { ClubApplyButton } from "@/components/club-apply-button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -9,9 +10,11 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { PenLine } from "lucide-react"
 import Link from "next/link"
 import { normalizeGenres } from "@/lib/types"
 import { ClubCurrentReadingSection, type ClubCurrentReadingComment } from "@/components/club-current-reading"
+import { ClubWriterWorkCard } from "@/components/club-writer-work-card"
 
 const JOIN_POLICY_LABEL = {
   open: "Open",
@@ -41,9 +44,10 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
   const isOwner = !!me.profileId && me.profileId === club.owner_user_id
   const canManage = isOwner
   const isMember = membership.isMember
+  const isWriterClub = club.type === "writer"
 
   const members = await getClubMembers(id)
-  const readingItems = (await getClubReadingItems(id)) as Array<{
+  const readingItems = (isWriterClub ? [] : await getClubReadingItems(id)) as Array<{
     id: string
     title_id?: string | null
     title: string | null
@@ -56,10 +60,11 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
       cover_image_url: string | null
     } | null
   }>
-  const currentReading = await getClubCurrentReading(id)
-  const memberProgress = isMember && currentReading ? await getClubMemberCurrentProgress(id) : []
+  const currentReading = isWriterClub ? null : await getClubCurrentReading(id)
+  const writerWorks = isWriterClub && isMember ? await getVisibleClubWriterWorks(id) : []
+  const memberProgress = !isWriterClub && isMember && currentReading ? await getClubMemberCurrentProgress(id) : []
   const memberProgressMap = new Map(memberProgress.map((item) => [item.user_id, item]))
-  const rawComments = (isMember ? await getClubCurrentReadingComments(id) : []) as Array<{
+  const rawComments = (!isWriterClub && isMember ? await getClubCurrentReadingComments(id) : []) as Array<{
     id: string
     content: string
     created_at: string
@@ -122,7 +127,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
                   {club.owner?.username ? (
                     <span className="text-sm text-muted-foreground">Owner: {club.owner.username}</span>
                   ) : null}
-                  {currentReading ? (
+                  {!isWriterClub && currentReading ? (
                     <div className="text-sm text-muted-foreground">
                       <span className="font-medium text-foreground">Current reading:</span> {currentReading.title}
                     </div>
@@ -149,7 +154,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
         <Tabs defaultValue="members" className="w-full">
           <TabsList>
             <TabsTrigger value="members">Members</TabsTrigger>
-            <TabsTrigger value="reading">Planned reading</TabsTrigger>
+            <TabsTrigger value="reading">{isWriterClub ? "Written Works" : "Planned reading"}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="members">
@@ -184,7 +189,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
                               <div className="text-xs text-muted-foreground">
                                 {isOwnerMember ? "Owner 👑" : "Member"}
                               </div>
-                              {progress ? (
+                              {!isWriterClub && progress ? (
                                 <div className="mt-2 space-y-1">
                                   <Progress value={progress.progress_percent} className="h-2" />
                                   <div className="text-[11px] text-muted-foreground">
@@ -197,7 +202,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
                                           : `${progress.progress_percent}% complete`}
                                   </div>
                                 </div>
-                              ) : isMember && currentReading ? (
+                                ) : !isWriterClub && isMember && currentReading ? (
                                 <div className="mt-2 text-[11px] text-muted-foreground">No progress shared yet.</div>
                               ) : null}
                             </div>
@@ -226,10 +231,20 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
           <TabsContent value="reading">
             <Card>
               <CardHeader>
-                <CardTitle>Planned reading</CardTitle>
+                <CardTitle>{isWriterClub ? "Written Works" : "Planned reading"}</CardTitle>
               </CardHeader>
               <CardContent>
-                {readingItems.length === 0 ? (
+                {isWriterClub ? !isMember ? (
+                  <div className="text-sm text-muted-foreground">Join this writer club to read members&apos; published works.</div>
+                ) : writerWorks.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No published works yet.</div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {writerWorks.map((work) => (
+                      <ClubWriterWorkCard key={work.id} clubId={club.id} work={work} canLike={isMember} />
+                    ))}
+                  </div>
+                ) : readingItems.length === 0 ? (
                   <div className="text-sm text-muted-foreground">No titles selected yet.</div>
                 ) : (
                   <div className="grid gap-3">
@@ -272,13 +287,40 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
           </TabsContent>
         </Tabs>
 
-        <ClubCurrentReadingSection
-          clubId={club.id}
-          title={currentReading}
-          canPost={isMember}
-          canView={isMember}
-          initialComments={currentComments}
-        />
+        {isWriterClub ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center gap-4 py-10 text-center">
+              <div className="space-y-2">
+                <div className="text-2xl font-semibold">Start something new</div>
+                <p className="max-w-2xl text-sm text-muted-foreground">
+                  Open the writer&apos;s editor, draft freely, and publish when you&apos;re ready for fellow club members to read.
+                </p>
+              </div>
+
+              {isMember ? (
+                <Button asChild size="lg" className="h-14 px-8 text-base">
+                  <Link href={`/community/clubs/${club.id}/write`}>
+                    <PenLine className="mr-2 h-5 w-5" />
+                    Start Writing
+                  </Link>
+                </Button>
+              ) : (
+                <Button size="lg" className="h-14 px-8 text-base" disabled>
+                  <PenLine className="mr-2 h-5 w-5" />
+                  Join to start writing
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <ClubCurrentReadingSection
+            clubId={club.id}
+            title={currentReading}
+            canPost={isMember}
+            canView={isMember}
+            initialComments={currentComments}
+          />
+        )}
 
       </div>
     </div>

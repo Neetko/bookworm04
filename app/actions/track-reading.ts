@@ -15,6 +15,9 @@ import { isExactTitleAuthorMatch, normalizeMatchText, type SuggestionWorkMatchTy
 import { upsertReferenceIsbns, upsertTitleReferenceWorks } from "@/lib/reference-data"
 import { finalizeSuggestionApproval } from "@/lib/server/suggestion-approval"
 import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
+import { requireAuthedProfileId } from "@/lib/server/auth"
+import { ensureCurrentReadingListForProfile, ensureFinishedReadingListForProfile, ensureToReadListForProfile } from "@/lib/server/title-lists"
+import { findExistingTitleForGoogleVolume } from "@/lib/server/title-matching"
 import { normalizeGenres, type Genre } from "@/lib/types"
 import { revalidatePath } from "next/cache"
 import { extractPlainTextFromHtml } from "@/lib/sanitize"
@@ -321,25 +324,6 @@ export type TrackProgressInput =
       totalMinutes: number
     }
 
-async function requireAuthedProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) throw new Error("Unauthorized")
-
-  const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .single()
-
-  if (profileError || !profile) throw new Error("Profile not found")
-
-  return profile.id as string
-}
-
 async function findLocalDuplicates(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
   title: string,
@@ -501,28 +485,6 @@ function resolveWorkSelection(selectedWorkIds: string[] | null | undefined): Wor
   }
 }
 
-async function getExistingTitleIdForVolume(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  volumeId: string
-): Promise<string | null> {
-  const admin = createAdminClient()
-  const { data, error } = await admin
-    .from("title_sources")
-    .select("title_id")
-    .eq("source", "google")
-    .eq("external_id", volumeId)
-    .maybeSingle()
-
-  if (error) {
-    console.error("Error looking up title_sources mapping", error)
-    throw new Error(
-      `Failed to lookup title mapping (title_sources). ${error.code ?? ""} ${error.message}`.trim()
-    )
-  }
-
-  return (data?.title_id as string | undefined) ?? null
-}
-
 async function ensureTitleSourceMapping(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
   volumeId: string,
@@ -561,38 +523,18 @@ async function ensureTitleForGoogleVolume(
 ) {
   const admin = createAdminClient()
   const author = volume.authors?.[0] ?? "Unknown author"
-  const existingMappedTitleId = await getExistingTitleIdForVolume(supabase, volumeId)
   const now = new Date().toISOString()
 
   const selectFields = "id,isbn_list,dupe_work_ids,cover_image_url,description,published_year,isbn,work_id"
-  let existingTitle: any = null
-  let titleId = existingMappedTitleId
-
-  if (titleId) {
-    const { data } = await admin.from("titles").select(selectFields).eq("id", titleId).maybeSingle()
-    existingTitle = data ?? null
-  }
-
-  if (!titleId && volume.isbn) {
-    const { data } = await admin.from("titles").select(selectFields).eq("isbn", volume.isbn).maybeSingle()
-    if (data?.id) {
-      titleId = data.id as string
-      existingTitle = data
-    }
-  }
-
-  if (!titleId && volume.title) {
-    const { data } = await admin
-      .from("titles")
-      .select(selectFields)
-      .ilike("title", volume.title)
-      .ilike("author", author)
-      .maybeSingle()
-    if (data?.id) {
-      titleId = data.id as string
-      existingTitle = data
-    }
-  }
+  const existingMatch = await findExistingTitleForGoogleVolume({
+    volumeId,
+    title: volume.title,
+    author,
+    isbns: [volume.isbn ?? "", ...(workInfo?.isbnList ?? [])],
+    selectFields,
+  })
+  let existingTitle: any = existingMatch?.title ?? null
+  let titleId = existingMatch?.titleId ?? null
 
   if (!titleId) {
     const { data: inserted, error: insertError } = await admin
@@ -1110,90 +1052,6 @@ async function ensureTitleReadAndReward(
   await removeFromToReadList(supabase, profileId, titleId)
 }
 
-async function ensureToReadListForProfile(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string
-) {
-  const { data: existing } = await supabase
-    .from("title_lists")
-    .select("id")
-    .eq("user_profile_id", profileId)
-    .eq("list_type", "to-read")
-    .maybeSingle()
-
-  if (existing?.id) return existing.id as string
-
-  const { data: created } = await supabase
-    .from("title_lists")
-    .insert({
-      user_profile_id: profileId,
-      name: "Planned Reading",
-      list_type: "to-read",
-      is_public: false,
-      is_default: true,
-    })
-    .select("id")
-    .single()
-
-  return created?.id ?? null
-}
-
-async function ensureCurrentReadingListForProfile(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string
-) {
-  const { data: existing } = await supabase
-    .from("title_lists")
-    .select("id")
-    .eq("user_profile_id", profileId)
-    .eq("list_type", "current-reading")
-    .maybeSingle()
-
-  if (existing?.id) return existing.id as string
-
-  const { data: created } = await supabase
-    .from("title_lists")
-    .insert({
-      user_profile_id: profileId,
-      name: "Current Reading",
-      list_type: "current-reading",
-      is_public: false,
-      is_default: true,
-    })
-    .select("id")
-    .single()
-
-  return created?.id ?? null
-}
-
-async function ensureFinishedReadingListForProfile(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string
-) {
-  const { data: existing } = await supabase
-    .from("title_lists")
-    .select("id")
-    .eq("user_profile_id", profileId)
-    .eq("list_type", "finished-reading")
-    .maybeSingle()
-
-  if (existing?.id) return existing.id as string
-
-  const { data: created } = await supabase
-    .from("title_lists")
-    .insert({
-      user_profile_id: profileId,
-      name: "Finished Reading",
-      list_type: "finished-reading",
-      is_public: false,
-      is_default: true,
-    })
-    .select("id")
-    .single()
-
-  return created?.id ?? null
-}
-
 async function removeFromToReadList(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
   profileId: string,
@@ -1481,4 +1339,3 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
   revalidatePath("/search-titles")
   return { titleId: ensured.titleId }
 }
-

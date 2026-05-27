@@ -1,6 +1,12 @@
 "use server"
 
 import { createServerClient } from "@/lib/supabase-server"
+import { requireAuthedProfileId } from "@/lib/server/auth"
+import {
+  ensureCurrentReadingListForProfile,
+  ensureFinishedReadingListForProfile,
+  ensureToReadListForProfile,
+} from "@/lib/server/title-lists"
 import { revalidatePath } from "next/cache"
 
 export type TitleListSummary = {
@@ -18,128 +24,25 @@ export type TitleListSummary = {
   }>
 }
 
-async function requireAuthedProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) throw new Error("Unauthorized")
-
-  const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .single()
-
-  if (profileError || !profile) throw new Error("Profile not found")
-
-  return profile.id as string
-}
-
 export async function ensureToReadList(profileId: string) {
   const supabase = await createServerClient()
-  const { data: existing, error } = await supabase
-    .from("title_lists")
-    .select("id")
-    .eq("user_profile_id", profileId)
-    .eq("list_type", "to-read")
-    .maybeSingle()
-
-  if (error) {
-    console.error("Failed to load to-read list", error)
-  }
-
-  if (existing?.id) return existing.id as string
-
-  const { data: created, error: createError } = await supabase
-    .from("title_lists")
-    .insert({
-      user_profile_id: profileId,
-      name: "Planned Reading",
-      list_type: "to-read",
-      is_public: false,
-      is_default: true,
-    })
-    .select("id")
-    .single()
-
-  if (createError || !created?.id) {
-    console.error("Failed to create to-read list", createError)
-    throw new Error("Failed to create to-read list")
-  }
-
-  return created.id as string
+  const listId = await ensureToReadListForProfile(supabase, profileId)
+  if (!listId) throw new Error("Failed to create to-read list")
+  return listId
 }
 
 export async function ensureCurrentReadingList(profileId: string) {
   const supabase = await createServerClient()
-  const { data: existing, error } = await supabase
-    .from("title_lists")
-    .select("id")
-    .eq("user_profile_id", profileId)
-    .eq("list_type", "current-reading")
-    .maybeSingle()
-
-  if (error) {
-    console.error("Failed to load current reading list", error)
-  }
-
-  if (existing?.id) return existing.id as string
-
-  const { data: created, error: createError } = await supabase
-    .from("title_lists")
-    .insert({
-      user_profile_id: profileId,
-      name: "Current Reading",
-      list_type: "current-reading",
-      is_public: false,
-      is_default: true,
-    })
-    .select("id")
-    .single()
-
-  if (createError || !created?.id) {
-    console.error("Failed to create current reading list", createError)
-    throw new Error("Failed to create current reading list")
-  }
-
-  return created.id as string
+  const listId = await ensureCurrentReadingListForProfile(supabase, profileId)
+  if (!listId) throw new Error("Failed to create current reading list")
+  return listId
 }
 
 export async function ensureFinishedReadingList(profileId: string) {
   const supabase = await createServerClient()
-  const { data: existing, error } = await supabase
-    .from("title_lists")
-    .select("id")
-    .eq("user_profile_id", profileId)
-    .eq("list_type", "finished-reading")
-    .maybeSingle()
-
-  if (error) {
-    console.error("Failed to load finished reading list", error)
-  }
-
-  if (existing?.id) return existing.id as string
-
-  const { data: created, error: createError } = await supabase
-    .from("title_lists")
-    .insert({
-      user_profile_id: profileId,
-      name: "Finished Reading",
-      list_type: "finished-reading",
-      is_public: false,
-      is_default: true,
-    })
-    .select("id")
-    .single()
-
-  if (createError || !created?.id) {
-    console.error("Failed to create finished reading list", createError)
-    throw new Error("Failed to create finished reading list")
-  }
-
-  return created.id as string
+  const listId = await ensureFinishedReadingListForProfile(supabase, profileId)
+  if (!listId) throw new Error("Failed to create finished reading list")
+  return listId
 }
 
 export async function getMyListsAction(): Promise<TitleListSummary[]> {

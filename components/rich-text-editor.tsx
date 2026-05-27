@@ -15,6 +15,7 @@ type RichTextEditorProps = {
   placeholder?: string
   disabled?: boolean
   className?: string
+  editorClassName?: string
 }
 
 export function RichTextEditor({
@@ -23,6 +24,7 @@ export function RichTextEditor({
   placeholder = "Write something…",
   disabled = false,
   className,
+  editorClassName,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -44,7 +46,10 @@ export function RichTextEditor({
     editable: !disabled,
     editorProps: {
       attributes: {
-        class: "prose prose-sm max-w-none focus:outline-none min-h-[160px] cursor-text",
+        class: cn(
+          "prose prose-sm max-w-none min-h-[160px] cursor-text focus:outline-none",
+          editorClassName
+        ),
       },
     },
     onUpdate: ({ editor }) => {

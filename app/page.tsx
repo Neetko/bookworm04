@@ -2,7 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Navigation } from "@/components/navigation"
-import { BookOpen, Sparkles, Star, TrendingUp, Users } from "lucide-react"
+import { BookOpen, Sparkles, Star, Users } from "lucide-react"
 import { createServerClient } from "@/lib/supabase-server"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatDistanceToNow } from "date-fns"
@@ -25,6 +25,11 @@ export default async function HomePage() {
     return initials.toUpperCase()
   }
 
+  const formatCount = (count: number | null | undefined) => {
+    if (typeof count !== "number") return "0"
+    return new Intl.NumberFormat("en", { notation: count >= 1000 ? "compact" : "standard" }).format(count)
+  }
+
   if (user) {
     const { data: profile } = await supabase
       .from("user_profiles")
@@ -37,16 +42,64 @@ export default async function HomePage() {
     }
 
     const profileId = profile?.id as string | undefined
-    const { data: followRows } = profileId
-      ? await supabase
-          .from("user_follows")
-          .select("followed_profile_id")
-          .eq("follower_profile_id", profileId)
-      : { data: [] as Array<{ followed_profile_id: string | null }> }
+    const [
+      followRowsResult,
+      booksThisYearResult,
+      currentReadingResult,
+      reviewsWrittenResult,
+    ] = profileId
+      ? await Promise.all([
+          supabase
+            .from("user_follows")
+            .select("followed_profile_id")
+            .eq("follower_profile_id", profileId),
+          supabase
+            .from("reading_diary_entries")
+            .select("title_id", { count: "exact", head: true })
+            .eq("user_profile_id", profileId)
+            .eq("is_completed", true)
+            .gte("entry_date", `${new Date().getFullYear()}-01-01`),
+          supabase
+            .from("title_user_progress")
+            .select("id", { count: "exact", head: true })
+            .eq("user_profile_id", profileId)
+            .eq("is_completed", false)
+            .gt("progress_percent", 0),
+          supabase
+            .from("reviews")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", profileId),
+        ])
+      : [
+          { data: [] as Array<{ followed_profile_id: string | null }> },
+          { count: 0 },
+          { count: 0 },
+          { count: 0 },
+        ]
+
+    const followRows = followRowsResult.data ?? []
+    const progressStats = {
+      booksThisYear: booksThisYearResult.count ?? 0,
+      currentlyReading: currentReadingResult.count ?? 0,
+      reviewsWritten: reviewsWrittenResult.count ?? 0,
+      following: followRows.length,
+    }
 
     const followedIds = (followRows ?? [])
       .map((row) => row.followed_profile_id)
       .filter(Boolean) as string[]
+
+    const { data: suggestedReaderRows } = profileId
+      ? await supabase
+          .from("public_profiles")
+          .select("id,username,avatar_url")
+          .neq("id", profileId)
+          .limit(8)
+      : { data: [] as Array<{ id: string; username: string | null; avatar_url: string | null }> }
+
+    const suggestedReaders = (suggestedReaderRows ?? [])
+      .filter((reader) => reader.id && !followedIds.includes(reader.id))
+      .slice(0, 4)
 
     const { data: activityRows } = followedIds.length > 0
       ? await supabase
@@ -111,7 +164,7 @@ export default async function HomePage() {
         case "list_item_added":
           return (
             <>
-              added {titleNode} to “{listName}”.
+              added {titleNode} to <span>“{listName}”</span>.
             </>
           )
         case "club_created":
@@ -144,13 +197,6 @@ export default async function HomePage() {
                   >
                     <Sparkles className="mr-1.5 size-4" />
                     Following
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="news"
-                    className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  >
-                    <TrendingUp className="mr-1.5 size-4" />
-                    Trending
                   </TabsTrigger>
                 </TabsList>
 
@@ -238,17 +284,6 @@ export default async function HomePage() {
                   )}
                 </TabsContent>
 
-                <TabsContent value="news" className="mt-0">
-                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/50 px-6 py-16 text-center">
-                    <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-muted">
-                      <TrendingUp className="size-6 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-lg font-medium text-foreground">Trending coming soon</h3>
-                    <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                      Discover what&apos;s popular across the community.
-                    </p>
-                  </div>
-                </TabsContent>
               </Tabs>
             </div>
 
@@ -259,31 +294,49 @@ export default async function HomePage() {
                     <Users className="size-4 text-primary" />
                     Readers to follow
                   </h2>
-                  <div className="rounded-xl border border-dashed border-border bg-card/50 px-4 py-6 text-center text-sm text-muted-foreground">
-                    Suggestions are coming soon.
-                  </div>
-                  <Button variant="ghost" className="mt-4 w-full" asChild>
-                    <Link href="/discover/people">Explore readers</Link>
-                  </Button>
+                  {suggestedReaders.length > 0 ? (
+                    <div className="space-y-3">
+                      {suggestedReaders.map((reader) => {
+                        const readerName = reader.username ?? "Reader"
+                        return (
+                          <Link
+                            key={reader.id}
+                            href={`/users/${reader.id}`}
+                            className="flex items-center gap-3 rounded-lg border border-border/70 p-3 transition-colors hover:bg-muted/60"
+                          >
+                            <Avatar className="h-9 w-9">
+                              <AvatarImage src={reader.avatar_url ?? undefined} />
+                              <AvatarFallback>{getInitials(readerName)}</AvatarFallback>
+                            </Avatar>
+                            <span className="min-w-0 truncate text-sm font-medium text-foreground">{readerName}</span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border bg-card/50 px-4 py-6 text-center text-sm text-muted-foreground">
+                      Follow more readers to tune your community feed.
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-2xl border border-border bg-card p-5">
                   <h2 className="mb-4 font-semibold text-foreground">Your progress</h2>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">—</div>
+                      <div className="text-2xl font-bold text-primary">{formatCount(progressStats.booksThisYear)}</div>
                       <div className="text-xs text-muted-foreground">Books this year</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">—</div>
+                      <div className="text-2xl font-bold text-primary">{formatCount(progressStats.currentlyReading)}</div>
                       <div className="text-xs text-muted-foreground">Currently reading</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">—</div>
+                      <div className="text-2xl font-bold text-primary">{formatCount(progressStats.reviewsWritten)}</div>
                       <div className="text-xs text-muted-foreground">Reviews written</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">—</div>
+                      <div className="text-2xl font-bold text-primary">{formatCount(progressStats.following)}</div>
                       <div className="text-xs text-muted-foreground">Following</div>
                     </div>
                   </div>
@@ -295,6 +348,16 @@ export default async function HomePage() {
       </div>
     )
   }
+
+  const [
+    { count: titleCount },
+    { count: readerCount },
+    { count: reviewCount },
+  ] = await Promise.all([
+    supabase.from("titles").select("id", { count: "exact", head: true }),
+    supabase.from("public_profiles").select("id", { count: "exact", head: true }),
+    supabase.from("reviews").select("id", { count: "exact", head: true }),
+  ])
 
   return (
     <div className="min-h-screen bg-background">
@@ -311,7 +374,7 @@ export default async function HomePage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Button size="lg" asChild className="text-lg px-8 py-3">
-              <Link href="/library">Browse Library</Link>
+              <Link href="/search-titles">Browse Library</Link>
             </Button>
             <Button size="lg" variant="outline" asChild className="text-lg px-8 py-3">
               <Link href="/auth">Join Now</Link>
@@ -345,15 +408,15 @@ export default async function HomePage() {
         {/* Stats Section */}
         <div className="grid md:grid-cols-3 gap-8 mt-16 text-center">
           <div>
-            <div className="text-3xl font-bold text-primary">10K+</div>
-            <div className="text-muted-foreground">Books Available</div>
+            <div className="text-3xl font-bold text-primary">{formatCount(titleCount)}</div>
+            <div className="text-muted-foreground">Titles Cataloged</div>
           </div>
           <div>
-            <div className="text-3xl font-bold text-primary">5K+</div>
+            <div className="text-3xl font-bold text-primary">{formatCount(readerCount)}</div>
             <div className="text-muted-foreground">Active Readers</div>
           </div>
           <div>
-            <div className="text-3xl font-bold text-primary">25K+</div>
+            <div className="text-3xl font-bold text-primary">{formatCount(reviewCount)}</div>
             <div className="text-muted-foreground">Reviews Written</div>
           </div>
         </div>
