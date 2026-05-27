@@ -131,8 +131,8 @@ export function Navigation() {
             <Link href="/" className="text-muted-foreground hover:text-foreground">
               Home
             </Link>
-            <Link href="/about" className="text-muted-foreground hover:text-foreground">
-              About
+            <Link href="/search-titles" className="text-muted-foreground hover:text-foreground">
+              Search Titles
             </Link>
             <Link href="/community" className="text-muted-foreground hover:text-foreground">
               Community
@@ -142,9 +142,6 @@ export function Navigation() {
               <>
                 <Link href="/diary" className="text-muted-foreground hover:text-foreground">
                   Diary
-                </Link>
-                <Link href="/search-titles" className="text-muted-foreground hover:text-foreground">
-                  Search Titles
                 </Link>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

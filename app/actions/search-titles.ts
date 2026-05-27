@@ -196,9 +196,9 @@ export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitl
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) throw new Error("Unauthorized")
-
   const { title, author, raw, includeExternal, genres } = normalizeSearchInput(input)
+  const canUseExternalSearch = Boolean(user)
+  const shouldIncludeExternal = includeExternal && canUseExternalSearch
   const hasStructured = Boolean(title || author)
   const hasAnyQuery = hasStructured || Boolean(raw)
 
@@ -213,8 +213,8 @@ export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitl
   const googleQuery = googleQueryBase
 
   const [localBooks, googleBooks] = await Promise.all([
-    getLocalBooks(supabase, { title, author, raw, includeExternal, genres }),
-    includeExternal ? searchGoogleBooksWithOpenLibrary(googleQuery) : Promise.resolve([]),
+    getLocalBooks(supabase, { title, author, raw, includeExternal: shouldIncludeExternal, genres }),
+    shouldIncludeExternal ? searchGoogleBooksWithOpenLibrary(googleQuery) : Promise.resolve([]),
   ])
 
   const googleIdentifiers = normalizeReferenceIsbns(
@@ -222,7 +222,7 @@ export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitl
   )
   const suppressedGoogleIsbns = new Set<string>()
 
-  if (googleIdentifiers.length > 0 && includeExternal) {
+  if (googleIdentifiers.length > 0 && shouldIncludeExternal) {
     const { data: referenceRows } = await supabase
       .from("reference_isbns")
       .select("isbn")
@@ -379,11 +379,6 @@ export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitl
 
 export async function getInitialTitles(genres: Genre[] = []): Promise<SearchTitleResult[]> {
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) throw new Error("Unauthorized")
 
   const localBooks = await getLocalBooksAlphabetical(supabase, 50)
   const localResults = await buildLocalResults(supabase, localBooks)

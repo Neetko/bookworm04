@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
+import { getAuthedProfileId, requireAuthedProfileId } from "@/lib/server/auth"
 import { createServerClient } from "@/lib/supabase-server"
 
 export interface ClubWriterWorkAuthor {
@@ -64,29 +65,6 @@ type WriterWorkRow = {
 	is_completed: boolean | null
 	created_at: string
 	updated_at: string
-}
-
-async function getAuthedProfileIdOrNull(supabase: Awaited<ReturnType<typeof createServerClient>>) {
-	const {
-		data: { user },
-		error: authError,
-	} = await supabase.auth.getUser()
-
-	if (authError || !user) return null
-
-	const { data: profile } = await supabase
-		.from("user_profiles")
-		.select("id")
-		.eq("auth_user_id", user.id)
-		.maybeSingle()
-
-	return (profile?.id as string | null) ?? null
-}
-
-async function requireAuthedProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
-	const profileId = await getAuthedProfileIdOrNull(supabase)
-	if (!profileId) throw new Error("Unauthorized")
-	return profileId
 }
 
 async function getWriterClubOrThrow(
@@ -227,7 +205,7 @@ async function hydrateWriterWorks(
 
 export async function getVisibleClubWriterWorks(clubId: string) {
 	const supabase = await createServerClient()
-	const profileId = await getAuthedProfileIdOrNull(supabase)
+	const profileId = await getAuthedProfileId(supabase)
 	const state = await getWriterClubParticipantState(supabase, clubId, profileId)
 
 	if (!state.isParticipant) return [] as ClubWriterWorkListItem[]
@@ -279,7 +257,7 @@ export async function getMyClubWriterWorks(clubId: string) {
 
 export async function getClubWriterWorkDetail(clubId: string, workId: string) {
 	const supabase = await createServerClient()
-	const profileId = await getAuthedProfileIdOrNull(supabase)
+	const profileId = await getAuthedProfileId(supabase)
 	const state = await getWriterClubParticipantState(supabase, clubId, profileId)
 
 	const { data, error } = await supabase

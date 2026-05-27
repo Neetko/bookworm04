@@ -22,6 +22,11 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+
+  .font-ui {
+    font-family: var(--font-ui);
+    letter-spacing: 0.02em;
+  }
 }
 
 @layer base {
@@ -62,6 +67,7 @@ body {
     --sidebar: oklch(0.4708 0.1121 50.8452);
     --font-sans: "IM Fell English SC", serif;
     --font-serif: "IM Fell English", serif;
+    --font-ui: "Raleway", ui-sans-serif, system-ui, sans-serif;
     --font-mono: "Source Code Pro", monospace;
     --shadow-color: #2F1B0F;
     --shadow-opacity: 0.15;

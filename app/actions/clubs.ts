@@ -1,6 +1,7 @@
 "use server"
 
 import { createAdminClient, createServerClient } from "@/lib/supabase-server"
+import { requireAuthedProfileId } from "@/lib/server/auth"
 import { revalidatePath } from "next/cache"
 import { normalizeGenres, type Genre } from "@/lib/types"
 import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
@@ -478,25 +479,6 @@ async function getClubViewerState(
       ? { id: activeInvitation.id as string, status: activeInvitation.status as string }
       : null,
   }
-}
-
-async function requireAuthedProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) throw new Error("Unauthorized")
-
-  const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .single()
-
-  if (profileError || !profile) throw new Error("Profile not found")
-
-  return profile.id as string
 }
 
 async function requireOwnerProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>, clubId: string) {
