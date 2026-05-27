@@ -15,7 +15,7 @@ export default async function SuggestionsAdminPage() {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
-        <div className="max-w-3xl mx-auto p-8">
+        <div className="font-ui max-w-3xl mx-auto p-8">
           <h1 className="text-2xl font-semibold mb-2">Suggestions</h1>
           <p className="text-sm text-muted-foreground">Sign in to review suggestions.</p>
         </div>
@@ -27,7 +27,7 @@ export default async function SuggestionsAdminPage() {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
-        <div className="max-w-3xl mx-auto p-8 space-y-2">
+        <div className="font-ui max-w-3xl mx-auto p-8 space-y-2">
           <h1 className="text-2xl font-semibold mb-2">Suggestions</h1>
           <p className="text-sm text-muted-foreground">Moderator or admin access required.</p>
           <p className="text-xs text-muted-foreground">Signed in as {user.email ?? "unknown user"}.</p>
@@ -51,7 +51,7 @@ export default async function SuggestionsAdminPage() {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
-        <div className="max-w-3xl mx-auto p-8 space-y-2">
+        <div className="font-ui max-w-3xl mx-auto p-8 space-y-2">
           <h1 className="text-2xl font-semibold mb-2">Suggestions</h1>
           <p className="text-sm text-muted-foreground">Failed to load suggestions.</p>
           <p className="text-xs text-muted-foreground">{error.message}</p>
@@ -63,7 +63,7 @@ export default async function SuggestionsAdminPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <div className="max-w-5xl mx-auto p-8 space-y-6">
+      <div className="font-ui max-w-5xl mx-auto p-8 space-y-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Suggestions</h1>

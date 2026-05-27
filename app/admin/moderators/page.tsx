@@ -184,7 +184,7 @@ export default async function ModeratorsAdminPage({
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
-        <div className="max-w-4xl mx-auto p-8">
+        <div className="font-ui max-w-4xl mx-auto p-8">
           <h1 className="text-2xl font-semibold mb-2">Moderator access</h1>
           <p className="text-sm text-muted-foreground">Sign in to manage moderator access.</p>
         </div>
@@ -196,7 +196,7 @@ export default async function ModeratorsAdminPage({
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
-        <div className="max-w-4xl mx-auto p-8 space-y-2">
+        <div className="font-ui max-w-4xl mx-auto p-8 space-y-2">
           <h1 className="text-2xl font-semibold">Moderator access</h1>
           <p className="text-sm text-muted-foreground">Administrator access required.</p>
           <p className="text-xs text-muted-foreground">Signed in as {user.email ?? "unknown user"}.</p>
@@ -215,7 +215,7 @@ export default async function ModeratorsAdminPage({
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <div className="max-w-6xl mx-auto p-8 space-y-6">
+      <div className="font-ui max-w-6xl mx-auto p-8 space-y-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Moderator access</h1>
