@@ -191,7 +191,7 @@ async function getClubNotificationMeta(
 }
 
 async function createClubNotification(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  _supabase: Awaited<ReturnType<typeof createServerClient>>,
   payload: {
     recipient_profile_id: string
     actor_profile_id?: string | null
@@ -219,6 +219,14 @@ async function createClubNotification(
   }
 }
 
+async function runBestEffortClubNotificationEffect(effectName: string, effect: () => Promise<void>) {
+  try {
+    await effect()
+  } catch (error) {
+    console.error(`Club notification effect failed: ${effectName}`, error)
+  }
+}
+
 function isNotificationMetadataRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -232,7 +240,9 @@ async function resolveClubInvitationNotification(
     respondedAt: string
   }
 ) {
-  const { data, error } = await supabase
+  const admin = createAdminClient()
+
+  const { data, error } = await admin
     .from("notifications")
     .select("id, metadata, created_at")
     .eq("recipient_profile_id", args.recipientProfileId)
@@ -301,7 +311,7 @@ async function resolveClubInvitationNotification(
         },
       }
 
-      const { error: updateError } = await supabase
+      const { error: updateError } = await admin
         .from("notifications")
         .update({
           is_read: true,
@@ -1012,11 +1022,13 @@ export async function inviteMemberToClub(
   const pendingInvitationId = (pendingInvitations?.[0]?.id as string | undefined) ?? undefined
   if (!pendingInvitationId) throw new Error("Failed to create invitation")
 
-  await notifyClubInvitee(supabase, {
-    inviteeProfileId: profile.id as string,
-    ownerProfileId,
-    clubId,
-    invitationId: pendingInvitationId,
+  await runBestEffortClubNotificationEffect("inviteMemberToClub", async () => {
+    await notifyClubInvitee(supabase, {
+      inviteeProfileId: profile.id as string,
+      ownerProfileId,
+      clubId,
+      invitationId: pendingInvitationId,
+    })
   })
 
   revalidatePath(`/community/clubs/${clubId}`)
@@ -1461,7 +1473,7 @@ export async function applyToClub(clubId: string) {
   if (!pendingApplicationId) throw new Error("Failed to create application")
 
   if (state.club.owner_user_id !== profileId) {
-    try {
+    await runBestEffortClubNotificationEffect("applyToClub", async () => {
       await notifyClubOwnerOfApplication(supabase, {
         ownerProfileId: state.club.owner_user_id as string,
         applicantProfileId: profileId,
@@ -1469,15 +1481,7 @@ export async function applyToClub(clubId: string) {
         applicationId: pendingApplicationId,
         submittedAt: now,
       })
-    } catch (notificationError) {
-      console.error("Failed to notify club owner of application", {
-        clubId,
-        applicantProfileId: profileId,
-        ownerProfileId: state.club.owner_user_id as string,
-        applicationId: pendingApplicationId,
-        notificationError,
-      })
-    }
+    })
   }
 
   revalidatePath(`/community/clubs/${clubId}`)
@@ -1568,12 +1572,14 @@ export async function acceptClubApplication(clubId: string, applicationId: strin
     .eq("invitee_user_id", application.user_id)
     .eq("status", "pending")
 
-  const [actorMeta, clubMeta] = await Promise.all([
-    getActorNotificationMeta(supabase, reviewerProfileId),
-    getClubNotificationMeta(supabase, clubId),
-  ])
+  await runBestEffortClubNotificationEffect("acceptClubApplication", async () => {
+    const [actorMeta, clubMeta] = await Promise.all([
+      getActorNotificationMeta(supabase, reviewerProfileId),
+      getClubNotificationMeta(supabase, clubId),
+    ])
 
-  if (clubMeta) {
+    if (!clubMeta) return
+
     await createClubNotification(supabase, {
       recipient_profile_id: application.user_id as string,
       actor_profile_id: reviewerProfileId,
@@ -1586,7 +1592,7 @@ export async function acceptClubApplication(clubId: string, applicationId: strin
         },
       },
     })
-  }
+  })
 
   revalidatePath(`/community/clubs/${clubId}`)
   revalidatePath(`/community/clubs/${clubId}/manage`)
@@ -1618,12 +1624,14 @@ export async function declineClubApplication(clubId: string, applicationId: stri
 
   if (error) throw new Error("Failed to decline application")
 
-  const [actorMeta, clubMeta] = await Promise.all([
-    getActorNotificationMeta(supabase, reviewerProfileId),
-    getClubNotificationMeta(supabase, clubId),
-  ])
+  await runBestEffortClubNotificationEffect("declineClubApplication", async () => {
+    const [actorMeta, clubMeta] = await Promise.all([
+      getActorNotificationMeta(supabase, reviewerProfileId),
+      getClubNotificationMeta(supabase, clubId),
+    ])
 
-  if (clubMeta) {
+    if (!clubMeta) return
+
     await createClubNotification(supabase, {
       recipient_profile_id: application.user_id as string,
       actor_profile_id: reviewerProfileId,
@@ -1636,7 +1644,7 @@ export async function declineClubApplication(clubId: string, applicationId: stri
         },
       },
     })
-  }
+  })
 
   revalidatePath(`/community/clubs/${clubId}`)
   revalidatePath(`/community/clubs/${clubId}/manage`)
@@ -1673,11 +1681,13 @@ export async function acceptClubInvitation(invitationId: string) {
 
   if (error) throw new Error("Failed to accept invitation")
 
-  await resolveClubInvitationNotification(supabase, {
-    recipientProfileId: profileId,
-    invitationId,
-    accepted: true,
-    respondedAt: now,
+  await runBestEffortClubNotificationEffect("acceptClubInvitation:resolve", async () => {
+    await resolveClubInvitationNotification(supabase, {
+      recipientProfileId: profileId,
+      invitationId,
+      accepted: true,
+      respondedAt: now,
+    })
   })
 
   await supabase.from("club_applications").delete().eq("club_id", invitation.club_id).eq("user_id", profileId)
@@ -1695,12 +1705,14 @@ export async function acceptClubInvitation(invitationId: string) {
     },
   })
 
-  await notifyClubOwnerOfInvitationResponse(supabase, {
-    ownerProfileId: invitation.inviter_user_id as string,
-    inviteeProfileId: profileId,
-    clubId: invitation.club_id as string,
-    invitationId,
-    accepted: true,
+  await runBestEffortClubNotificationEffect("acceptClubInvitation:ownerResponse", async () => {
+    await notifyClubOwnerOfInvitationResponse(supabase, {
+      ownerProfileId: invitation.inviter_user_id as string,
+      inviteeProfileId: profileId,
+      clubId: invitation.club_id as string,
+      invitationId,
+      accepted: true,
+    })
   })
 
   revalidatePath(`/community/clubs/${invitation.club_id}`)
@@ -1731,19 +1743,23 @@ export async function declineClubInvitation(invitationId: string) {
 
   if (error) throw new Error("Failed to decline invitation")
 
-  await resolveClubInvitationNotification(supabase, {
-    recipientProfileId: profileId,
-    invitationId,
-    accepted: false,
-    respondedAt,
+  await runBestEffortClubNotificationEffect("declineClubInvitation:resolve", async () => {
+    await resolveClubInvitationNotification(supabase, {
+      recipientProfileId: profileId,
+      invitationId,
+      accepted: false,
+      respondedAt,
+    })
   })
 
-  await notifyClubOwnerOfInvitationResponse(supabase, {
-    ownerProfileId: invitation.inviter_user_id as string,
-    inviteeProfileId: profileId,
-    clubId: invitation.club_id as string,
-    invitationId,
-    accepted: false,
+  await runBestEffortClubNotificationEffect("declineClubInvitation:ownerResponse", async () => {
+    await notifyClubOwnerOfInvitationResponse(supabase, {
+      ownerProfileId: invitation.inviter_user_id as string,
+      inviteeProfileId: profileId,
+      clubId: invitation.club_id as string,
+      invitationId,
+      accepted: false,
+    })
   })
 
   revalidatePath(`/community/clubs/${invitation.club_id}`)
