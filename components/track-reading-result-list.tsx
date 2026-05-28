@@ -7,13 +7,13 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { BookOpen, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { GENRES, type Genre, GENRE_BG_CLASS, normalizeGenres } from "@/lib/types"
+import { type Genre, GENRE_BG_CLASS, normalizeGenres } from "@/lib/types"
 import type { SearchTitleResult } from "@/lib/types"
 import { confirmGoogleBookIngest, getGoogleIngestSuggestion } from "@/app/actions/track-reading"
 import { toast } from "sonner"
 import { sanitizeDescriptionHtml } from "@/lib/sanitize"
 import { cn } from "@/lib/utils"
-import { GenreToggleButton } from "@/components/genre-toggle-button"
+import { CanonGenreToggleGroup } from "@/components/canon-genre-toggle-group"
 
 type CoverStatus = "loading" | "loaded" | "failed" | "missing"
 
@@ -343,17 +343,12 @@ export function TrackReadingResultList({
                         ? "Loading Bookworm suggestions. You can already choose genres manually."
                         : "No Bookworm suggestions found. Please select at least one genre."}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {GENRES.map((genre) => (
-                      <GenreToggleButton
-                        key={genre}
-                        genre={genre}
-                        selected={selectedGenres.includes(genre)}
-                        onToggle={toggleGenre}
-                        showSuggestedIndicator={suggestedGenres.includes(genre)}
-                      />
-                    ))}
-                  </div>
+                  <CanonGenreToggleGroup
+                    selectedGenres={selectedGenres}
+                    onToggle={toggleGenre}
+                    className="flex-wrap"
+                    showSuggestedIndicator={(genre) => suggestedGenres.includes(genre)}
+                  />
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -627,7 +622,7 @@ export function TrackReadingResultList({
 
                 {descriptionHtml ? (
                   <div
-                    className="text-muted-foreground line-clamp-2 [&_p]:mb-2 last:[&_p]:mb-0"
+                    className="font-ui text-muted-foreground line-clamp-2 [&_p]:mb-2 last:[&_p]:mb-0"
                     dangerouslySetInnerHTML={{ __html: descriptionHtml }}
                   />
                 ) : null}

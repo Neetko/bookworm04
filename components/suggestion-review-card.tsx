@@ -12,13 +12,13 @@ import {
   saveSuggestionReviewAction,
 } from "@/app/actions/suggestions"
 import { SuggestionCoverPicker } from "@/components/suggestion-cover-picker"
-import { GenreToggleButton } from "@/components/genre-toggle-button"
+import { CanonGenreToggleGroup } from "@/components/canon-genre-toggle-group"
 import { SuggestionWorkCards } from "@/components/suggestion-work-cards"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { GENRES, type Genre } from "@/lib/types"
+import type { Genre } from "@/lib/types"
 import {
   buildFallbackWorkSnapshot,
   isExactWorkSnapshotMatch,
@@ -316,16 +316,11 @@ export function SuggestionReviewCard({ suggestion }: SuggestionReviewCardProps) 
 
               <div className="space-y-3">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">Admin final genre selection</div>
-                <div className="flex flex-wrap gap-2">
-                  {GENRES.map((genre) => (
-                    <GenreToggleButton
-                      key={genre}
-                      genre={genre}
-                      selected={selectedGenres.includes(genre)}
-                      onToggle={toggleGenre}
-                    />
-                  ))}
-                </div>
+                <CanonGenreToggleGroup
+                  selectedGenres={selectedGenres}
+                  onToggle={toggleGenre}
+                  className="flex-wrap"
+                />
                 <div className="text-xs text-muted-foreground">None are selected by default.</div>
               </div>
 

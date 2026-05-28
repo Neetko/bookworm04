@@ -6,12 +6,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { trackTitleProgress } from "@/app/actions/track-reading"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { ReadingProgressSelector, type ReadingProgressMode } from "@/components/reading-progress-selector"
 
 export type DiaryTitleOption = {
   id: string
@@ -28,8 +29,6 @@ export type DiaryTitleOption = {
   } | null
 }
 
-type Mode = "pages" | "audiobook"
-
 export function DiaryEntryDialog({
   titles,
   canCreateToday = true,
@@ -42,7 +41,7 @@ export function DiaryEntryDialog({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [selectedTitle, setSelectedTitle] = useState<DiaryTitleOption | null>(null)
-  const [mode, setMode] = useState<Mode>("pages")
+  const [mode, setMode] = useState<ReadingProgressMode>("pages")
   const [submitting, setSubmitting] = useState(false)
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [listFilter, setListFilter] = useState<"to-read" | "current-reading">("to-read")
@@ -125,9 +124,9 @@ export function DiaryEntryDialog({
   const canSubmit = useMemo(() => {
     if (!selectedTitle) return false
     if (mode === "pages") {
-      return Number.isFinite(totalPages) && totalPages > 0 && Number.isFinite(currentPage) && currentPage >= 0
+      return Number.isFinite(totalPages) && totalPages > 0 && Number.isFinite(currentPage) && currentPage >= 0 && currentPage <= totalPages
     }
-    return Number.isFinite(totalMinutes) && totalMinutes > 0 && Number.isFinite(minutesListened) && minutesListened >= 0
+    return Number.isFinite(totalMinutes) && totalMinutes > 0 && Number.isFinite(minutesListened) && minutesListened >= 0 && minutesListened <= totalMinutes
   }, [selectedTitle, mode, totalPages, currentPage, totalMinutes, minutesListened])
 
   const submit = async () => {
@@ -235,62 +234,22 @@ export function DiaryEntryDialog({
 
               {step === 2 && selectedTitle ? (
                 <div className="space-y-4">
-                  <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
-                    <TabsList className="grid grid-cols-2">
-                      <TabsTrigger value="pages">Pages</TabsTrigger>
-                      <TabsTrigger value="audiobook">Audiobook</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="pages" className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="diaryTotalPages">Total pages</Label>
-                        <Input
-                          id="diaryTotalPages"
-                          inputMode="numeric"
-                          type="number"
-                          min={1}
-                          value={totalPages}
-                          onChange={(e) => setTotalPages(Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="diaryCurrentPage">Current page</Label>
-                        <Input
-                          id="diaryCurrentPage"
-                          inputMode="numeric"
-                          type="number"
-                          min={0}
-                          value={currentPage}
-                          onChange={(e) => setCurrentPage(Number(e.target.value))}
-                        />
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="audiobook" className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="diaryTotalMinutes">Total minutes</Label>
-                        <Input
-                          id="diaryTotalMinutes"
-                          inputMode="numeric"
-                          type="number"
-                          min={1}
-                          value={totalMinutes}
-                          onChange={(e) => setTotalMinutes(Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="diaryMinutesListened">Minutes listened</Label>
-                        <Input
-                          id="diaryMinutesListened"
-                          inputMode="numeric"
-                          type="number"
-                          min={0}
-                          value={minutesListened}
-                          onChange={(e) => setMinutesListened(Number(e.target.value))}
-                        />
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                  <ReadingProgressSelector
+                    value={{
+                      mode,
+                      currentPage,
+                      totalPages,
+                      minutesListened,
+                      totalMinutes,
+                    }}
+                    onChange={(next) => {
+                      setMode(next.mode)
+                      setCurrentPage(next.currentPage)
+                      setTotalPages(next.totalPages)
+                      setMinutesListened(next.minutesListened)
+                      setTotalMinutes(next.totalMinutes)
+                    }}
+                  />
 
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setStep(1)}>

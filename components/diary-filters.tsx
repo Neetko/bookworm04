@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { GenreToggleButton } from "@/components/genre-toggle-button"
-import { GENRES, type Genre } from "@/lib/types"
+import { CanonGenreToggleGroup } from "@/components/canon-genre-toggle-group"
+import type { Genre } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -158,15 +158,8 @@ export function DiaryFilters({
       </div>
 
       {filterBy === "genre" ? (
-        <div className="flex flex-nowrap gap-2 w-full overflow-x-auto pb-1">
-          {GENRES.map((genre) => (
-            <GenreToggleButton
-              key={genre}
-              genre={genre}
-              selected={selectedGenres.includes(genre)}
-              onToggle={toggleGenre}
-            />
-          ))}
+        <div className="w-full overflow-x-auto pb-1">
+          <CanonGenreToggleGroup selectedGenres={selectedGenres} onToggle={toggleGenre} />
         </div>
       ) : null}
 

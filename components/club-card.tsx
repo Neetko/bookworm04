@@ -66,7 +66,7 @@ export function ClubCard({ club }: { club: ClubCardClub }) {
               </div>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col">
-              <p className="text-sm text-muted-foreground line-clamp-3">
+              <p className="font-ui text-sm text-muted-foreground line-clamp-3">
                 {club.description || "No description yet."}
               </p>
 
@@ -106,7 +106,7 @@ export function ClubCard({ club }: { club: ClubCardClub }) {
             </div>
           </div>
 
-          <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+          <div className="font-ui text-sm text-muted-foreground whitespace-pre-wrap">
             {club.description || "No description yet."}
           </div>
 

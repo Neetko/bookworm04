@@ -222,38 +222,43 @@ export default async function HomePage() {
                         const isListCreatedEvent = activity.event_type === "list_created"
                         const shouldShowCover = !isClubEvent && !isAchievementEvent && !isListCreatedEvent
                         return (
-                          <div key={activity.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 space-y-3">
-                                <div className="flex items-center gap-3">
-                                  <Avatar className="h-10 w-10">
-                                    <AvatarImage src={avatarUrl || undefined} />
-                                    <AvatarFallback>{getInitials(actorName)}</AvatarFallback>
-                                  </Avatar>
-                                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                                    {actorLink ? (
-                                      <Link href={actorLink} className="font-medium text-foreground hover:underline">
-                                        {actorName}
-                                      </Link>
-                                    ) : (
-                                      <span className="font-medium text-foreground">{actorName}</span>
-                                    )}
-                                    <span className="text-xs text-muted-foreground">
-                                      {activity.created_at
-                                        ? formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })
-                                        : ""}
-                                    </span>
-                                  </div>
+                          <div
+                            key={activity.id}
+                            className="rounded-2xl border border-border bg-card p-4 shadow-sm transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                          >
+                            <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-start gap-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={avatarUrl || undefined} />
+                                <AvatarFallback>{getInitials(actorName)}</AvatarFallback>
+                              </Avatar>
+
+                              <div className="min-w-0 space-y-2">
+                                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-none">
+                                  {actorLink ? (
+                                    <Link href={actorLink} className="font-medium text-foreground hover:underline">
+                                      {actorName}
+                                    </Link>
+                                  ) : (
+                                    <span className="font-medium text-foreground">{actorName}</span>
+                                  )}
+                                  <span className="font-ui text-[11px] text-muted-foreground">
+                                    {activity.created_at
+                                      ? formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })
+                                      : ""}
+                                  </span>
                                 </div>
-                                <div className="text-sm text-foreground">
+
+                                <div className="font-ui text-sm leading-6 text-foreground">
                                   {renderActivityText(activity)}
                                 </div>
+
                                 {activity.metadata?.reviewText ? (
-                                  <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                                  <div className="font-ui rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm leading-6 text-muted-foreground">
                                     “{activity.metadata.reviewText}”
                                   </div>
                                 ) : null}
                               </div>
+
                               <div className="flex-shrink-0">
                                 {isClubEvent ? (
                                   <Avatar className="h-12 w-12">
@@ -322,21 +327,21 @@ export default async function HomePage() {
 
                 <div className="rounded-2xl border border-border bg-card p-5">
                   <h2 className="mb-4 font-semibold text-foreground">Your progress</h2>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="font-ui grid grid-cols-2 gap-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">{formatCount(progressStats.booksThisYear)}</div>
+                      <div className="font-sans text-2xl font-bold text-primary">{formatCount(progressStats.booksThisYear)}</div>
                       <div className="text-xs text-muted-foreground">Books this year</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">{formatCount(progressStats.currentlyReading)}</div>
+                      <div className="font-sans text-2xl font-bold text-primary">{formatCount(progressStats.currentlyReading)}</div>
                       <div className="text-xs text-muted-foreground">Currently reading</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">{formatCount(progressStats.reviewsWritten)}</div>
+                      <div className="font-sans text-2xl font-bold text-primary">{formatCount(progressStats.reviewsWritten)}</div>
                       <div className="text-xs text-muted-foreground">Reviews written</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">{formatCount(progressStats.following)}</div>
+                      <div className="font-sans text-2xl font-bold text-primary">{formatCount(progressStats.following)}</div>
                       <div className="text-xs text-muted-foreground">Following</div>
                     </div>
                   </div>
@@ -387,7 +392,7 @@ export default async function HomePage() {
           <div className="text-center p-6 bg-card rounded-lg shadow-md border">
             <BookOpen className="h-12 w-12 text-primary mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2 text-card-foreground">Vast Library</h3>
-            <p className="text-muted-foreground">
+            <p className="font-ui text-muted-foreground">
               Explore thousands of books across all genres and discover your next great read.
             </p>
           </div>
@@ -395,18 +400,18 @@ export default async function HomePage() {
           <div className="text-center p-6 bg-card rounded-lg shadow-md border">
             <Star className="h-12 w-12 text-primary mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2 text-card-foreground">Rate & Review</h3>
-            <p className="text-muted-foreground">Share your thoughts and help other readers find their perfect books.</p>
+            <p className="font-ui text-muted-foreground">Share your thoughts and help other readers find their perfect books.</p>
           </div>
 
           <div className="text-center p-6 bg-card rounded-lg shadow-md border">
             <Users className="h-12 w-12 text-primary mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2 text-card-foreground">Community</h3>
-            <p className="text-muted-foreground">Connect with fellow book lovers and discover recommendations.</p>
+            <p className="font-ui text-muted-foreground">Connect with fellow book lovers and discover recommendations.</p>
           </div>
         </div>
 
         {/* Stats Section */}
-        <div className="grid md:grid-cols-3 gap-8 mt-16 text-center">
+        <div className="font-ui grid md:grid-cols-3 gap-8 mt-16 text-center">
           <div>
             <div className="text-3xl font-bold text-primary">{formatCount(titleCount)}</div>
             <div className="text-muted-foreground">Titles Cataloged</div>

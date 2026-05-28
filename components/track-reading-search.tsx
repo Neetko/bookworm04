@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Search } from "lucide-react"
-import { GenreToggleButton } from "@/components/genre-toggle-button"
-import { GENRES, isGenre, type Genre } from "@/lib/types"
+import { CanonGenreToggleGroup } from "@/components/canon-genre-toggle-group"
+import { isGenre, type Genre } from "@/lib/types"
 
 type Suggestion = { id: string; title: string; author: string }
 
@@ -211,17 +211,11 @@ function TrackReadingSearchContent({
       </div>
 
       <div className="mt-3 w-full overflow-x-auto pb-1">
-        <div className="flex flex-nowrap gap-2 min-w-max">
-          {GENRES.map((genre) => (
-            <GenreToggleButton
-              key={genre}
-              genre={genre}
-              selected={selectedGenres.includes(genre)}
-              onToggle={toggleGenre}
-              className={includeExternal && allowExternalSearch ? "opacity-50 pointer-events-none" : undefined}
-            />
-          ))}
-        </div>
+        <CanonGenreToggleGroup
+          selectedGenres={selectedGenres}
+          onToggle={toggleGenre}
+          buttonClassName={includeExternal && allowExternalSearch ? "opacity-50 pointer-events-none" : undefined}
+        />
       </div>
 
       {!hasActiveSearch && open && suggestions.length > 0 ? (
