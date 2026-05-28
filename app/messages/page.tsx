@@ -132,7 +132,7 @@ function MessagesPageContent() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <div className="flex min-h-[calc(100vh-4rem)] flex-col md:flex-row">
+      <div className="font-ui flex min-h-[calc(100vh-4rem)] flex-col md:flex-row">
         <MessageSidebar
           activeFolder={activeFolder}
           onFolderChange={setActiveFolder}

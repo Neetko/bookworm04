@@ -391,7 +391,7 @@ export default async function DiaryPage({
                       return (
                         <div
                           key={entry.id}
-                          className={`relative group ${isLeft ? "md:pr-8 md:justify-self-end" : "md:pl-8 md:col-start-2"}`}
+                          className={`relative group w-fit ${isLeft ? "md:pr-8 md:justify-self-end" : "md:pl-8 md:col-start-2"}`}
                         >
                           <div
                             className={`hidden md:block absolute top-12 w-8 h-0.5 bg-border ${
@@ -467,20 +467,19 @@ export default async function DiaryPage({
                             </div>
                           </Link>
 
-                          <div
-                            className={`pointer-events-none absolute top-6 z-20 w-56 rounded-lg border border-border bg-popover p-3 text-xs text-muted-foreground shadow-lg opacity-0 transition-all duration-200 group-hover:opacity-100 ${
-                              isLeft ? "right-full mr-3 -translate-x-2 group-hover:translate-x-0" : "left-full ml-3 translate-x-2 group-hover:translate-x-0"
-                            }`}
-                          >
-                            {noteHtml ? (
+                          {noteHtml ? (
+                            <aside
+                              className={`pointer-events-none absolute top-4 z-20 hidden w-72 rounded-xl border border-border bg-popover/95 p-4 text-muted-foreground shadow-xl opacity-0 backdrop-blur-sm transition-[opacity,transform] duration-200 group-hover:opacity-100 md:block ${
+                                isLeft ? "right-full mr-4 -translate-x-2 group-hover:translate-x-0" : "left-full ml-4 translate-x-2 group-hover:translate-x-0"
+                              }`}
+                              aria-label="Diary note preview"
+                            >
                               <div
-                                className="prose prose-sm max-w-none [&_p]:mb-2 last:[&_p]:mb-0"
+                                className="font-ui prose prose-sm max-h-48 max-w-none overflow-hidden text-sm leading-6 text-foreground/90 [&_p]:mb-3 last:[&_p]:mb-0"
                                 dangerouslySetInnerHTML={{ __html: noteHtml }}
                               />
-                            ) : (
-                              <div className="h-16" />
-                            )}
-                          </div>
+                            </aside>
+                          ) : null}
                         </div>
                       )
                     })}

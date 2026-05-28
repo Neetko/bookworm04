@@ -16,8 +16,8 @@ import {
 import { Search, Loader2, UploadCloud } from "lucide-react"
 import { toast } from "sonner"
 import { createClub, addClubReadingItem, uploadClubAvatar } from "@/app/actions/clubs"
-import { GENRES, isGenre, type Genre } from "@/lib/types"
-import { GenreToggleButton } from "@/components/genre-toggle-button"
+import { isGenre, type Genre } from "@/lib/types"
+import { CanonGenreToggleGroup } from "@/components/canon-genre-toggle-group"
 import { ClubTitleSearch } from "@/components/club-title-search"
 import type { SearchTitleResult } from "@/lib/types"
 import { ensureGoogleBook } from "@/app/actions/track-reading"
@@ -218,16 +218,7 @@ export function CommunityHeader() {
             </Button>
           </div>
 
-          <div className="flex flex-nowrap gap-2 w-full">
-            {GENRES.map((genre) => (
-              <GenreToggleButton
-                key={genre}
-                genre={genre}
-                selected={selectedGenres.includes(genre)}
-                onToggle={toggleGenre}
-              />
-            ))}
-          </div>
+          <CanonGenreToggleGroup selectedGenres={selectedGenres} onToggle={toggleGenre} />
         </div>
 
         <Button onClick={() => setShowCreate((v) => !v)}>
@@ -264,17 +255,11 @@ export function CommunityHeader() {
 
             <div>
               <label className="block text-sm font-medium mb-2">Categories (optional)</label>
-              <div className="flex w-full flex-nowrap gap-2">
-                {GENRES.map((genre) => (
-                  <GenreToggleButton
-                    key={genre}
-                    genre={genre}
-                    selected={categories.includes(genre)}
-                    onToggle={toggleCategory}
-                    className="flex-1 min-w-0"
-                  />
-                ))}
-              </div>
+              <CanonGenreToggleGroup
+                selectedGenres={categories}
+                onToggle={toggleCategory}
+                buttonClassName="flex-1 min-w-0"
+              />
             </div>
 
             <div>

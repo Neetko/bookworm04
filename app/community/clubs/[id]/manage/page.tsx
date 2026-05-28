@@ -11,7 +11,7 @@ export default async function ClubManagePage({ params }: { params: Promise<{ id:
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="font-ui max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <Card>
             <CardContent className="py-10 text-center">Club not found</CardContent>
           </Card>
@@ -27,7 +27,7 @@ export default async function ClubManagePage({ params }: { params: Promise<{ id:
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="font-ui max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <Card>
             <CardHeader>
               <CardTitle>Not authorized</CardTitle>
@@ -50,7 +50,7 @@ export default async function ClubManagePage({ params }: { params: Promise<{ id:
     <div className="min-h-screen bg-background">
       <Navigation />
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+      <div className="font-ui max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Manage club</h1>
           <p className="text-muted-foreground mt-1">Update details, manage join settings, review applications, and track invitations.</p>

@@ -18,8 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { addTitleToListAction, createCustomListAction, updateCustomListAction, removeTitleFromListAction } from "@/app/actions/lists"
 import type { Genre, SearchTitleResult } from "@/lib/types"
-import { GENRES } from "@/lib/types"
-import { GenreToggleButton } from "@/components/genre-toggle-button"
+import { CanonGenreToggleGroup } from "@/components/canon-genre-toggle-group"
 import { toast } from "sonner"
 
 type EditListsPageContentProps = {
@@ -693,16 +692,12 @@ function EditListsPageContent({ profileData, sessionToken, reloadProfile }: Edit
                   </Label>
                 </div>
 
-                <div className="flex flex-nowrap gap-2 w-full overflow-x-auto pb-1">
-                  {GENRES.map((genre) => (
-                    <GenreToggleButton
-                      key={genre}
-                      genre={genre}
-                      selected={selectedGenres.includes(genre)}
-                      onToggle={toggleGenre}
-                      className={includeExternal ? "opacity-50 pointer-events-none" : undefined}
-                    />
-                  ))}
+                <div className="w-full overflow-x-auto pb-1">
+                  <CanonGenreToggleGroup
+                    selectedGenres={selectedGenres}
+                    onToggle={toggleGenre}
+                    buttonClassName={includeExternal ? "opacity-50 pointer-events-none" : undefined}
+                  />
                 </div>
 
                 {isSearching ? (
