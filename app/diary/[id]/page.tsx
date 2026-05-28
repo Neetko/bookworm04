@@ -282,7 +282,7 @@ export default async function DiaryEntryPage({
           <div className="border-t border-border p-6">
             {noteHtml ? (
               <div
-                className="prose prose-sm max-w-none text-foreground [&_p]:mb-3 last:[&_p]:mb-0"
+                className="font-ui prose prose-sm max-w-none text-foreground [&_p]:mb-3 last:[&_p]:mb-0"
                 dangerouslySetInnerHTML={{ __html: noteHtml }}
               />
             ) : (

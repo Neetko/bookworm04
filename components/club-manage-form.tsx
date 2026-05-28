@@ -14,8 +14,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-import { GENRES, normalizeGenres, type Genre } from "@/lib/types"
-import { GenreToggleButton } from "@/components/genre-toggle-button"
+import { normalizeGenres, type Genre } from "@/lib/types"
+import { CanonGenreToggleGroup } from "@/components/canon-genre-toggle-group"
 import { ClubTitleSearch } from "@/components/club-title-search"
 import {
   acceptClubApplication,
@@ -363,17 +363,11 @@ export function ClubManageForm({
 
           <div>
             <label className="block text-sm font-medium mb-2">Genres</label>
-            <div className="flex w-full flex-nowrap gap-2">
-              {GENRES.map((genre) => (
-                <GenreToggleButton
-                  key={genre}
-                  genre={genre}
-                  selected={categories.includes(genre)}
-                  onToggle={toggleCategory}
-                  className="flex-1 min-w-0"
-                />
-              ))}
-            </div>
+            <CanonGenreToggleGroup
+              selectedGenres={categories}
+              onToggle={toggleCategory}
+              buttonClassName="flex-1 min-w-0"
+            />
           </div>
 
           <div>

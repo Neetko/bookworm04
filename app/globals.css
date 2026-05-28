@@ -25,7 +25,8 @@ body {
 
   .font-ui {
     font-family: var(--font-ui);
-    letter-spacing: 0.02em;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
   }
 }
 

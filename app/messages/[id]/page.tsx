@@ -70,7 +70,7 @@ export default function MessageDetailPage() {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
-        <div className="mx-auto max-w-3xl px-6 py-12 text-center text-muted-foreground">
+        <div className="font-ui mx-auto max-w-3xl px-6 py-12 text-center text-muted-foreground">
           Message not found.
         </div>
       </div>
@@ -128,7 +128,7 @@ export default function MessageDetailPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <div className="flex min-h-[calc(100vh-4rem)] flex-col md:flex-row">
+      <div className="font-ui flex min-h-[calc(100vh-4rem)] flex-col md:flex-row">
         <MessageSidebar
           activeFolder={activeFolder}
           onFolderChange={(folder) => router.push(`/messages?folder=${folder}`)}

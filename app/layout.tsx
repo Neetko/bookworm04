@@ -1,4 +1,5 @@
 import type React from "react"
+import Script from "next/script"
 import type { Metadata } from "next"
 import "@fontsource/im-fell-english-sc/400.css"
 import "@fontsource/im-fell-english/400.css"
@@ -25,6 +26,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
+        {process.env.NODE_ENV === "development" && (
+          <Script
+            src="//unpkg.com/react-grab/dist/index.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
+          />
+        )}
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

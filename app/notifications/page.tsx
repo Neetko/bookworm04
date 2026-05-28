@@ -175,7 +175,7 @@ export default function NotificationsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="font-ui max-w-3xl mx-auto px-4 py-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
