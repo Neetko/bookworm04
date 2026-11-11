@@ -9,7 +9,7 @@ import { BookOpen, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { type Genre, GENRE_BG_CLASS, normalizeGenres } from "@/lib/types"
 import type { SearchTitleResult } from "@/lib/types"
-import { confirmGoogleBookIngest, getGoogleIngestSuggestion } from "@/app/actions/track-reading"
+import { confirmGoogleBookIngest, getGoogleIngestSuggestion } from "@/app/actions/google-ingest"
 import { toast } from "sonner"
 import { sanitizeDescriptionHtml } from "@/lib/sanitize"
 import { cn } from "@/lib/utils"
@@ -65,13 +65,12 @@ function Cover({
         sizes="(max-width: 640px) 100vw, 192px"
         className="object-cover"
         referrerPolicy="no-referrer"
-        onLoadingComplete={() => onStatusChange?.("loaded")}
+        onLoad={() => onStatusChange?.("loaded")}
         onError={() => {
           failedCoverSrcs.add(normalized)
           setFailed(true)
           onStatusChange?.("failed")
         }}
-        unoptimized
       />
     </div>
   )
@@ -214,10 +213,9 @@ export function TrackReadingResultList({
         selectedGenres,
         selectedWorkIds,
         requiresWorkSelection: requiresWorkConfirmation,
-        algorithmSuggestedGenres: suggestedGenres,
         workCandidates,
       })
-      toast.success(res.autoApproved ? "Title ingested and verified" : "Title ingested")
+      toast.success(res.autoApproved ? "Title ingested and approved" : "Title ingested")
 
       setIngestedVolumeIds((prev) => {
         const next = new Set(prev)
@@ -509,7 +507,8 @@ export function TrackReadingResultList({
                   autoDupeMatchCount === 0 &&
                   bookwormSuggestedMatchCount === 0 ? (
                     <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
-                      No likely duplicates were found. You can safely continue with ingest.
+                      Bookworm did not find a strong duplicate candidate. External metadata can be incomplete,
+                      so this title may still be reviewed after ingest.
                     </div>
                   ) : null}
                 </div>

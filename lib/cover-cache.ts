@@ -2,6 +2,7 @@ import { fetchOpenLibraryWorkCoverCandidatesByWorkId } from "@/lib/open-library"
 import { normalizeWorkIdList, normalizeWorkSnapshots, type CoverChoice, type WorkSnapshot } from "@/lib/suggestions"
 
 const BOOK_COVERS_BUCKET = "book-covers"
+const MAX_OPEN_LIBRARY_COVER_CHOICES_PER_WORK = 8
 
 type SupabaseClientLike = {
   from: (table: string) => any
@@ -158,6 +159,12 @@ function dedupeCoverChoices(choices: CoverChoice[]): CoverChoice[] {
   return result
 }
 
+function appendCoverChoice(map: Map<string, CoverChoice[]>, choice: CoverChoice) {
+  const list = map.get(choice.workId) ?? []
+  list.push(choice)
+  map.set(choice.workId, dedupeCoverChoices(list))
+}
+
 export async function getCoverChoicesForSelectedWorks(
   admin: SupabaseClientLike,
   input: {
@@ -191,55 +198,56 @@ export async function getCoverChoicesForSelectedWorks(
     choicesByWorkId.set(choice.workId, list)
   }
 
-  const missingWorkIds = workIds.filter((workId) => (choicesByWorkId.get(workId) ?? []).length === 0)
+  const workIdsMissingOpenLibrary = workIds.filter((workId) => {
+    return !(choicesByWorkId.get(workId) ?? []).some((choice) => choice.source === "openlibrary")
+  })
+  const workIdsMissingGoogle = workIds.filter((workId) => {
+    return !(choicesByWorkId.get(workId) ?? []).some((choice) => choice.source === "google")
+  })
 
-  if (missingWorkIds.length > 0) {
+  const googleThumbByWorkId = new Map<string, string>()
+  if (workIdsMissingGoogle.length > 0) {
     const { data: editionRows } = await admin
       .from("editions")
       .select("work_id,raw_google_data")
-      .in("work_id", missingWorkIds)
+      .in("work_id", workIdsMissingGoogle)
 
-    const googleThumbByWorkId = new Map<string, string>()
     for (const row of editionRows ?? []) {
       const workId = typeof (row as any)?.work_id === "string" ? (row as any).work_id.trim() : ""
       if (!workId || googleThumbByWorkId.has(workId)) continue
       const thumbnailUrl = normalizeGoogleThumbnailUrl((row as any)?.raw_google_data)
       if (thumbnailUrl) googleThumbByWorkId.set(workId, thumbnailUrl)
     }
+  }
 
-    for (const workId of missingWorkIds) {
-      const createdChoices: CoverChoice[] = []
-      const coverCandidates = await fetchOpenLibraryWorkCoverCandidatesByWorkId(workId)
+  for (const workId of workIdsMissingOpenLibrary) {
+    const coverCandidates = await fetchOpenLibraryWorkCoverCandidatesByWorkId(workId)
+    const limitedCoverCandidates = coverCandidates.slice(0, MAX_OPEN_LIBRARY_COVER_CHOICES_PER_WORK)
 
-      for (const coverCandidate of coverCandidates) {
-        const choice = await cacheOpenLibraryCover(admin, {
-          workId,
-          sourceCoverKey: coverCandidate.sourceCoverKey,
-          remoteUrl: coverCandidate.remoteUrl,
-        })
-        if (choice) createdChoices.push(choice)
-      }
+    for (const coverCandidate of limitedCoverCandidates) {
+      const choice = await cacheOpenLibraryCover(admin, {
+        workId,
+        sourceCoverKey: coverCandidate.sourceCoverKey,
+        remoteUrl: coverCandidate.remoteUrl,
+      })
+      if (choice) appendCoverChoice(choicesByWorkId, choice)
+    }
+  }
 
-      if (createdChoices.length === 0) {
-        const googleThumbnailUrl = googleThumbByWorkId.get(workId)
-        const snapshotCoverUrl = snapshotByWorkId.get(workId)?.coverUrl ?? null
-        const fallbackGoogleUrl = googleThumbnailUrl ?? (snapshotCoverUrl?.includes("google") ? snapshotCoverUrl : null)
-        if (fallbackGoogleUrl) {
-           const choice = await cacheGoogleThumbnailReference(admin, {
-             workId,
-            thumbnailUrl: fallbackGoogleUrl,
-           })
-           if (choice) createdChoices.push(choice)
-         }
-       }
+  for (const workId of workIdsMissingGoogle) {
+    const googleThumbnailUrl = googleThumbByWorkId.get(workId)
+    const snapshotCoverUrl = snapshotByWorkId.get(workId)?.coverUrl ?? null
+    const fallbackGoogleUrl = googleThumbnailUrl ?? (snapshotCoverUrl?.includes("google") ? snapshotCoverUrl : null)
+    if (!fallbackGoogleUrl) continue
 
-       if (createdChoices.length > 0) {
-         choicesByWorkId.set(workId, createdChoices)
-       }
-     }
-   }
+    const choice = await cacheGoogleThumbnailReference(admin, {
+      workId,
+      thumbnailUrl: fallbackGoogleUrl,
+    })
+    if (choice) appendCoverChoice(choicesByWorkId, choice)
+  }
 
-   return dedupeCoverChoices(
-     workIds.flatMap((workId) => choicesByWorkId.get(workId) ?? [])
-   )
- }
+  return dedupeCoverChoices(
+    workIds.flatMap((workId) => choicesByWorkId.get(workId) ?? [])
+  )
+}

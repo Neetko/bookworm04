@@ -251,28 +251,55 @@ export const userProfiles = pgTable(
   })
 )
 
-export const suggestions = pgTable("suggestions", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  titleId: uuid("title_id")
-    .references(() => titles.id, { onDelete: "cascade" })
-    .notNull(),
-  suggestedGenres: text("suggested_genres").array(),
-  algorithmSuggestedGenres: text("algorithm_suggested_genres").array(),
-  suggestedSelectedWorkIds: text("suggested_selected_work_ids").array(),
-  suggestedSelectedWorkSnapshots: jsonb("suggested_selected_work_snapshots"),
-  adminFinalGenres: text("admin_final_genres").array(),
-  adminFinalSelectedWorkIds: text("admin_final_selected_work_ids").array(),
-  adminFinalSelectedWorkSnapshots: jsonb("admin_final_selected_work_snapshots"),
-  adminFinalCoverSelection: jsonb("admin_final_cover_selection"),
-  adminReviewedAt: timestamp("admin_reviewed_at", { withTimezone: true }),
-  adminReviewedByProfileId: uuid("admin_reviewed_by_profile_id")
-    .references(() => userProfiles.id, { onDelete: "set null" }),
-  suggestedByProfileId: uuid("suggested_by_profile_id")
-    .references(() => userProfiles.id, { onDelete: "set null" }),
-  status: suggestionStatus("status").default("pending").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
-})
+export const googleIngestPreviews = pgTable(
+  "google_ingest_previews",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    profileId: uuid("profile_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    volumeId: text("volume_id").notNull(),
+    payload: jsonb("payload").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+  },
+  (t: any) => ({
+    googleIngestPreviewsProfileExpiryIdx: index("google_ingest_previews_profile_expiry_idx").on(
+      t.profileId,
+      t.expiresAt
+    ),
+  })
+)
+
+export const suggestions = pgTable(
+  "suggestions",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    titleId: uuid("title_id")
+      .references(() => titles.id, { onDelete: "cascade" })
+      .notNull(),
+    suggestedGenres: text("suggested_genres").array(),
+    algorithmSuggestedGenres: text("algorithm_suggested_genres").array(),
+    suggestedSelectedWorkIds: text("suggested_selected_work_ids").array(),
+    suggestedSelectedWorkSnapshots: jsonb("suggested_selected_work_snapshots"),
+    adminFinalGenres: text("admin_final_genres").array(),
+    adminFinalSelectedWorkIds: text("admin_final_selected_work_ids").array(),
+    adminFinalSelectedWorkSnapshots: jsonb("admin_final_selected_work_snapshots"),
+    adminFinalCoverSelection: jsonb("admin_final_cover_selection"),
+    adminReviewedAt: timestamp("admin_reviewed_at", { withTimezone: true }),
+    adminReviewedByProfileId: uuid("admin_reviewed_by_profile_id")
+      .references(() => userProfiles.id, { onDelete: "set null" }),
+    suggestedByProfileId: uuid("suggested_by_profile_id")
+      .references(() => userProfiles.id, { onDelete: "set null" }),
+    status: suggestionStatus("status").default("pending").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t) => ({
+    suggestionsStatusCreatedAtIdx: index("suggestions_status_created_at_idx").on(t.status, t.createdAt),
+  })
+)
 
 export const suggestionWorkMatches = pgTable(
   "suggestion_work_matches",

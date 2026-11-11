@@ -1,3 +1,5 @@
+import { fetchExternalJson } from "@/lib/external-json"
+
 export type OpenLibraryMetadata = {
   lcClassifications: string[]
   deweyDecimalClass: string[]
@@ -118,24 +120,15 @@ async function fetchOpenLibraryWorkIdByIsbn(isbn: string): Promise<{ workId: str
   url.searchParams.set("fields", "key,isbn")
   url.searchParams.set("limit", "5")
 
-  try {
-    const res = await fetch(url.toString(), { cache: "no-store" })
-    if (!res.ok) {
-      console.warn("Open Library search failed", res.status)
-      return { workId: null, isbns: [] }
-    }
+  const json = await fetchExternalJson<{ docs?: Array<{ key?: string; isbn?: string[] }> }>(url, {
+    source: "Open Library ISBN search",
+  })
+  const selected = json?.docs?.find((entry) => entry?.key) ?? json?.docs?.[0]
+  if (!selected) return { workId: null, isbns: [] }
 
-    const json = (await res.json()) as { docs?: Array<{ key?: string; isbn?: string[] }> }
-    const selected = json?.docs?.find((entry) => entry?.key) ?? json?.docs?.[0]
-    if (!selected) return { workId: null, isbns: [] }
-
-    return {
-      workId: normalizeWorkOlid(selected.key) ?? null,
-      isbns: normalizeIsbns(selected.isbn),
-    }
-  } catch (error) {
-    console.warn("Open Library search failed (network/parse)", error)
-    return { workId: null, isbns: [] }
+  return {
+    workId: normalizeWorkOlid(selected.key) ?? null,
+    isbns: normalizeIsbns(selected.isbn),
   }
 }
 
@@ -146,26 +139,17 @@ async function fetchOpenLibraryEditionsByWorkId(workId: string): Promise<OpenLib
   const url = new URL(`https://openlibrary.org/works/${encodeURIComponent(cleaned)}/editions.json`)
   url.searchParams.set("limit", "50")
 
-  try {
-    const res = await fetch(url.toString(), { cache: "no-store" })
-    if (!res.ok) {
-      console.warn("Open Library editions fetch failed", res.status)
-      return []
-    }
-
-    const json = (await res.json()) as { entries?: any[] }
-    const entries = json?.entries ?? []
-    return entries.map((entry) => ({
-      isbn10: normalizeIsbns(entry?.isbn_10),
-      isbn13: normalizeIsbns(entry?.isbn_13),
-      physicalFormat: typeof entry?.physical_format === "string" ? entry.physical_format : null,
-      physicalDescription: typeof entry?.physical_description === "string" ? entry.physical_description : null,
-      physicalDimensions: typeof entry?.physical_dimensions === "string" ? entry.physical_dimensions : null,
-    }))
-  } catch (error) {
-    console.warn("Open Library editions fetch failed (network/parse)", error)
-    return []
-  }
+  const json = await fetchExternalJson<{ entries?: any[] }>(url, {
+    source: "Open Library editions fetch",
+  })
+  const entries = json?.entries ?? []
+  return entries.map((entry) => ({
+    isbn10: normalizeIsbns(entry?.isbn_10),
+    isbn13: normalizeIsbns(entry?.isbn_13),
+    physicalFormat: typeof entry?.physical_format === "string" ? entry.physical_format : null,
+    physicalDescription: typeof entry?.physical_description === "string" ? entry.physical_description : null,
+    physicalDimensions: typeof entry?.physical_dimensions === "string" ? entry.physical_dimensions : null,
+  }))
 }
 
 export async function fetchOpenLibraryWorkCoverCandidatesByWorkId(workId: string): Promise<OpenLibraryWorkCoverCandidate[]> {
@@ -177,16 +161,19 @@ export async function fetchOpenLibraryWorkCoverCandidatesByWorkId(workId: string
   editionsUrl.searchParams.set("limit", "100")
 
   try {
-    const [workRes, editionsRes] = await Promise.all([
-      fetch(workUrl.toString(), { cache: "no-store" }),
-      fetch(editionsUrl.toString(), { cache: "no-store" }),
+    const [workJson, editionsJson] = await Promise.all([
+      fetchExternalJson<Record<string, unknown>>(workUrl, {
+        source: "Open Library work cover fetch",
+      }),
+      fetchExternalJson<{ entries?: Array<Record<string, unknown>> }>(editionsUrl, {
+        source: "Open Library edition cover fetch",
+      }),
     ])
 
     const candidates: OpenLibraryWorkCoverCandidate[] = []
     const seen = new Set<string>()
 
-    if (workRes.ok) {
-      const workJson = (await workRes.json()) as Record<string, unknown>
+    if (workJson) {
       for (const coverId of normalizeCoverIds(workJson.covers)) {
         const sourceCoverKey = `ol-${coverId}`
         if (seen.has(sourceCoverKey)) continue
@@ -203,8 +190,7 @@ export async function fetchOpenLibraryWorkCoverCandidatesByWorkId(workId: string
       }
     }
 
-    if (editionsRes.ok) {
-      const editionsJson = (await editionsRes.json()) as { entries?: Array<Record<string, unknown>> }
+    if (editionsJson) {
       for (const entry of editionsJson.entries ?? []) {
         const editionKey = normalizeEditionKey(entry.key)
         for (const coverId of normalizeCoverIds(entry.covers)) {
@@ -277,13 +263,9 @@ export async function fetchOpenLibraryWorkCandidatesByTitleAuthor(options: {
   url.searchParams.set("limit", String(options.limit ?? 15))
 
   try {
-    const res = await fetch(url.toString(), { cache: "no-store" })
-    if (!res.ok) {
-      console.warn("Open Library search failed", res.status)
-      return []
-    }
-
-    const json = (await res.json()) as { docs?: Array<any> }
+    const json = await fetchExternalJson<{ docs?: Array<any> }>(url, {
+      source: "Open Library work search",
+    })
     const docs = json?.docs ?? []
     return docs
       .map((doc) => ({
@@ -311,31 +293,22 @@ export async function fetchOpenLibraryMetadataByIsbn(isbn: string): Promise<Open
   url.searchParams.set("format", "json")
   url.searchParams.set("jscmd", "data")
 
-  try {
-    const res = await fetch(url.toString(), { cache: "no-store" })
-    if (!res.ok) {
-      console.warn("Open Library metadata fetch failed", res.status)
-      return null
-    }
+  const json = await fetchExternalJson<Record<string, any>>(url, {
+    source: "Open Library metadata fetch",
+  })
+  const record = json?.[`ISBN:${cleaned}`]
+  if (!record) return null
 
-    const json = (await res.json()) as Record<string, any>
-    const record = json?.[`ISBN:${cleaned}`]
-    if (!record) return null
+  const classifications = record.classifications ?? {}
+  const lcClassifications = normalizeArray(classifications.lc_classifications)
+  const deweyDecimalClass = normalizeArray(classifications.dewey_decimal_class)
+  const subjects = normalizeArray(record.subjects)
+  const description = normalizeDescription(record.description)
 
-    const classifications = record.classifications ?? {}
-    const lcClassifications = normalizeArray(classifications.lc_classifications)
-    const deweyDecimalClass = normalizeArray(classifications.dewey_decimal_class)
-    const subjects = normalizeArray(record.subjects)
-    const description = normalizeDescription(record.description)
-
-    return {
-      lcClassifications,
-      deweyDecimalClass,
-      subjects,
-      description,
-    }
-  } catch (error) {
-    console.warn("Open Library metadata fetch failed (network/parse)", error)
-    return null
+  return {
+    lcClassifications,
+    deweyDecimalClass,
+    subjects,
+    description,
   }
 }

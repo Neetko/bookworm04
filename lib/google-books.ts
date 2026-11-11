@@ -1,3 +1,5 @@
+import { fetchExternalJson } from "@/lib/external-json"
+
 export interface RawGoogleBook {
   id: string
   volumeInfo?: {
@@ -283,19 +285,10 @@ async function fetchGoogleBooksRaw(query: string): Promise<RawGoogleBook[]> {
   url.searchParams.set("maxResults", "20")
   if (apiKey) url.searchParams.set("key", apiKey)
 
-  try {
-    const res = await fetch(url.toString(), { cache: "no-store" })
-    if (!res.ok) {
-      console.warn("Google Books search failed", res.status)
-      return []
-    }
-
-    const json = (await res.json()) as { items?: RawGoogleBook[] }
-    return json?.items ?? []
-  } catch (error) {
-    console.warn("Google Books search failed (network/parse)", error)
-    return []
-  }
+  const json = await fetchExternalJson<{ items?: RawGoogleBook[] }>(url, {
+    source: "Google Books search",
+  })
+  return json?.items ?? []
 }
 
 type OpenLibraryData = {
@@ -384,19 +377,10 @@ async function fetchOpenLibrarySearchByIsbn(isbns: string[]): Promise<OpenLibrar
   url.searchParams.set("fields", "key,title,author_name,author_key,first_publish_year,isbn,cover_i")
   url.searchParams.set("limit", "20")
 
-  try {
-    const res = await fetch(url.toString(), { cache: "no-store" })
-    if (!res.ok) {
-      console.warn("Open Library search failed", res.status)
-      return []
-    }
-
-    const json = (await res.json()) as OpenLibrarySearchResponse
-    return json?.docs ?? []
-  } catch (error) {
-    console.warn("Open Library search failed (network/parse)", error)
-    return []
-  }
+  const json = await fetchExternalJson<OpenLibrarySearchResponse>(url, {
+    source: "Open Library ISBN search",
+  })
+  return json?.docs ?? []
 }
 
 function buildOpenLibraryDataFromSearchDoc(doc: OpenLibrarySearchDoc): OpenLibraryData | null {
@@ -656,19 +640,10 @@ export async function getGoogleBook(volumeId: string): Promise<GoogleBook | null
   if (apiKey) url.searchParams.set("key", apiKey)
   url.searchParams.set("projection", "full")
 
-  try {
-    const res = await fetch(url.toString(), { cache: "no-store" })
-    if (!res.ok) {
-      console.warn("Google Books volume fetch failed", res.status)
-      return null
-    }
-
-    const json = (await res.json()) as RawGoogleBook
-    return mapVolume(json)
-  } catch (error) {
-    console.warn("Google Books volume fetch failed (network/parse)", error)
-    return null
-  }
+  const json = await fetchExternalJson<RawGoogleBook>(url, {
+    source: "Google Books volume fetch",
+  })
+  return json ? mapVolume(json) : null
 }
 
 export async function getGoogleBookDetails(volumeId: string): Promise<GoogleBookDetails | null> {
@@ -680,26 +655,19 @@ export async function getGoogleBookDetails(volumeId: string): Promise<GoogleBook
   if (apiKey) url.searchParams.set("key", apiKey)
   url.searchParams.set("projection", "full")
 
-  try {
-    const res = await fetch(url.toString(), { cache: "no-store" })
-    if (!res.ok) {
-      console.warn("Google Books volume fetch failed", res.status)
-      return null
-    }
+  const raw = await fetchExternalJson<RawGoogleBook>(url, {
+    source: "Google Books volume fetch",
+  })
+  if (!raw) return null
 
-    const raw = (await res.json()) as RawGoogleBook
-    const refined = mapVolume(raw)
-    if (!refined) return null
+  const refined = mapVolume(raw)
+  if (!refined) return null
 
-    return {
-      refined,
-      raw,
-      identifiers: extractIsbns(raw.volumeInfo?.industryIdentifiers),
-      dimensions: raw.volumeInfo?.dimensions ?? null,
-      saleability: raw.saleInfo?.saleability ?? null,
-    }
-  } catch (error) {
-    console.warn("Google Books volume fetch failed (network/parse)", error)
-    return null
+  return {
+    refined,
+    raw,
+    identifiers: extractIsbns(raw.volumeInfo?.industryIdentifiers),
+    dimensions: raw.volumeInfo?.dimensions ?? null,
+    saleability: raw.saleInfo?.saleability ?? null,
   }
 }
