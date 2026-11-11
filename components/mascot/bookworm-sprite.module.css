@@ -1,0 +1,244 @@
+.sprite {
+  display: block;
+  position: relative;
+  flex: none;
+  width: var(--bookworm-width);
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.sm { --bookworm-width: 96px; }
+.md { --bookworm-width: 160px; }
+.lg { --bookworm-width: clamp(200px, 20vw, 224px); }
+
+.shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 4.167%;
+  width: 24%;
+  height: 1.25%;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.24);
+  filter: blur(1px);
+  transform: translate(-50%, 50%);
+}
+
+.atlas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: none;
+  image-rendering: pixelated;
+  pointer-events: none;
+  user-select: none;
+}
+
+.motionLayer {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 95.833333%;
+  backface-visibility: hidden;
+}
+
+.idleAtlas {
+  width: 400%;
+  height: 100%;
+}
+
+.excitedAtlas {
+  width: 600%;
+  height: 300%;
+}
+
+.ratingAtlas {
+  width: 400%;
+  height: 100%;
+  transform: translate(0%, 0%);
+}
+
+.poorRecoilAtlas {
+  opacity: 0;
+}
+
+.poorGazeAtlas {
+  opacity: 1;
+  transform: translate(-50%, 0%);
+}
+
+.sprite[data-animation="rating"][data-rating-band="3-4"] .ratingAtlas {
+  transform: translate(-75%, 0%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sprite[data-animated="true"][data-animation="idle"][data-body-motion="true"] .motionLayer {
+    animation: bookworm-idle-sway 10.8s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+    will-change: transform;
+  }
+
+  .sprite[data-animated="true"][data-animation="idle"] .idleAtlas {
+    animation: bookworm-idle-blink 10.8s step-end infinite;
+  }
+
+  .sprite[data-animated="true"][data-animation="excited"] .excitedAtlas {
+    animation: bookworm-excited 3.6s step-end infinite;
+  }
+
+  .sprite[data-animated="true"][data-animation="rating"][data-rating-band="1-2"] .poorRecoilAtlas {
+    opacity: 1;
+    animation:
+      bookworm-poor-recoil 600ms step-end 1 both,
+      bookworm-poor-recoil-hide 1ms step-end 600ms 1 forwards;
+    will-change: transform, opacity;
+  }
+
+  .sprite[data-animated="true"][data-animation="rating"][data-rating-band="1-2"] .poorGazeAtlas {
+    opacity: 0;
+    animation:
+      bookworm-poor-gaze 3400ms step-end 600ms infinite both,
+      bookworm-poor-gaze-show 1ms step-end 600ms 1 forwards;
+    will-change: transform, opacity;
+  }
+
+  .sprite[data-animated="true"][data-animation="rating"][data-rating-band="3-4"] .ratingAtlas {
+    animation: bookworm-bored-loop 3600ms step-end infinite both;
+    will-change: transform;
+  }
+
+  .sprite[data-animated="true"][data-animation="rating"][data-rating-band="5-6"] .ratingAtlas {
+    animation: bookworm-average-loop 2600ms step-end infinite both;
+    will-change: transform;
+  }
+
+  .sprite[data-animated="true"][data-animation="rating"][data-rating-band="7-8"] .ratingAtlas {
+    animation: bookworm-great-loop 3400ms step-end infinite both;
+    will-change: transform;
+  }
+
+  .sprite[data-animated="true"][data-animation="rating"][data-rating-band="9-10"] .excitedAtlas {
+    animation: bookworm-excited 3.6s step-end infinite;
+  }
+}
+
+/* One stable drawing moves continuously around the registered foot anchor.
+   The ±0.45° arc is roughly 80% shorter than the discarded drawn-frame bob. */
+@keyframes bookworm-idle-sway {
+  0%, 7.407407% { transform: rotate(0deg); }
+  12.962963%, 23.148148% { transform: rotate(-0.45deg); }
+  28.703704%, 33.333333% { transform: rotate(0deg); }
+  38.888889%, 49.074074% { transform: rotate(0.45deg); }
+  54.629630%, 100% { transform: rotate(0deg); }
+}
+
+/* Atlas changes are limited to the eye patch; every body pixel stays fixed. */
+@keyframes bookworm-idle-blink {
+  0%, 72.222222% { transform: translate(0%, 0%); }
+  72.222223%, 72.870370% { transform: translate(-25%, 0%); }
+  72.870371%, 73.703704% { transform: translate(-50%, 0%); }
+  73.703705%, 74.351852% { transform: translate(-75%, 0%); }
+  74.351853%, 100% { transform: translate(0%, 0%); }
+}
+
+/* Poor: recoil once, then remain fully lowered while alternating gaze only. */
+@keyframes bookworm-poor-recoil {
+  0%, 33.333333% { transform: translate(0%, 0%); }
+  33.333334%, 66.666666% { transform: translate(-25%, 0%); }
+  66.666667%, 100% { transform: translate(-50%, 0%); }
+}
+
+@keyframes bookworm-poor-recoil-hide {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes bookworm-poor-gaze {
+  0%, 35.294117% { transform: translate(-50%, 0%); }
+  35.294118%, 73.529411% { transform: translate(-75%, 0%); }
+  73.529412%, 100% { transform: translate(-50%, 0%); }
+}
+
+@keyframes bookworm-poor-gaze-show {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Bored: ease into the deepest sleep frame, then reverse the authored poses. */
+@keyframes bookworm-bored-loop {
+  0%, 16.666666% { transform: translate(0%, 0%); }
+  16.666667%, 25% { transform: translate(-25%, 0%); }
+  25.000001%, 36.111111% { transform: translate(-50%, 0%); }
+  36.111112%, 63.888888% { transform: translate(-75%, 0%); }
+  63.888889%, 75% { transform: translate(-50%, 0%); }
+  75.000001%, 83.333333% { transform: translate(-25%, 0%); }
+  83.333334%, 100% { transform: translate(0%, 0%); }
+}
+
+/* Decent: nod through every authored pose, then return through the same path. */
+@keyframes bookworm-average-loop {
+  0%, 26.923076% { transform: translate(0%, 0%); }
+  26.923077%, 34.615384% { transform: translate(-25%, 0%); }
+  34.615385%, 44.230769% { transform: translate(-50%, 0%); }
+  44.230770%, 59.615384% { transform: translate(-75%, 0%); }
+  59.615385%, 69.230769% { transform: translate(-50%, 0%); }
+  69.230770%, 76.923076% { transform: translate(-25%, 0%); }
+  76.923077%, 100% { transform: translate(0%, 0%); }
+}
+
+/* Great: the musical chirp travels outward, holds, vanishes, and resolves into a smile. */
+@keyframes bookworm-great-loop {
+  0%, 27.941176% { transform: translate(0%, 0%); }
+  27.941177%, 36.764705% { transform: translate(-25%, 0%); }
+  36.764706%, 47.058823% { transform: translate(-50%, 0%); }
+  47.058824%, 73.529411% { transform: translate(-75%, 0%); }
+  73.529412%, 82.352941% { transform: translate(-25%, 0%); }
+  82.352942%, 100% { transform: translate(0%, 0%); }
+}
+
+/* Each step selects a distinct authored drawing from the 6×3 atlas.
+   Translation moves the sheet behind a fixed viewport; it never distorts a pose.
+   Closed expression → toothy expression → mixed expression, 42 playback frames. */
+@keyframes bookworm-excited {
+  0.000000% { transform: translate(-16.666667%, -33.333333%); }
+  2.380952% { transform: translate(-33.333333%, -33.333333%); }
+  4.761905% { transform: translate(-50.000000%, -33.333333%); }
+  7.142857% { transform: translate(-66.666667%, -33.333333%); }
+  9.523810% { transform: translate(-66.666667%, -33.333333%); }
+  11.904762% { transform: translate(-50.000000%, -33.333333%); }
+  14.285714% { transform: translate(-33.333333%, -33.333333%); }
+  16.666667% { transform: translate(-16.666667%, -33.333333%); }
+  19.047619% { transform: translate(-83.333333%, -33.333333%); }
+  21.428571% { transform: translate(0.000000%, -66.666667%); }
+  23.809524% { transform: translate(-16.666667%, -66.666667%); }
+  26.190476% { transform: translate(-16.666667%, -66.666667%); }
+  28.571429% { transform: translate(0.000000%, -66.666667%); }
+  30.952381% { transform: translate(-83.333333%, -33.333333%); }
+  33.333333% { transform: translate(0.000000%, 0.000000%); }
+  35.714286% { transform: translate(-16.666667%, 0.000000%); }
+  38.095238% { transform: translate(-33.333333%, 0.000000%); }
+  40.476190% { transform: translate(-50.000000%, 0.000000%); }
+  42.857143% { transform: translate(-50.000000%, 0.000000%); }
+  45.238095% { transform: translate(-33.333333%, 0.000000%); }
+  47.619048% { transform: translate(-16.666667%, 0.000000%); }
+  50.000000% { transform: translate(0.000000%, 0.000000%); }
+  52.380952% { transform: translate(-66.666667%, 0.000000%); }
+  54.761905% { transform: translate(-83.333333%, 0.000000%); }
+  57.142857% { transform: translate(0.000000%, -33.333333%); }
+  59.523810% { transform: translate(0.000000%, -33.333333%); }
+  61.904762% { transform: translate(-83.333333%, 0.000000%); }
+  64.285714% { transform: translate(-66.666667%, 0.000000%); }
+  66.666667% { transform: translate(0.000000%, 0.000000%); }
+  69.047619% { transform: translate(-33.333333%, -66.666667%); }
+  71.428571% { transform: translate(-50.000000%, -66.666667%); }
+  73.809524% { transform: translate(-66.666667%, -66.666667%); }
+  76.190476% { transform: translate(-66.666667%, -66.666667%); }
+  78.571429% { transform: translate(-50.000000%, -66.666667%); }
+  80.952381% { transform: translate(-33.333333%, -66.666667%); }
+  83.333333% { transform: translate(0.000000%, 0.000000%); }
+  85.714286% { transform: translate(-66.666667%, 0.000000%); }
+  88.095238% { transform: translate(-83.333333%, 0.000000%); }
+  90.476190% { transform: translate(0.000000%, -33.333333%); }
+  92.857143% { transform: translate(0.000000%, -33.333333%); }
+  95.238095% { transform: translate(-83.333333%, 0.000000%); }
+  97.619048% { transform: translate(-66.666667%, 0.000000%); }
+  100% { transform: translate(-16.666667%, -33.333333%); }
+}

@@ -1,0 +1,307 @@
+.composer {
+  margin-inline: -1.5rem;
+  padding: 1.5rem;
+  border-block: 1px solid color-mix(in oklab, var(--border) 78%, transparent);
+  background:
+    radial-gradient(circle at 92% 10%, color-mix(in oklab, var(--primary) 9%, transparent), transparent 28%),
+    color-mix(in oklab, var(--muted) 30%, transparent);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.eyebrow,
+.legend,
+.previewLabel {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.eyebrow {
+  margin-bottom: 0.4rem;
+  color: var(--primary);
+}
+
+.title {
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.readout {
+  display: grid;
+  justify-items: end;
+  min-width: 5.75rem;
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+}
+
+.readoutScore {
+  color: var(--foreground);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.readoutScore small {
+  margin-left: 0.12rem;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.readoutLabel {
+  margin-top: 0.35rem;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.ratingLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  align-items: stretch;
+  gap: 1.5rem;
+}
+
+.selector {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  margin-bottom: 0.75rem;
+}
+
+.scoreGrid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(2.25rem, 1fr));
+  gap: 0.35rem;
+}
+
+.scoreOption {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.scoreInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scoreFace {
+  position: relative;
+  display: grid;
+  min-height: 3.25rem;
+  place-items: center;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  border: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
+  border-radius: 0.45rem;
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 16%, transparent);
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms ease;
+}
+
+.scoreFace::after {
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0.3rem;
+  left: 0.35rem;
+  height: 2px;
+  border-radius: 1px;
+  background: transparent;
+  content: "";
+  transition: background-color 160ms ease;
+}
+
+.scoreOption[data-previewed="true"] .scoreFace {
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--primary) 12%, var(--background));
+  border-color: color-mix(in oklab, var(--primary) 48%, var(--border));
+}
+
+.scoreOption[data-previewed="true"] .scoreFace::after {
+  background: var(--primary);
+}
+
+.scoreOption[data-current="true"] .scoreFace {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 20%, transparent),
+    0 3px 0 color-mix(in oklab, var(--foreground) 20%, transparent);
+  transform: translateY(-2px);
+}
+
+.scoreOption[data-current="true"] .scoreFace::after {
+  background: color-mix(in oklab, var(--primary-foreground) 72%, transparent);
+}
+
+.scoreInput:focus-visible + .scoreFace {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+.scoreOption:active .scoreFace {
+  transform: translateY(1px) scale(0.98);
+}
+
+.scoreNumber {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.scaleLabels {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  margin-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.625rem;
+  letter-spacing: 0.04em;
+}
+
+.scaleLabels span:nth-child(2) { text-align: center; }
+.scaleLabels span:last-child { text-align: right; }
+
+.helper {
+  max-width: 58ch;
+  margin-top: 0.9rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.reactionStage {
+  position: relative;
+  display: grid;
+  min-height: 218px;
+  align-content: end;
+  justify-items: center;
+  padding: 2rem 0.5rem 0;
+  border-left: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+}
+
+.previewLabel {
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  letter-spacing: 0.11em;
+}
+
+.reactionCanvas {
+  display: flex;
+  min-height: 178px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.reviewField {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+}
+
+.reviewLabel {
+  display: block;
+  margin-bottom: 0.65rem;
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.saveNote {
+  max-width: 50ch;
+  color: var(--muted-foreground);
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .ratingLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .scoreGrid {
+    grid-template-columns: repeat(5, minmax(2.5rem, 1fr));
+    row-gap: 0.5rem;
+  }
+
+  .reactionStage {
+    min-height: 210px;
+    padding-top: 2.25rem;
+    border-top: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    border-left: 0;
+  }
+
+  .previewLabel {
+    left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .composer {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+  }
+
+  .header,
+  .footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .readout {
+    justify-items: start;
+  }
+
+  .footer button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scoreFace {
+    transition: none;
+  }
+}
