@@ -1,0 +1,63 @@
+{
+  "source": "public/mascot/rating-emotes/average/atlas.webp",
+  "palette": {
+    "blue": "#3b82f6",
+    "light-blue": "#06b6d4",
+    "green": "#22c55e",
+    "yellow": "#eab308",
+    "red": "#ef4444",
+    "purple": "#a855f7",
+    "hot-pink": "#ec4899"
+  },
+  "variants": [
+    {
+      "name": "blue",
+      "hex": "#3b82f6",
+      "recoloredPixels": 88942,
+      "atlas": "public/mascot/rating-emotes/average/atlas-blue.webp",
+      "still": "public/mascot/rating-emotes/average/neutral-blue.png"
+    },
+    {
+      "name": "light-blue",
+      "hex": "#06b6d4",
+      "recoloredPixels": 88942,
+      "atlas": "public/mascot/rating-emotes/average/atlas-light-blue.webp",
+      "still": "public/mascot/rating-emotes/average/neutral-light-blue.png"
+    },
+    {
+      "name": "green",
+      "hex": "#22c55e",
+      "recoloredPixels": 88942,
+      "atlas": "public/mascot/rating-emotes/average/atlas-green.webp",
+      "still": "public/mascot/rating-emotes/average/neutral-green.png"
+    },
+    {
+      "name": "yellow",
+      "hex": "#eab308",
+      "recoloredPixels": 88942,
+      "atlas": "public/mascot/rating-emotes/average/atlas-yellow.webp",
+      "still": "public/mascot/rating-emotes/average/neutral-yellow.png"
+    },
+    {
+      "name": "red",
+      "hex": "#ef4444",
+      "recoloredPixels": 88942,
+      "atlas": "public/mascot/rating-emotes/average/atlas-red.webp",
+      "still": "public/mascot/rating-emotes/average/neutral-red.png"
+    },
+    {
+      "name": "purple",
+      "hex": "#a855f7",
+      "recoloredPixels": 88942,
+      "atlas": "public/mascot/rating-emotes/average/atlas-purple.webp",
+      "still": "public/mascot/rating-emotes/average/neutral-purple.png"
+    },
+    {
+      "name": "hot-pink",
+      "hex": "#ec4899",
+      "recoloredPixels": 88942,
+      "atlas": "public/mascot/rating-emotes/average/atlas-hot-pink.webp",
+      "still": "public/mascot/rating-emotes/average/neutral-hot-pink.png"
+    }
+  ]
+}

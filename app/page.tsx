@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { CoverImage } from "@/components/cover-image"
+import { GuestWelcomeMascot } from "@/components/mascot/guest-welcome-mascot"
 
 export default async function HomePage() {
   const supabase = await createServerClient()
@@ -369,21 +370,39 @@ export default async function HomePage() {
       <Navigation />
 
       {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center">
-          <h1 className="text-5xl font-bold text-foreground mb-6">Welcome! Ready to start reading?</h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Discover your next favorite book, share reviews with fellow readers, and build your personal library of
-            literary adventures.
-          </p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] lg:gap-16">
+          <div className="text-center lg:text-left">
+            <p className="font-ui mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+              Your next chapter starts here
+            </p>
+            <h1 className="text-balance text-4xl font-bold leading-[0.98] tracking-[-0.035em] text-foreground sm:text-5xl lg:text-6xl">
+              Keep your reading life in one place.
+            </h1>
+            <p className="font-ui mx-auto mt-6 max-w-[58ch] text-base leading-7 text-muted-foreground sm:text-lg lg:mx-0">
+              Find your next title, keep a thoughtful reading record, and trade recommendations with people who care
+              about books as much as you do.
+            </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Button size="lg" asChild className="text-lg px-8 py-3">
-              <Link href="/search-titles">Browse Library</Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild className="text-lg px-8 py-3">
-              <Link href="/auth">Join Now</Link>
-            </Button>
+            <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row lg:justify-start">
+              <Button size="lg" asChild className="text-lg px-8 py-3">
+                <Link href="/search-titles">Explore titles</Link>
+              </Button>
+              <Button size="lg" variant="outline" asChild className="text-lg px-8 py-3">
+                <Link href="/auth">Create an account</Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="relative mx-auto flex min-h-[350px] w-full max-w-md items-end justify-center overflow-hidden rounded-[1.75rem] border border-border/70 bg-card px-5 pt-5 shadow-lg sm:min-h-[410px] sm:px-8 sm:pt-8">
+            <div aria-hidden="true" className="absolute inset-x-7 top-7 border-t border-dashed border-border/70" />
+            <div aria-hidden="true" className="absolute left-7 top-7 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" />
+            <div aria-hidden="true" className="absolute right-7 top-7 h-2 w-2 translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" />
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-muted/50" aria-hidden="true" />
+            <GuestWelcomeMascot />
+            <p className="font-ui absolute left-5 top-4 rounded-md border border-border bg-background/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground shadow-sm">
+              Meet Bookworm
+            </p>
           </div>
         </div>
 

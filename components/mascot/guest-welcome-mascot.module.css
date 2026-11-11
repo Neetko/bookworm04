@@ -1,0 +1,144 @@
+.stage {
+  position: relative;
+  width: min(100%, 430px);
+  height: clamp(320px, 40vw, 390px);
+  isolation: isolate;
+}
+
+.mascot,
+.toothyFrame {
+  position: absolute;
+  right: 50%;
+  bottom: 0;
+  width: clamp(200px, 20vw, 224px);
+  transform: translateX(50%);
+}
+
+.mascot {
+  z-index: 1;
+}
+
+.toothyFrame {
+  z-index: 2;
+  height: auto;
+  opacity: 0;
+  image-rendering: pixelated;
+  pointer-events: none;
+  user-select: none;
+}
+
+.bubble {
+  --bubble-surface: var(--popover);
+  --bubble-ink: var(--popover-foreground);
+
+  position: absolute;
+  top: clamp(52px, 7vw, 70px);
+  left: clamp(8px, 5vw, 32px);
+  z-index: 3;
+  max-width: 194px;
+  padding: 10px 14px 11px 17px;
+  color: var(--bubble-ink);
+  background: var(--bubble-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px 12px 3px 12px;
+  box-shadow: 4px 4px 0 color-mix(in oklab, var(--foreground) 14%, transparent);
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  opacity: 0;
+  transform: translate3d(5px, 4px, 0) scale(0.97);
+  transform-origin: 100% 100%;
+}
+
+.bubble::before {
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 7px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--primary);
+  content: "";
+}
+
+.bubble::after {
+  position: absolute;
+  right: -6px;
+  bottom: 8px;
+  width: 10px;
+  height: 10px;
+  background: var(--bubble-surface);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  content: "";
+  transform: rotate(-45deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toothyFrame {
+    animation: guest-welcome-toothy 6.2s cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+    will-change: opacity;
+  }
+
+  .bubbleFirst {
+    animation: guest-welcome-first 6.2s cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+  }
+
+  .bubbleSecond {
+    animation: guest-welcome-second 6.2s cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubbleSecond {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes guest-welcome-toothy {
+  0%, 16.129032% { opacity: 0; }
+  19.354839%, 40.322581% { opacity: 1; }
+  44.354839%, 100% { opacity: 0; }
+}
+
+@keyframes guest-welcome-first {
+  0%, 16.129032% {
+    opacity: 0;
+    transform: translate3d(5px, 4px, 0) scale(0.97);
+  }
+  19.354839%, 40.322581% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  44.354839%, 100% {
+    opacity: 0;
+    transform: translate3d(-2px, -1px, 0) scale(0.985);
+  }
+}
+
+@keyframes guest-welcome-second {
+  0%, 43.548387% {
+    opacity: 0;
+    transform: translate3d(5px, 4px, 0) scale(0.97);
+  }
+  47.580645%, 84.677419% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  91.129032%, 100% {
+    opacity: 0;
+    transform: translate3d(-2px, -1px, 0) scale(0.985);
+  }
+}
+
+@media (max-width: 420px) {
+  .bubble {
+    top: 40px;
+    left: 0;
+    max-width: 172px;
+    font-size: 12px;
+  }
+}

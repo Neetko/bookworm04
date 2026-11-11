@@ -1,0 +1,63 @@
+{
+  "source": "public/mascot/drawn-idle-rectangular/atlas.webp",
+  "palette": {
+    "blue": "#3b82f6",
+    "light-blue": "#06b6d4",
+    "green": "#22c55e",
+    "yellow": "#eab308",
+    "red": "#ef4444",
+    "purple": "#a855f7",
+    "hot-pink": "#ec4899"
+  },
+  "variants": [
+    {
+      "name": "blue",
+      "hex": "#3b82f6",
+      "recoloredPixels": 414909,
+      "atlas": "public/mascot/drawn-idle-rectangular/atlas-blue.webp",
+      "still": "public/mascot/drawn-idle-rectangular/neutral-blue.png"
+    },
+    {
+      "name": "light-blue",
+      "hex": "#06b6d4",
+      "recoloredPixels": 414909,
+      "atlas": "public/mascot/drawn-idle-rectangular/atlas-light-blue.webp",
+      "still": "public/mascot/drawn-idle-rectangular/neutral-light-blue.png"
+    },
+    {
+      "name": "green",
+      "hex": "#22c55e",
+      "recoloredPixels": 414909,
+      "atlas": "public/mascot/drawn-idle-rectangular/atlas-green.webp",
+      "still": "public/mascot/drawn-idle-rectangular/neutral-green.png"
+    },
+    {
+      "name": "yellow",
+      "hex": "#eab308",
+      "recoloredPixels": 414909,
+      "atlas": "public/mascot/drawn-idle-rectangular/atlas-yellow.webp",
+      "still": "public/mascot/drawn-idle-rectangular/neutral-yellow.png"
+    },
+    {
+      "name": "red",
+      "hex": "#ef4444",
+      "recoloredPixels": 414909,
+      "atlas": "public/mascot/drawn-idle-rectangular/atlas-red.webp",
+      "still": "public/mascot/drawn-idle-rectangular/neutral-red.png"
+    },
+    {
+      "name": "purple",
+      "hex": "#a855f7",
+      "recoloredPixels": 414909,
+      "atlas": "public/mascot/drawn-idle-rectangular/atlas-purple.webp",
+      "still": "public/mascot/drawn-idle-rectangular/neutral-purple.png"
+    },
+    {
+      "name": "hot-pink",
+      "hex": "#ec4899",
+      "recoloredPixels": 414909,
+      "atlas": "public/mascot/drawn-idle-rectangular/atlas-hot-pink.webp",
+      "still": "public/mascot/drawn-idle-rectangular/neutral-hot-pink.png"
+    }
+  ]
+}
