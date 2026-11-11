@@ -5,6 +5,7 @@ import { normalizeReferenceIsbns } from "@/lib/reference-data"
 
 export type TitleMatchSource =
   | "google-source"
+  | "reference-work"
   | "reference-isbn"
   | "primary-isbn"
   | "isbn-list"
@@ -22,6 +23,7 @@ type GoogleVolumeMatchInput = {
   volumeId: string
   title: string
   author: string
+  workId?: string | null
   isbns: string[]
   selectFields: string
 }
@@ -91,6 +93,44 @@ export async function findExistingTitleForGoogleVolume(input: GoogleVolumeMatchI
       confidenceScore: 100,
       isAmbiguous: false,
     }
+  }
+
+  const normalizedWorkId = input.workId?.trim() ?? ""
+  if (normalizedWorkId) {
+    const [referenceWorkResult, primaryWorkResult] = await Promise.all([
+      admin
+        .from("title_reference_works")
+        .select("title_id")
+        .eq("work_id", normalizedWorkId),
+      admin
+        .from("titles")
+        .select("id")
+        .eq("work_id", normalizedWorkId),
+    ])
+
+    if (referenceWorkResult.error) {
+      console.error("Failed to lookup reference work title matches", referenceWorkResult.error)
+      throw new Error("Failed to lookup title reference works")
+    }
+
+    if (primaryWorkResult.error) {
+      console.error("Failed to lookup primary work title matches", primaryWorkResult.error)
+      throw new Error("Failed to lookup title work IDs")
+    }
+
+    const workMatch = await singleMatchFromTitleIds(
+      admin,
+      [
+        ...(referenceWorkResult.data ?? []).map((row: any) => row.title_id),
+        ...(primaryWorkResult.data ?? []).map((row: any) => row.id),
+      ],
+      input.selectFields,
+      "reference-work",
+      99
+    )
+
+    if (workMatch && !workMatch.isAmbiguous) return workMatch
+    if (workMatch?.isAmbiguous) return null
   }
 
   if (normalizedIsbns.length > 0) {

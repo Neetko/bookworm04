@@ -15,7 +15,8 @@ type SearchTitlesClientProps = {
   hasGoogleBooksKey: boolean
   hasActiveSearch: boolean
   canAutoApproveSuggestions: boolean
-  canUseExternalSearch: boolean
+  canSearchExternalSources: boolean
+  canIngestExternalTitles: boolean
 }
 
 type QueryState = {
@@ -41,18 +42,19 @@ export function SearchTitlesClient({
   hasGoogleBooksKey,
   hasActiveSearch,
   canAutoApproveSuggestions,
-  canUseExternalSearch,
+  canSearchExternalSources,
+  canIngestExternalTitles,
 }: SearchTitlesClientProps) {
   const [query, setQuery] = useState<QueryState>({
     title: "",
     author: "",
-    includeExternal: includeExternal && canUseExternalSearch,
+    includeExternal: includeExternal && canSearchExternalSources,
     genres: selectedGenres,
   })
 
   const filteredResults = useMemo(() => {
     if (displayQuery) return serverResults
-    if (query.includeExternal && canUseExternalSearch) return []
+    if (query.includeExternal && canSearchExternalSources) return []
 
     const titleQuery = normalizeText(query.title)
     const authorQuery = normalizeText(query.author)
@@ -71,7 +73,7 @@ export function SearchTitlesClient({
 
       return matchesTitle && matchesAuthor && matchesGenres
     })
-  }, [displayQuery, serverResults, query, initialResults, canUseExternalSearch])
+  }, [displayQuery, serverResults, query, initialResults, canSearchExternalSources])
 
   return (
     <>
@@ -80,9 +82,9 @@ export function SearchTitlesClient({
         <TrackReadingSearch
           onQueryChange={setQuery}
           hasActiveSearch={hasActiveSearch}
-          allowExternalSearch={canUseExternalSearch}
+          allowExternalSearch={canSearchExternalSources}
         />
-        {!canUseExternalSearch ? (
+        {!canSearchExternalSources ? (
           <p className="mt-3 text-sm text-muted-foreground">
             Guests can browse local Bookworm titles. Sign in to search external sources or ingest new titles.
           </p>
@@ -106,7 +108,7 @@ export function SearchTitlesClient({
         <TrackReadingResultList
           results={filteredResults}
           canAutoApproveSuggestions={canAutoApproveSuggestions}
-          allowIngest={canUseExternalSearch}
+          allowIngest={canIngestExternalTitles}
         />
       )}
     </>

@@ -1,6 +1,5 @@
 "use server"
 
-import { randomUUID } from "crypto"
 import { createAdminClient, createServerClient } from "@/lib/supabase-server"
 import { extractAsins, getGoogleBook, getGoogleBookDetails, isIsbn10, isIsbn13 } from "@/lib/google-books"
 import {
@@ -14,11 +13,9 @@ import { inferGenresFromMetadata } from "@/lib/book-tagging"
 import { isExactTitleAuthorMatch, normalizeMatchText, type SuggestionWorkMatchType, type WorkSnapshot } from "@/lib/suggestions"
 import { upsertReferenceIsbns, upsertTitleReferenceWorks } from "@/lib/reference-data"
 import { finalizeSuggestionApproval } from "@/lib/server/suggestion-approval"
-import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
 import { requireAuthedProfileId } from "@/lib/server/auth"
 import { ensureCurrentReadingListForProfile, ensureFinishedReadingListForProfile, ensureToReadListForProfile } from "@/lib/server/title-lists"
 import { findExistingTitleForGoogleVolume } from "@/lib/server/title-matching"
-import { normalizeGenres, type Genre } from "@/lib/types"
 import { revalidatePath } from "next/cache"
 import { extractPlainTextFromHtml } from "@/lib/sanitize"
 import { awardPointsForTitleAction } from "@/app/actions/rewards"
@@ -50,58 +47,6 @@ type IngestWorkMatchSummary = {
   userReviewCandidates: OpenLibraryWorkCandidate[]
   autoDupeMatches: SuggestionWorkMatchInsert[]
   bookwormSuggestedMatches: SuggestionWorkMatchInsert[]
-}
-
-type GoogleIngestPreviewRecord = {
-  token: string
-  profileId: string
-  volumeId: string
-  createdAt: number
-  suggestedGenres: Genre[]
-  workCandidates: OpenLibraryWorkCandidate[]
-  localDuplicates: LocalDuplicate[]
-  requiresWorkConfirmation: boolean
-  autoDupeMatchCount: number
-  bookwormSuggestedMatchCount: number
-  workMatchSummary: IngestWorkMatchSummary
-}
-
-const GOOGLE_INGEST_PREVIEW_TTL_MS = 15 * 60 * 1000
-const googleIngestPreviewCache = new Map<string, GoogleIngestPreviewRecord>()
-
-function pruneExpiredGoogleIngestPreviews(now = Date.now()) {
-  for (const [token, preview] of googleIngestPreviewCache.entries()) {
-    if (now - preview.createdAt > GOOGLE_INGEST_PREVIEW_TTL_MS) {
-      googleIngestPreviewCache.delete(token)
-    }
-  }
-}
-
-function storeGoogleIngestPreview(input: Omit<GoogleIngestPreviewRecord, "token" | "createdAt">) {
-  pruneExpiredGoogleIngestPreviews()
-
-  const token = randomUUID()
-  googleIngestPreviewCache.set(token, {
-    ...input,
-    token,
-    createdAt: Date.now(),
-  })
-
-  return token
-}
-
-function readGoogleIngestPreview(input: {
-  token: string | null | undefined
-  profileId: string
-  volumeId: string
-}) {
-  pruneExpiredGoogleIngestPreviews()
-
-  if (!input.token) return null
-  const preview = googleIngestPreviewCache.get(input.token)
-  if (!preview) return null
-  if (preview.profileId !== input.profileId || preview.volumeId !== input.volumeId) return null
-  return preview
 }
 
 type FormatDerivationInput = {
@@ -645,236 +590,6 @@ async function ensureBookFromGoogleVolume(
   return { titleId, volume }
 }
 
-export async function getGoogleIngestSuggestion(volumeId: string): Promise<{
-  previewToken: string
-  title: string
-  author: string
-  suggestedGenres: Genre[]
-  workCandidates: OpenLibraryWorkCandidate[]
-  localDuplicates: LocalDuplicate[]
-  requiresWorkConfirmation: boolean
-  autoDupeMatchCount: number
-  bookwormSuggestedMatchCount: number
-}> {
-  const supabase = await createServerClient()
-  const profileId = await requireAuthedProfileId(supabase)
-
-  const volume = await getGoogleBook(volumeId)
-  if (!volume) throw new Error("Unable to fetch Google book")
-
-  const [openLibrary, workMatchSummary, localDuplicates] = await Promise.all([
-    volume.isbn ? fetchOpenLibraryMetadataByIsbn(volume.isbn) : Promise.resolve(null),
-    buildIngestWorkMatchSummary(supabase, {
-      title: volume.title,
-      author: volume.authors[0] ?? "",
-      isbn: volume.isbn ?? null,
-    }),
-    findLocalDuplicates(
-      supabase,
-      volume.title,
-      volume.authors[0] ?? ""
-    ),
-  ])
-
-  const suggestedGenres = inferGenresFromMetadata({
-    title: volume.title,
-    googleMainCategory: volume.mainCategory ?? null,
-    googleCategories: volume.categories,
-    googleDescription: volume.description,
-    openLibrary,
-  })
-  const requiresWorkConfirmation = workMatchSummary.userReviewCandidates.length > 0
-  const normalizedSuggestedGenres = normalizeGenres(suggestedGenres)
-  const previewToken = storeGoogleIngestPreview({
-    profileId,
-    volumeId,
-    suggestedGenres: normalizedSuggestedGenres,
-    workCandidates: workMatchSummary.userReviewCandidates,
-    localDuplicates,
-    requiresWorkConfirmation,
-    autoDupeMatchCount: workMatchSummary.autoDupeMatches.length,
-    bookwormSuggestedMatchCount: workMatchSummary.bookwormSuggestedMatches.length,
-    workMatchSummary,
-  })
-
-  return {
-    previewToken,
-    title: volume.title,
-    author: volume.authors[0] ?? "Unknown author",
-    suggestedGenres: normalizedSuggestedGenres,
-    workCandidates: workMatchSummary.userReviewCandidates,
-    localDuplicates,
-    requiresWorkConfirmation,
-    autoDupeMatchCount: workMatchSummary.autoDupeMatches.length,
-    bookwormSuggestedMatchCount: workMatchSummary.bookwormSuggestedMatches.length,
-  }
-}
-
-export async function confirmGoogleBookIngest(input: {
-  volumeId: string
-  previewToken?: string | null
-  selectedGenres: Genre[]
-  selectedWorkIds?: string[]
-  requiresWorkSelection?: boolean
-  algorithmSuggestedGenres?: Genre[]
-  workCandidates?: Array<{
-    workId: string
-    title: string
-    author: string
-    firstPublishYear: number | null
-    editionCount: number | null
-    coverUrl?: string | null
-  }>
-}) {
-  const supabase = await createServerClient()
-  const access = await getCurrentUserAccess()
-  if (!access.user || !access.profileId) {
-    throw new Error("Unauthorized")
-  }
-  const profileId = access.profileId
-  const autoApproved = canReviewSuggestions(access.role) && Boolean(access.profileId)
-
-  const selectedGenres = normalizeGenres(input.selectedGenres)
-  if (selectedGenres.length === 0) {
-    throw new Error("Select at least one genre")
-  }
-
-  const preview = readGoogleIngestPreview({
-    token: input.previewToken,
-    profileId,
-    volumeId: input.volumeId,
-  })
-
-  const ensured = await ensureBookFromGoogleVolume(input.volumeId)
-  const volume = ensured.volume
-
-  const workMatchSummary = autoApproved
-    ? null
-    : preview?.workMatchSummary ??
-      (await buildIngestWorkMatchSummary(supabase, {
-        title: volume.title,
-        author: volume.authors[0] ?? "",
-        isbn: volume.isbn ?? null,
-      }))
-
-  const selection = resolveWorkSelection(input.selectedWorkIds)
-  const algorithmSuggestedGenres = normalizeGenres(
-    (input.algorithmSuggestedGenres?.length ? input.algorithmSuggestedGenres : preview?.suggestedGenres) ?? []
-  )
-  const workCandidates = workMatchSummary?.userReviewCandidates?.length
-    ? workMatchSummary.userReviewCandidates
-    : (preview?.workCandidates ?? input.workCandidates ?? [])
-  const candidateById = new Map(workCandidates.map((candidate) => [candidate.workId, candidate]))
-  const selectedWorkIds = [selection.primaryWorkId, ...selection.dupeWorkIds].filter(Boolean) as string[]
-
-  let saleabilityByWorkId = new Map<string, boolean | null>()
-  if (selectedWorkIds.length > 0) {
-    const { data: editionRows } = await supabase
-      .from("editions")
-      .select("work_id,saleability")
-      .in("work_id", selectedWorkIds)
-
-    const grouped = new Map<string, string[]>()
-    for (const row of editionRows ?? []) {
-      const workId = (row as any).work_id as string | undefined
-      if (!workId) continue
-      const list = grouped.get(workId) ?? []
-      list.push((row as any).saleability ?? null)
-      grouped.set(workId, list)
-    }
-
-    for (const workId of selectedWorkIds) {
-      const entries = grouped.get(workId) ?? []
-      if (entries.length === 0) {
-        saleabilityByWorkId.set(workId, null)
-        continue
-      }
-      saleabilityByWorkId.set(workId, entries.some((value) => value === "FOR_SALE"))
-    }
-  }
-
-  const buildSnapshot = (workId: string) => {
-    const candidate = candidateById.get(workId)
-    if (!candidate) return null
-    return {
-      workId,
-      title: candidate.title,
-      author: candidate.author,
-      firstPublishYear: candidate.firstPublishYear,
-      editionCount: candidate.editionCount,
-      forSale: saleabilityByWorkId.get(workId) ?? null,
-      coverUrl: candidate.coverUrl ?? null,
-    }
-  }
-
-  const selectedWorkSnapshots = selectedWorkIds
-    .map((workId) => buildSnapshot(workId))
-    .filter(Boolean)
-
-  const suggestionPayload: Record<string, any> = {
-    title_id: ensured.titleId,
-    suggested_genres: selectedGenres,
-    algorithm_suggested_genres: algorithmSuggestedGenres.length > 0 ? algorithmSuggestedGenres : null,
-    suggested_selected_work_ids: selectedWorkIds.length > 0 ? selectedWorkIds : null,
-    suggested_selected_work_snapshots: selectedWorkSnapshots.length > 0 ? selectedWorkSnapshots : null,
-    suggested_by_profile_id: profileId,
-  }
-  const { data: insertedSuggestion, error: suggestionError } = await supabase
-    .from("suggestions")
-    .insert(suggestionPayload)
-    .select("id")
-    .single()
-  if (suggestionError || !insertedSuggestion?.id) {
-    console.error("Failed to create suggestion", suggestionError)
-    throw new Error("Failed to submit suggestion")
-  }
-
-  const bookwormMatchRows = workMatchSummary
-    ? [...workMatchSummary.autoDupeMatches, ...workMatchSummary.bookwormSuggestedMatches]
-    : []
-  if (bookwormMatchRows.length > 0) {
-    const { error: bookwormMatchError } = await supabase.from("suggestion_work_matches").insert(
-      bookwormMatchRows.map((match) => ({
-        suggestion_id: insertedSuggestion.id,
-        work_id: match.workId,
-        match_type: match.matchType,
-        confidence_score: match.confidenceScore,
-        reason: match.reason,
-        work_snapshot: match.workSnapshot,
-        updated_at: new Date().toISOString(),
-      }))
-    )
-
-    if (bookwormMatchError) {
-      console.error("Failed to create Bookworm work match rows", bookwormMatchError)
-      throw new Error("Failed to submit suggestion")
-    }
-  }
-
-  if (autoApproved) {
-    const admin = createAdminClient()
-    await finalizeSuggestionApproval({
-      admin,
-      suggestionId: insertedSuggestion.id,
-      reviewerProfileId: access.profileId as string,
-      titleId: ensured.titleId,
-      suggestedGenres: selectedGenres,
-      adminFinalGenres: selectedGenres,
-      suggestedSelectedWorkIds: selectedWorkIds,
-      adminFinalSelectedWorkIds: selectedWorkIds,
-      suggestedSelectedWorkSnapshots: selectedWorkSnapshots,
-      adminFinalSelectedWorkSnapshots: selectedWorkSnapshots,
-    })
-  }
-
-  if (!autoApproved) {
-    revalidatePath("/admin/suggestions")
-  }
-  revalidatePath("/search-titles")
-  revalidatePath(`/titles/${ensured.titleId}`)
-  return { titleId: ensured.titleId, autoApproved }
-}
-
 async function upsertEditionsForWorks(input: {
   supabase: Awaited<ReturnType<typeof createServerClient>>
   primaryWorkId: string
@@ -903,7 +618,7 @@ async function upsertEditionsForWorks(input: {
     physicalDimensions: matchedEdition?.physicalDimensions ?? null,
   })
 
-  const googleEdition = {
+  const googleEdition: Record<string, any> = {
     work_id: primaryWorkId,
     isbn_10: isbn10,
     isbn_13: isbn13,
@@ -916,13 +631,13 @@ async function upsertEditionsForWorks(input: {
   }
 
   if (isbn13) {
-    await admin.from("editions").upsert(googleEdition, { onConflict: "isbn_13" })
+    await admin.from("editions").upsert(googleEdition as any, { onConflict: "isbn_13" })
   } else if (isbn10) {
-    await admin.from("editions").upsert(googleEdition, { onConflict: "isbn_10" })
+    await admin.from("editions").upsert(googleEdition as any, { onConflict: "isbn_10" })
   } else if (googleAsin) {
-    await admin.from("editions").upsert(googleEdition, { onConflict: "volume_id" })
+    await admin.from("editions").upsert(googleEdition as any, { onConflict: "volume_id" })
   } else {
-    await admin.from("editions").upsert(googleEdition, { onConflict: "volume_id" })
+    await admin.from("editions").upsert(googleEdition as any, { onConflict: "volume_id" })
   }
 
   for (const entry of workEditions) {
@@ -970,10 +685,10 @@ async function upsertEditionsForWorks(input: {
     const olRowsIsbn10 = olRows.filter((row) => row.isbn_10 && !row.isbn_13)
 
     if (olRowsIsbn13.length > 0) {
-      await admin.from("editions").upsert(olRowsIsbn13, { onConflict: "isbn_13" })
+      await admin.from("editions").upsert(olRowsIsbn13 as any, { onConflict: "isbn_13" })
     }
     if (olRowsIsbn10.length > 0) {
-      await admin.from("editions").upsert(olRowsIsbn10, { onConflict: "isbn_10" })
+      await admin.from("editions").upsert(olRowsIsbn10 as any, { onConflict: "isbn_10" })
     }
   }
 }
@@ -1201,7 +916,7 @@ export async function trackTitleProgress(input: {
   }
 
   update.title_id = titleId
-  const { error } = await supabase.from("title_user_progress").upsert(update, {
+  const { error } = await supabase.from("title_user_progress").upsert(update as any, {
     onConflict: "user_profile_id,title_id",
   })
 
@@ -1316,7 +1031,7 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
 
   update.is_completed = isCompleted
 
-  const { error } = await supabase.from("title_user_progress").upsert(update, {
+  const { error } = await supabase.from("title_user_progress").upsert(update as any, {
     onConflict: "user_profile_id,title_id",
   })
 

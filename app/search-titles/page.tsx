@@ -3,6 +3,7 @@ import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
 import { getInitialTitles, searchTitles } from "@/app/actions/search-titles"
 import { isGenre } from "@/lib/types"
 import { SearchTitlesClient } from "@/app/search-titles/search-titles-client"
+import { getTitleSearchCapabilities } from "@/lib/title-capabilities"
 
 export default async function SearchTitlesPage({
   searchParams,
@@ -27,8 +28,8 @@ export default async function SearchTitlesPage({
         .filter(isGenre)
     : []
   const access = await getCurrentUserAccess()
-  const canUseExternalSearch = Boolean(access.user)
-  const includeExternal = requestedExternal && canUseExternalSearch
+  const searchCapabilities = getTitleSearchCapabilities({ isSignedIn: Boolean(access.user) })
+  const includeExternal = requestedExternal && searchCapabilities.canSearchExternalSources
   const hasActiveSearch = Boolean(title || author || includeExternal || selectedGenres.length > 0)
 
   const hasGoogleBooksKey = Boolean(process.env.GOOGLE_BOOKS_API_KEY)
@@ -55,7 +56,8 @@ export default async function SearchTitlesPage({
           hasGoogleBooksKey={hasGoogleBooksKey}
           hasActiveSearch={hasActiveSearch}
           canAutoApproveSuggestions={canReviewSuggestions(access.role)}
-          canUseExternalSearch={canUseExternalSearch}
+          canSearchExternalSources={searchCapabilities.canSearchExternalSources}
+          canIngestExternalTitles={searchCapabilities.canIngestExternalTitles}
         />
       </div>
     </div>
