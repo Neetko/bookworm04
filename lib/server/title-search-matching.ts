@@ -237,7 +237,7 @@ async function getCanonicalExternalMatchReport(books: MergedWork[]): Promise<Can
         const { data, error } = await admin
           .from("titles")
           .select("id")
-          .contains("isbn_list", [isbn])
+          .contains("isbn_list", JSON.stringify([isbn]))
 
         if (error) throw error
         return {

@@ -35,11 +35,12 @@ class FakeQuery {
     return this
   }
 
-  contains(field: string, values: unknown[]) {
+  contains(field: string, values: unknown[] | string) {
+    const expectedValues = typeof values === "string" ? JSON.parse(values) as unknown[] : values
     this.filters.push((row) => {
       const current = row[field]
       if (!Array.isArray(current)) return false
-      return values.every((value) => current.includes(value))
+      return expectedValues.every((value) => current.includes(value))
     })
     return this
   }

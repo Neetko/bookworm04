@@ -116,4 +116,35 @@ describe("title matching", () => {
       isAmbiguous: false,
     })
   })
+
+  it("matches ISBNs stored in the jsonb ISBN list", async () => {
+    setAdminTables({
+      title_sources: [],
+      reference_isbns: [],
+      titles: [
+        {
+          id: "jsonb-isbn-title",
+          title: "Dune",
+          author: "Frank Herbert",
+          isbn: null,
+          isbn_list: ["9780441172719"],
+        },
+      ],
+    })
+
+    await expect(
+      findExistingTitleForGoogleVolume({
+        volumeId: "volume-jsonb-isbn",
+        title: "Dune",
+        author: "Frank Herbert",
+        isbns: ["9780441172719"],
+        selectFields: "id,title,author,isbn,isbn_list",
+      })
+    ).resolves.toMatchObject({
+      titleId: "jsonb-isbn-title",
+      source: "isbn-list",
+      confidenceScore: 94,
+      isAmbiguous: false,
+    })
+  })
 })
