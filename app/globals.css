@@ -67,9 +67,8 @@ body {
     --sidebar-ring: oklch(0.9396 0.0317 78.1605);
     --sidebar: oklch(0.4708 0.1121 50.8452);
     --font-sans: "IM Fell English SC", serif;
-    --font-serif: "IM Fell English", serif;
+    --font-serif: "IM Fell English SC", serif;
     --font-ui: "Raleway", ui-sans-serif, system-ui, sans-serif;
-    --font-mono: "Source Code Pro", monospace;
     --shadow-color: #2F1B0F;
     --shadow-opacity: 0.15;
     --shadow-blur: 10px;

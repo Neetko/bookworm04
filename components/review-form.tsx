@@ -50,8 +50,9 @@ export function ReviewForm({ titleId, canWrite: canWriteProp }: ReviewFormProps)
   const canWrite = canWriteProp ?? canWriteState
   const interactionRating = hoverRating ?? focusRating
   const previewRating = interactionRating ?? rating
-  const previewBand = getRatingBand(interactionRating ?? 0)
-  const displayBand = getRatingBand(previewRating)
+  const interactionBand = getRatingBand(interactionRating ?? 0)
+  const selectedBand = getRatingBand(rating)
+  const displayBand = interactionBand ?? selectedBand
 
   useEffect(() => {
     if (canWriteProp !== undefined) return
@@ -156,7 +157,6 @@ export function ReviewForm({ titleId, canWrite: canWriteProp }: ReviewFormProps)
                       onPointerEnter={() => setHoverRating(value)}
                     >
                       <input
-                        aria-describedby="rating-help"
                         checked={rating === value}
                         className={styles.scoreInput}
                         name={`rating-${titleId}`}
@@ -178,20 +178,21 @@ export function ReviewForm({ titleId, canWrite: canWriteProp }: ReviewFormProps)
                 <span>solid</span>
                 <span>all-time</span>
               </div>
-              <p className={styles.helper} id="rating-help">
-                Hover or focus a score to preview Bookworm&apos;s verdict. Select one to keep it.
-              </p>
             </fieldset>
 
             <div className={styles.reactionStage} aria-hidden="true">
               <span className={styles.previewLabel}>
-                {interactionRating ? `Previewing ${interactionRating}/10` : "Mascot preview"}
+                {interactionRating
+                  ? `Previewing ${interactionRating}/10`
+                  : rating
+                    ? `Your verdict: ${rating}/10`
+                    : "Mascot preview"}
               </span>
               <div className={styles.reactionCanvas}>
-                {previewBand ? (
+                {displayBand ? (
                   <BookwormRatingReaction
-                    key={previewBand}
-                    ratingBand={previewBand}
+                    key={displayBand}
+                    ratingBand={displayBand}
                   />
                 ) : (
                   <BookwormSprite
