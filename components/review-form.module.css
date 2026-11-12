@@ -49,7 +49,7 @@
 
 .readoutScore {
   color: var(--foreground);
-  font-family: var(--font-mono), ui-monospace, monospace;
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
   font-size: 1.35rem;
   font-weight: 600;
   line-height: 1;
@@ -174,7 +174,7 @@
 }
 
 .scoreNumber {
-  font-family: var(--font-mono), ui-monospace, monospace;
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.88rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -192,16 +192,6 @@
 
 .scaleLabels span:nth-child(2) { text-align: center; }
 .scaleLabels span:last-child { text-align: right; }
-
-.helper {
-  max-width: 58ch;
-  margin-top: 0.9rem;
-  color: var(--muted-foreground);
-  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.75rem;
-  line-height: 1.55;
-  text-wrap: pretty;
-}
 
 .reactionStage {
   position: relative;

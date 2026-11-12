@@ -222,7 +222,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
 
                 {title.description ? (
                   <div
-                    className="text-foreground leading-relaxed mb-6 [&_p]:mb-3 last:[&_p]:mb-0"
+                    className="font-ui text-foreground leading-relaxed mb-6 [&_p]:mb-3 last:[&_p]:mb-0"
                     dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(title.description) }}
                   />
                 ) : null}
