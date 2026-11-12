@@ -126,7 +126,7 @@ export async function getCanonicalLocalTitleMatches(
         const { data, error } = await supabase
           .from("titles")
           .select("id")
-          .contains("isbn_list", [isbn])
+          .contains("isbn_list", JSON.stringify([isbn]))
 
         if (error) {
           console.error("Error fetching ISBN-list title matches", error)

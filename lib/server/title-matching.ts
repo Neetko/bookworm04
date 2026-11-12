@@ -178,7 +178,7 @@ export async function findExistingTitleForGoogleVolume(input: GoogleVolumeMatchI
       const { data: isbnListRows, error: isbnListError } = await admin
         .from("titles")
         .select(input.selectFields)
-        .contains("isbn_list", [isbn])
+        .contains("isbn_list", JSON.stringify([isbn]))
 
       if (isbnListError) {
         console.error("Failed to lookup ISBN-list title matches", isbnListError)
