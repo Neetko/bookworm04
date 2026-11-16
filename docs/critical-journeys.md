@@ -18,6 +18,7 @@ Bookworm protects its core product behavior at three layers:
 | Unread reader | Browse engagement | Reviews and discussions remain readable, while review/post/like mutations stay locked | Capability checks, server read checks, and RLS |
 | Finished reader | Mark read and contribute | Read state survives reload and unlocks review/discussion writing | Finished-list state, server actions, and browser tests |
 | Active reader | Track progress | Valid progress persists and appears in the diary | Zod action validation, RLS, and browser tests |
+| Signed-in reader | Join and leave an open club | Membership and member counts persist through the real UI and database | Club server actions, membership policies, and browser/database assertions |
 | Direct client | Bypass the interface | Anonymous and unread engagement writes fail; invalid ratings fail at the database | Authenticated integration tests against local Supabase |
 
 ## Deterministic local verification
@@ -32,7 +33,7 @@ The unit, static, and production checks remain separate so failures are easy to 
 
 ```bash
 pnpm lint
-pnpm exec tsc --noEmit
+pnpm typecheck
 pnpm test
 pnpm build
 ```

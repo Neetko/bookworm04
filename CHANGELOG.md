@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Portfolio readiness
+- Added a deterministic local showcase with 30 tagged titles, optimized local covers, five active community profiles, and a disposable demo-reader login.
+- Added browser and database-policy tests for guest access, authentication, onboarding, reading progress, title engagement, and club membership.
+- Added GitHub Actions checks for linting, TypeScript, unit tests, production builds, and clean local Supabase journeys.
+- Added a maintained development log, critical-journey contract, and explicit legacy/roadmap inventory.
+- Pinned the supported Node.js and pnpm versions for reproducible local and CI builds.
+- Consolidated default reading-list mutations and extracted the reusable onboarding title-selection view.
+- Replaced loose client error casts with a tested unknown-error message helper.
+
 ### Added
 - Canonical titles data model and read gating for reviews/discussions.
 - Title-centric search flow with unified results and suggestions API.

@@ -1,5 +1,7 @@
 # Bookworm
 
+[![CI](https://github.com/Neetko/bookworm04/actions/workflows/ci.yml/badge.svg)](https://github.com/Neetko/bookworm04/actions/workflows/ci.yml)
+
 Bookworm is a Next.js + Supabase reading community app. The current product model is title-centric: canonical `titles` are the source of truth for reviews, discussions, reading progress, diary entries, lists, clubs, suggestions, and metadata approval.
 
 ## Stack
@@ -82,7 +84,7 @@ Prerequisites: Node.js 22, pnpm 10, Docker with its daemon running, and the [Sup
 
    ```bash
    pnpm lint
-   pnpm exec tsc --noEmit
+   pnpm typecheck
    pnpm test
    pnpm test:e2e:local
    pnpm build
@@ -144,3 +146,9 @@ Application authorization uses `user_roles` for app-level roles. `user_profiles.
 Title discussions are visible in read-only mode to guests and readers who have not finished the title. Marking a title as read unlocks the composer. Posting is protected by both the server action and database row-level security, so hiding or changing the interface cannot bypass the read requirement.
 
 Demo cover images are sourced from the [Open Library Covers API](https://openlibrary.org/dev/docs/api/covers) and committed as optimized local WebP assets.
+
+## Engineering Documentation
+
+- [Development log](DEVELOPMENT_LOG.md): chronological product and architecture decisions.
+- [Critical journeys](docs/critical-journeys.md): tested access and authorization contract.
+- [Legacy and roadmap inventory](docs/legacy-and-roadmap-inventory.md): unreachable prototypes and compatibility code retained for an explicit product decision.
