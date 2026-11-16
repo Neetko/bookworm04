@@ -567,7 +567,7 @@ values (
   'A monthly reading club for haunted houses, unreliable narrators, and candlelit classics.',
   '20000000-0000-4000-8000-000000000004',
   'open',
-  array['Horror', 'Classics']::text[]
+  array['HORROR']::text[]
 )
 on conflict (id) do update set
   name = excluded.name,

@@ -90,7 +90,9 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
           <CardHeader>
             <div className="flex items-stretch justify-between gap-4">
               <div className="flex flex-col">
-                <CardTitle className="text-2xl">{club.name}</CardTitle>
+                <CardTitle className="text-2xl" role="heading" aria-level={1}>
+                  {club.name}
+                </CardTitle>
                 <div className="mt-2 flex items-center gap-2">
                   <Badge variant={club.type === "book" ? "default" : "secondary"}>
                     {club.type === "book" ? "Book club" : "Writer club"}
