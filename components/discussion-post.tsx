@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import { User, Calendar, ThumbsUp, Flag, MoreHorizontal } from "lucide-react"
 import { formatDistanceToNow, format } from "date-fns"
 import { sanitizeRichTextHtml } from "@/lib/sanitize"
+import { getErrorMessage } from "@/lib/errors"
 import Image from "next/image"
 import { toggleDiscussionPostLike } from "@/app/actions/title"
 import { toast } from "sonner"
@@ -58,7 +59,7 @@ export function DiscussionPost({ post, canLike = true }: DiscussionPostProps) {
       console.error(error)
       setIsLiked(!nextLiked)
       setLikesCount(likesCount)
-      toast.error((error as any)?.message ?? "Failed to update like")
+      toast.error(getErrorMessage(error, "Failed to update like"))
     } finally {
       setIsSubmitting(false)
     }

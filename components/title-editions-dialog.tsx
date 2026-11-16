@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { BookCopy } from "lucide-react"
 import { getTitleEditionsAction, type TitleEditionRow } from "@/app/actions/title"
+import { getErrorMessage } from "@/lib/errors"
 
 export function TitleEditionsDialog({ titleId }: { titleId: string }) {
   const [open, setOpen] = useState(false)
@@ -18,8 +19,8 @@ export function TitleEditionsDialog({ titleId }: { titleId: string }) {
     try {
       const rows = await getTitleEditionsAction(titleId)
       setEditions(rows)
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load editions")
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Failed to load editions"))
     } finally {
       setLoading(false)
     }

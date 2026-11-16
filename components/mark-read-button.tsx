@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, Circle, Loader2 } from "lucide-react"
+import { getErrorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
 import { setTitleReadStatus } from "@/app/actions/title"
 import { toast } from "sonner"
@@ -38,7 +39,7 @@ export function MarkReadButton({ titleId, initialIsRead, isSignedIn }: MarkReadB
     } catch (error) {
       console.error(error)
       setIsRead(!newStatus) // Revert
-      toast.error((error as any)?.message ?? "Failed to update status")
+      toast.error(getErrorMessage(error, "Failed to update status"))
     } finally {
       setIsLoading(false)
     }

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ReviewForm } from "@/components/review-form"
 import { DiscussionForum } from "@/components/discussion-forum"
+import { getErrorMessage } from "@/lib/errors"
 import { sanitizeRichTextHtml } from "@/lib/sanitize"
 import { Button } from "@/components/ui/button"
 import { ThumbsUp } from "lucide-react"
@@ -150,7 +151,7 @@ function ReviewLikeButton({
       console.error(error)
       setIsLiked(!nextLiked)
       setLikesCount(likesCount)
-      toast.error((error as any)?.message ?? "Failed to update like")
+      toast.error(getErrorMessage(error, "Failed to update like"))
     } finally {
       setIsSubmitting(false)
     }

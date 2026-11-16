@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { GitMerge } from "lucide-react"
+import { getErrorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
 import { getTitleDedupeCandidatesAction, submitTitleDedupeSuggestionAction } from "@/app/actions/title"
 import { toast } from "sonner"
@@ -50,8 +51,8 @@ export function TitleDedupeDialog({
       setCandidates(res.candidates)
       setSelected(res.selected)
       setLinkedElsewhere(res.linkedElsewhere)
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load work matches")
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Failed to load work matches"))
     } finally {
       setLoading(false)
     }
@@ -74,8 +75,8 @@ export function TitleDedupeDialog({
       })
       toast.success(canAutoApprove ? "Dedupe changes verified" : "Dedupe suggestion sent for review")
       setOpen(false)
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to submit dedupe suggestion")
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Failed to submit dedupe suggestion"))
     } finally {
       setSaving(false)
     }

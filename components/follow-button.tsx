@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { followUser, unfollowUser } from "@/app/actions/follow"
+import { getErrorMessage } from "@/lib/errors"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -39,8 +40,8 @@ export function FollowButton({
       }
 
       router.refresh()
-    } catch (error: any) {
-      toast.error(error?.message ?? "Failed to update follow")
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update follow"))
     } finally {
       setLoading(false)
     }

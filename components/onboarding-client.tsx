@@ -11,8 +11,10 @@ import {
   type OnboardingFollowSuggestion,
 } from "@/app/actions/onboarding"
 import { CanonGenreToggleGroup } from "@/components/canon-genre-toggle-group"
-import { CoverImage } from "@/components/cover-image"
-import { TitleGenreDots } from "@/components/title-genre-dots"
+import {
+  OnboardingBookStep,
+  type OnboardingShelf,
+} from "@/components/onboarding/onboarding-book-step"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,10 +30,8 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { sanitizeUsernameInput } from "@/lib/onboarding"
 import type { Genre, SearchTitleResult } from "@/lib/types"
-import { BookOpen, Check, Loader2, Search, UserPlus, Users } from "lucide-react"
+import { Check, Loader2, UserPlus, Users } from "lucide-react"
 import { toast } from "sonner"
-
-type ShelfKey = "finished" | "current" | "planned"
 
 type UsernameStatus = "idle" | "checking" | "available" | "error"
 
@@ -55,32 +55,7 @@ const STEPS = [
   "Find readers",
 ] as const
 
-const BOOK_STEP_ORDER: ShelfKey[] = ["finished", "current", "planned"]
-
-const BOOK_STEP_COPY: Record<
-  ShelfKey,
-  {
-    title: string
-    description: string
-    empty: string
-  }
-> = {
-  finished: {
-    title: "What have you already finished?",
-    description: "Pick any ingested titles you have completed. We'll add them to your Finished Reading list.",
-    empty: "No finished titles selected yet.",
-  },
-  current: {
-    title: "What are you reading right now?",
-    description: "Add titles you are currently reading. Anything chosen earlier is automatically hidden here.",
-    empty: "No current reads selected yet.",
-  },
-  planned: {
-    title: "What do you plan to read next?",
-    description: "Build your Planned Reading list. Titles already chosen in other onboarding steps stay out of the suggestions.",
-    empty: "No planned reads selected yet.",
-  },
-}
+const BOOK_STEP_ORDER: OnboardingShelf[] = ["finished", "current", "planned"]
 
 function getInitials(name: string) {
   const normalized = name.trim()
@@ -105,22 +80,22 @@ export function OnboardingClient({ initialUsername, initialFavoriteGenres, initi
   const [usernameSubmitting, setUsernameSubmitting] = useState(false)
   const [favoriteGenres, setFavoriteGenres] = useState<Genre[]>(initialFavoriteGenres)
 
-  const [selections, setSelections] = useState<Record<ShelfKey, SearchTitleResult[]>>({
+  const [selections, setSelections] = useState<Record<OnboardingShelf, SearchTitleResult[]>>({
     finished: [],
     current: [],
     planned: [],
   })
-  const [queries, setQueries] = useState<Record<ShelfKey, string>>({
+  const [queries, setQueries] = useState<Record<OnboardingShelf, string>>({
     finished: "",
     current: "",
     planned: "",
   })
-  const [searchResults, setSearchResults] = useState<Record<ShelfKey, SearchTitleResult[]>>({
+  const [searchResults, setSearchResults] = useState<Record<OnboardingShelf, SearchTitleResult[]>>({
     finished: [],
     current: [],
     planned: [],
   })
-  const [searchLoading, setSearchLoading] = useState<Record<ShelfKey, boolean>>({
+  const [searchLoading, setSearchLoading] = useState<Record<OnboardingShelf, boolean>>({
     finished: false,
     current: false,
     planned: false,
@@ -232,11 +207,11 @@ export function OnboardingClient({ initialUsername, initialFavoriteGenres, initi
     })
   }, [activeShelf, allSelectedTitleIds, initialTitles, queries, searchResults])
 
-  const updateQuery = (shelf: ShelfKey, value: string) => {
+  const updateQuery = (shelf: OnboardingShelf, value: string) => {
     setQueries((prev) => ({ ...prev, [shelf]: value }))
   }
 
-  const addTitle = (shelf: ShelfKey, title: SearchTitleResult) => {
+  const addTitle = (shelf: OnboardingShelf, title: SearchTitleResult) => {
     setSelections((prev) => {
       const alreadySelected = Object.values(prev).some((items) => items.some((item) => item.id === title.id))
       if (alreadySelected) return prev
@@ -247,7 +222,7 @@ export function OnboardingClient({ initialUsername, initialFavoriteGenres, initi
     })
   }
 
-  const removeTitle = (shelf: ShelfKey, titleId: string) => {
+  const removeTitle = (shelf: OnboardingShelf, titleId: string) => {
     setSelections((prev) => ({
       ...prev,
       [shelf]: prev[shelf].filter((title) => title.id !== titleId),
@@ -427,118 +402,18 @@ export function OnboardingClient({ initialUsername, initialFavoriteGenres, initi
       ) : null}
 
       {activeShelf ? (
-        <Card>
-          <CardHeader>
-            <CardTitle role="heading" aria-level={2}>{BOOK_STEP_COPY[activeShelf].title}</CardTitle>
-            <CardDescription>{BOOK_STEP_COPY[activeShelf].description}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground" htmlFor={`search-${activeShelf}`}>
-                Search ingested titles
-              </label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id={`search-${activeShelf}`}
-                  value={queries[activeShelf]}
-                  onChange={(event) => updateQuery(activeShelf, event.target.value)}
-                  placeholder="Search by title or author"
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-medium text-foreground">Selected titles</h2>
-                <Badge variant="secondary">{selections[activeShelf].length}</Badge>
-              </div>
-              {selections[activeShelf].length > 0 ? (
-                <div className="grid gap-3 md:grid-cols-2">
-                  {selections[activeShelf].map((title) => (
-                    <div key={`${activeShelf}-${title.id}`} className="flex items-center gap-3 rounded-lg border p-3">
-                      <div className="relative h-16 w-12 overflow-hidden rounded bg-muted">
-                        <CoverImage src={title.coverImageUrl} alt={title.title} sizes="48px" />
-                        {!title.coverImageUrl ? (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <BookOpen className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className="truncate font-medium text-foreground">{title.title}</div>
-                          <TitleGenreDots genres={title.genres} />
-                        </div>
-                        <div className="truncate text-sm text-muted-foreground">{title.author}</div>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => removeTitle(activeShelf, title.id)}>
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  {BOOK_STEP_COPY[activeShelf].empty}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-medium text-foreground">Suggestions</h2>
-                {searchLoading[activeShelf] ? (
-                  <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Loading
-                  </span>
-                ) : null}
-              </div>
-              {visibleResults.length > 0 ? (
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {visibleResults.slice(0, 18).map((title) => (
-                    <button
-                      key={`${activeShelf}-result-${title.id}`}
-                      type="button"
-                      onClick={() => addTitle(activeShelf, title)}
-                      className="flex items-center gap-3 rounded-lg border p-3 text-left transition hover:border-primary hover:bg-muted/40"
-                    >
-                      <div className="relative h-20 w-14 overflow-hidden rounded bg-muted">
-                        <CoverImage src={title.coverImageUrl} alt={title.title} sizes="56px" />
-                        {!title.coverImageUrl ? (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <BookOpen className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start gap-2">
-                          <div className="line-clamp-2 font-medium text-foreground">{title.title}</div>
-                          <TitleGenreDots genres={title.genres} className="mt-1" />
-                        </div>
-                        <div className="truncate text-sm text-muted-foreground">{title.author}</div>
-                      </div>
-                      <span className="rounded-full border px-2 py-1 text-xs text-muted-foreground">Add</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  No matching ingested titles yet.
-                </div>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter className="justify-between gap-3">
-            <Button variant="outline" onClick={goBack}>Back</Button>
-            <div className="flex gap-3">
-              <Button variant="ghost" onClick={goNext}>Skip</Button>
-              <Button onClick={goNext}>Continue</Button>
-            </div>
-          </CardFooter>
-        </Card>
+        <OnboardingBookStep
+          shelf={activeShelf}
+          query={queries[activeShelf]}
+          selectedTitles={selections[activeShelf]}
+          visibleResults={visibleResults}
+          searchLoading={searchLoading[activeShelf]}
+          onQueryChange={(value) => updateQuery(activeShelf, value)}
+          onAddTitle={(title) => addTitle(activeShelf, title)}
+          onRemoveTitle={(titleId) => removeTitle(activeShelf, titleId)}
+          onBack={goBack}
+          onNext={goNext}
+        />
       ) : null}
 
       {step === 5 ? (

@@ -14,7 +14,11 @@ import { isExactTitleAuthorMatch, normalizeMatchText, type SuggestionWorkMatchTy
 import { upsertReferenceIsbns, upsertTitleReferenceWorks } from "@/lib/reference-data"
 import { finalizeSuggestionApproval } from "@/lib/server/suggestion-approval"
 import { requireAuthedProfileId } from "@/lib/server/auth"
-import { ensureCurrentReadingListForProfile, ensureFinishedReadingListForProfile, ensureToReadListForProfile } from "@/lib/server/title-lists"
+import {
+  addTitleToDefaultList,
+  ensureFinishedReadingListForProfile,
+  removeTitleFromDefaultList,
+} from "@/lib/server/title-lists"
 import { findExistingTitleForGoogleVolume } from "@/lib/server/title-matching"
 import { revalidatePath } from "next/cache"
 import { extractPlainTextFromHtml } from "@/lib/sanitize"
@@ -769,48 +773,8 @@ async function ensureTitleReadAndReward(
     reason: "completed_reading",
   })
 
-  await removeFromCurrentReadingList(supabase, profileId, titleId)
-  await removeFromToReadList(supabase, profileId, titleId)
-}
-
-async function removeFromToReadList(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string,
-  titleId: string
-) {
-  const listId = await ensureToReadListForProfile(supabase, profileId)
-  if (!listId) return
-  await supabase
-    .from("title_list_items")
-    .delete()
-    .eq("list_id", listId)
-    .eq("title_id", titleId)
-}
-
-async function addToCurrentReadingList(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string,
-  titleId: string
-) {
-  const listId = await ensureCurrentReadingListForProfile(supabase, profileId)
-  if (!listId) return
-  await supabase
-    .from("title_list_items")
-    .upsert({ list_id: listId, title_id: titleId }, { onConflict: "list_id,title_id" })
-}
-
-async function removeFromCurrentReadingList(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string,
-  titleId: string
-) {
-  const listId = await ensureCurrentReadingListForProfile(supabase, profileId)
-  if (!listId) return
-  await supabase
-    .from("title_list_items")
-    .delete()
-    .eq("list_id", listId)
-    .eq("title_id", titleId)
+  await removeTitleFromDefaultList(supabase, profileId, titleId, "current-reading")
+  await removeTitleFromDefaultList(supabase, profileId, titleId, "to-read")
 }
 
 export async function trackTitleProgress(input: {
@@ -933,10 +897,10 @@ export async function trackTitleProgress(input: {
   }
 
   if (progressPercent > 0 && progressPercent < 100) {
-    await addToCurrentReadingList(supabase, profileId, titleId)
-    await removeFromToReadList(supabase, profileId, titleId)
+    await addTitleToDefaultList(supabase, profileId, titleId, "current-reading")
+    await removeTitleFromDefaultList(supabase, profileId, titleId, "to-read")
   } else if (progressPercent === 0) {
-    await removeFromCurrentReadingList(supabase, profileId, titleId)
+    await removeTitleFromDefaultList(supabase, profileId, titleId, "current-reading")
   }
 
   if (isCompleted) {
@@ -1051,10 +1015,10 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
   }
 
   if (progressPercent > 0 && progressPercent < 100) {
-    await addToCurrentReadingList(supabase, profileId, ensured.titleId)
-    await removeFromToReadList(supabase, profileId, ensured.titleId)
+    await addTitleToDefaultList(supabase, profileId, ensured.titleId, "current-reading")
+    await removeTitleFromDefaultList(supabase, profileId, ensured.titleId, "to-read")
   } else if (progressPercent === 0) {
-    await removeFromCurrentReadingList(supabase, profileId, ensured.titleId)
+    await removeTitleFromDefaultList(supabase, profileId, ensured.titleId, "current-reading")
   }
 
   if (isCompleted) {

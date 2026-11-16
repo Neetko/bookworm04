@@ -9,7 +9,10 @@ import { isExactTitleAuthorMatch, normalizeWorkIdList, normalizeWorkSnapshots, t
 import { finalizeSuggestionApproval } from "@/lib/server/suggestion-approval"
 import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
 import { getAuthedProfileId, requireAuthedProfileId } from "@/lib/server/auth"
-import { ensureCurrentReadingListForProfile, ensureFinishedReadingListForProfile, ensureToReadListForProfile } from "@/lib/server/title-lists"
+import {
+  ensureFinishedReadingListForProfile,
+  removeTitleFromDefaultList,
+} from "@/lib/server/title-lists"
 import { revalidatePath } from "next/cache"
 import { awardPointsForTitleAction } from "@/app/actions/rewards"
 
@@ -71,34 +74,6 @@ async function buildTitleMetadata(
     title: data.title,
     coverUrl: (data as any).cover_image_url ?? null,
   }
-}
-
-async function removeFromToReadList(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string,
-  titleId: string
-) {
-  const listId = await ensureToReadListForProfile(supabase, profileId)
-  if (!listId) return
-  await supabase
-    .from("title_list_items")
-    .delete()
-    .eq("list_id", listId)
-    .eq("title_id", titleId)
-}
-
-async function removeFromCurrentReadingList(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string,
-  titleId: string
-) {
-  const listId = await ensureCurrentReadingListForProfile(supabase, profileId)
-  if (!listId) return
-  await supabase
-    .from("title_list_items")
-    .delete()
-    .eq("list_id", listId)
-    .eq("title_id", titleId)
 }
 
 async function backfillCompletedTitleProgress(
@@ -252,8 +227,8 @@ export async function setTitleReadStatus(titleId: string, isRead: boolean) {
 
     await backfillCompletedTitleProgress(supabase, profileId, titleId)
 
-    await removeFromCurrentReadingList(supabase, profileId, titleId)
-    await removeFromToReadList(supabase, profileId, titleId)
+    await removeTitleFromDefaultList(supabase, profileId, titleId, "current-reading")
+    await removeTitleFromDefaultList(supabase, profileId, titleId, "to-read")
   } else {
     const { error } = await supabase
       .from("title_list_items")
