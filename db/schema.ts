@@ -236,6 +236,7 @@ export const userProfiles = pgTable(
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     username: varchar("username", { length: 100 }).notNull(),
     onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true }),
+    favoriteGenres: text("favorite_genres").array().notNull().default(sql`'{}'::text[]`),
     email: varchar("email", { length: 255 }),
     avatarUrl: text("avatar_url"),
     bio: text("bio"),

@@ -31,36 +31,70 @@ Legacy concepts such as `books`, `book_contents`, `tracked_books`, `tracked_user
 
 ## Local Setup
 
-1. Install dependencies:
+Prerequisites: Node.js 22, pnpm 10, Docker with its daemon running, and the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started). Local sign-up uses email/password; no Google Cloud project or OAuth credentials are needed.
+
+1. Install dependencies from the lockfile:
 
    ```bash
-   pnpm install
+   pnpm install --frozen-lockfile
    ```
 
-2. Configure environment variables:
+2. Start the local Supabase stack and apply the migrations and showcase fixtures:
 
    ```bash
-   NEXT_PUBLIC_SUPABASE_URL=
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=
-   SUPABASE_SERVICE_ROLE_KEY=
-   DATABASE_URL=
+   supabase start
+   supabase db reset --local
    ```
 
-   Development has local fallback values for Supabase public config, but production fails fast when required Supabase variables are missing.
+   `supabase/seed.sql` creates 30 tagged titles, five active community profiles, and one login-ready local demo reader with a populated feed. The committed cover files are resized WebP assets, so the catalog does not make 30 live cover requests. `db reset --local` deletes **local** database data before replaying migrations and this seed; never pass a remote target for this workflow.
 
-3. Run the app:
+3. Copy the environment template and fill in the local keys printed by `supabase status -o env`:
+
+   ```bash
+   cp .env.example .env.local
+   supabase status -o env
+   ```
+
+   Map `API_URL` to `NEXT_PUBLIC_SUPABASE_URL`, `ANON_KEY` to `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SERVICE_ROLE_KEY` to `SUPABASE_SERVICE_ROLE_KEY`. Keep the service-role key server-side and out of Git. The template selects `NEXT_PUBLIC_AUTH_MODE=email` for local development. `DATABASE_URL` is only needed for Drizzle commands. `GOOGLE_BOOKS_API_KEY` is optional; without it, local catalog browsing and sign-up still work, while external searches have a lower unauthenticated API quota.
+
+4. Run the app and open `http://localhost:3000`:
 
    ```bash
    pnpm dev
    ```
 
-4. Validate before shipping:
+   For the populated reviewer experience, sign in with the local-only fixture account:
+
+   ```text
+   Email: demo@bookworm.test
+   Password: BookwormDemo!2026
+   ```
+
+   You can also create a fresh account from Sign up. Local email confirmation is disabled in `supabase/config.toml`, so no email delivery service is needed; a successful sign-up goes directly to onboarding from any page. Onboarding requires a public username and at least one favorite genre before the optional reading-list and reader-suggestion steps. The local credentials above are disposable development fixtures and must never be used in a hosted environment.
+
+   To rebuild the committed cover assets from their pinned Open Library cover records:
+
+   ```bash
+   pnpm demo:covers
+   ```
+
+5. Validate before shipping:
 
    ```bash
    pnpm lint
    pnpm exec tsc --noEmit
+   pnpm test
+   pnpm test:e2e:local
    pnpm build
    ```
+
+   `test:e2e:local` resets only the local Supabase database before running the protected-journey browser and RLS suite. See [Critical journeys](docs/critical-journeys.md) for the behavior covered and the authorization layers involved.
+
+### Hosted Google sign-in
+
+Hosted deployments use Google sign-in by default (`NEXT_PUBLIC_AUTH_MODE=google`, or leave it unset). Each self-hosted deployment needs its own Supabase project and Google OAuth client configured with the Supabase callback URL, plus the app URL in Supabase's allowed redirect URLs. Follow the [Supabase Google sign-in guide](https://supabase.com/docs/guides/auth/social-sign-in/auth-google) and [redirect URL guide](https://supabase.com/docs/guides/auth/redirect-urls). A Google consent screen left in testing mode or a missing redirect URL can prevent reviewers from signing in. Local email mode avoids those requirements for anyone cloning the repo; it does not alter the hosted Google flow.
+
+For a hosted email/password demo, explicitly set `NEXT_PUBLIC_AUTH_MODE=email` at build time and enable email sign-up in that Supabase project's Auth settings. Configure email confirmation and delivery for that environment. Never publish a shared demo password or reuse the local service-role key.
 
 ## Migrations
 
@@ -104,3 +138,9 @@ Lower-confidence work matches should flow through suggestions and staff review i
 ## RLS And Access
 
 Application authorization uses `user_roles` for app-level roles. `user_profiles.role` is a public display label. Server code should use user-scoped Supabase clients for user-owned operations and service-role clients only for trusted operations that must bypass RLS, such as controlled notification writes or staff moderation workflows.
+
+## Discussion Access
+
+Title discussions are visible in read-only mode to guests and readers who have not finished the title. Marking a title as read unlocks the composer. Posting is protected by both the server action and database row-level security, so hiding or changing the interface cannot bypass the read requirement.
+
+Demo cover images are sourced from the [Open Library Covers API](https://openlibrary.org/dev/docs/api/covers) and committed as optimized local WebP assets.

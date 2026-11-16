@@ -4,6 +4,7 @@ import { Auth } from "@supabase/auth-ui-react"
 import { ThemeSupa } from "@supabase/auth-ui-shared"
 import { supabase } from "@/lib/supabase-browser"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { authUiMode } from "@/lib/auth-ui-config"
 
 interface AuthModalProps {
   open: boolean
@@ -25,8 +26,8 @@ export function AuthModal({ open, onOpenChange, view = "sign_in" }: AuthModalPro
           supabaseClient={supabase}
           view={view}
           appearance={{ theme: ThemeSupa }}
-          providers={["google"]}
-          onlyThirdPartyProviders
+          providers={authUiMode === "google" ? ["google"] : []}
+          onlyThirdPartyProviders={authUiMode === "google"}
           redirectTo={`${typeof window !== "undefined" ? window.location.origin : ""}/auth/callback`}
         />
       </DialogContent>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { BarChart3 } from "lucide-react"
 import { TrackReadingProgressDialog, type TrackReadingProgress } from "@/components/track-reading-progress-dialog"
@@ -11,11 +12,13 @@ import { useRouter } from "next/navigation"
 export function TitleTrackProgressButton({
   titleId,
   title,
+  isSignedIn,
   initialNoteHtml,
   initialNoteText,
 }: {
   titleId: string
   title: string
+  isSignedIn: boolean
   initialNoteHtml?: string | null
   initialNoteText?: string | null
 }) {
@@ -36,6 +39,17 @@ export function TitleTrackProgressButton({
     } catch (error: any) {
       toast.error(error?.message ?? "Failed to save progress")
     }
+  }
+
+  if (!isSignedIn) {
+    return (
+      <Button variant="outline" size="sm" className="gap-1.5" asChild>
+        <Link href="/auth">
+          <BarChart3 className="h-4 w-4" />
+          Sign in to track
+        </Link>
+      </Button>
+    )
   }
 
   return (

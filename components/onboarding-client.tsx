@@ -10,7 +10,9 @@ import {
   searchOnboardingTitles,
   type OnboardingFollowSuggestion,
 } from "@/app/actions/onboarding"
+import { CanonGenreToggleGroup } from "@/components/canon-genre-toggle-group"
 import { CoverImage } from "@/components/cover-image"
+import { TitleGenreDots } from "@/components/title-genre-dots"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,7 +27,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { sanitizeUsernameInput } from "@/lib/onboarding"
-import type { SearchTitleResult } from "@/lib/types"
+import type { Genre, SearchTitleResult } from "@/lib/types"
 import { BookOpen, Check, Loader2, Search, UserPlus, Users } from "lucide-react"
 import { toast } from "sonner"
 
@@ -40,11 +42,13 @@ type UsernameFeedback = {
 
 type OnboardingClientProps = {
   initialUsername: string | null
+  initialFavoriteGenres: Genre[]
   initialTitles: SearchTitleResult[]
 }
 
 const STEPS = [
   "Choose username",
+  "Favorite genres",
   "Finished books",
   "Current reads",
   "Planned reads",
@@ -88,7 +92,7 @@ function getInitials(name: string) {
   return normalized.slice(0, 2).toUpperCase()
 }
 
-export function OnboardingClient({ initialUsername, initialTitles }: OnboardingClientProps) {
+export function OnboardingClient({ initialUsername, initialFavoriteGenres, initialTitles }: OnboardingClientProps) {
   const router = useRouter()
 
   const [step, setStep] = useState(0)
@@ -99,6 +103,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
     message: "Choose the username other readers will see.",
   })
   const [usernameSubmitting, setUsernameSubmitting] = useState(false)
+  const [favoriteGenres, setFavoriteGenres] = useState<Genre[]>(initialFavoriteGenres)
 
   const [selections, setSelections] = useState<Record<ShelfKey, SearchTitleResult[]>>({
     finished: [],
@@ -125,7 +130,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
   const [selectedFollowIds, setSelectedFollowIds] = useState<string[]>([])
   const [finishing, setFinishing] = useState(false)
 
-  const activeShelf = step >= 1 && step <= 3 ? BOOK_STEP_ORDER[step - 1] : null
+  const activeShelf = step >= 2 && step <= 4 ? BOOK_STEP_ORDER[step - 2] : null
 
   const allSelectedTitleIds = useMemo(
     () => Array.from(new Set(Object.values(selections).flat().map((title) => title.id))),
@@ -188,7 +193,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
   }, [activeShelf, allSelectedTitleIds, queries])
 
   useEffect(() => {
-    if (step !== 4) return
+    if (step !== 5) return
 
     if (allSelectedTitleIds.length === 0) {
       setFollowSuggestions([])
@@ -290,6 +295,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
     setFinishing(true)
     try {
       const result = await saveOnboardingSelections({
+        favoriteGenres,
         finishedTitleIds: selections.finished.map((title) => title.id),
         currentTitleIds: selections.current.map((title) => title.id),
         plannedTitleIds: selections.planned.map((title) => title.id),
@@ -311,6 +317,12 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
     }
   }
 
+  const toggleFavoriteGenre = (genre: Genre) => {
+    setFavoriteGenres((current) =>
+      current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre]
+    )
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mb-8 flex items-center justify-between gap-4">
@@ -318,7 +330,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
           <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">New account</p>
           <h1 className="mt-2 text-3xl font-semibold text-foreground">Set up your reading world</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Pick your username first. Everything after that is optional, and you can always change your books or follows later.
+            Choose a username and at least one favorite genre. Your books and reader follows are optional and can be changed later.
           </p>
         </div>
         <Badge variant="outline">Step {step + 1} of {STEPS.length}</Badge>
@@ -326,7 +338,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
 
       <div className="mb-8 space-y-3">
         <Progress value={progressValue} className="h-2" />
-        <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-5">
+        <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-6">
           {STEPS.map((label, index) => (
             <div
               key={label}
@@ -341,9 +353,9 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
       {step === 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Choose your username</CardTitle>
+            <CardTitle role="heading" aria-level={2}>Choose your username</CardTitle>
             <CardDescription>
-              This is the only required onboarding step. We preserve your casing, but availability is checked case-insensitively.
+              Your username is required. We preserve your casing, but availability is checked case-insensitively.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -386,10 +398,38 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
         </Card>
       ) : null}
 
+      {step === 1 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle role="heading" aria-level={2}>Choose your favorite genres</CardTitle>
+            <CardDescription>
+              Pick one or more genres you enjoy. We save these preferences to your profile for future discovery and recommendations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <CanonGenreToggleGroup
+              selectedGenres={favoriteGenres}
+              onToggle={toggleFavoriteGenre}
+              className="flex-wrap"
+              buttonClassName="h-9 px-3"
+            />
+            <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+              {favoriteGenres.length > 0
+                ? `${favoriteGenres.length} ${favoriteGenres.length === 1 ? "genre" : "genres"} selected`
+                : "Select at least one genre to continue."}
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between gap-3">
+            <Button variant="outline" onClick={goBack}>Back</Button>
+            <Button onClick={goNext} disabled={favoriteGenres.length === 0}>Continue</Button>
+          </CardFooter>
+        </Card>
+      ) : null}
+
       {activeShelf ? (
         <Card>
           <CardHeader>
-            <CardTitle>{BOOK_STEP_COPY[activeShelf].title}</CardTitle>
+            <CardTitle role="heading" aria-level={2}>{BOOK_STEP_COPY[activeShelf].title}</CardTitle>
             <CardDescription>{BOOK_STEP_COPY[activeShelf].description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -427,7 +467,10 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
                         ) : null}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium text-foreground">{title.title}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="truncate font-medium text-foreground">{title.title}</div>
+                          <TitleGenreDots genres={title.genres} />
+                        </div>
                         <div className="truncate text-sm text-muted-foreground">{title.author}</div>
                       </div>
                       <Button variant="ghost" size="sm" onClick={() => removeTitle(activeShelf, title.id)}>
@@ -471,7 +514,10 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
                         ) : null}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="line-clamp-2 font-medium text-foreground">{title.title}</div>
+                        <div className="flex items-start gap-2">
+                          <div className="line-clamp-2 font-medium text-foreground">{title.title}</div>
+                          <TitleGenreDots genres={title.genres} className="mt-1" />
+                        </div>
                         <div className="truncate text-sm text-muted-foreground">{title.author}</div>
                       </div>
                       <span className="rounded-full border px-2 py-1 text-xs text-muted-foreground">Add</span>
@@ -495,10 +541,10 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
         </Card>
       ) : null}
 
-      {step === 4 ? (
+      {step === 5 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Find readers with overlap</CardTitle>
+            <CardTitle role="heading" aria-level={2}>Find readers with overlap</CardTitle>
             <CardDescription>
               Follow people who already share some of the books you picked. This step is optional too.
             </CardDescription>
@@ -578,15 +624,10 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
           </CardContent>
           <CardFooter className="justify-between gap-3">
             <Button variant="outline" onClick={goBack} disabled={finishing}>Back</Button>
-            <div className="flex gap-3">
-              <Button variant="ghost" onClick={handleFinish} disabled={finishing}>
-                Finish without more
-              </Button>
-              <Button onClick={handleFinish} disabled={finishing}>
-                {finishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Users className="mr-2 h-4 w-4" />}
-                Finish setup
-              </Button>
-            </div>
+            <Button onClick={handleFinish} disabled={finishing}>
+              {finishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Users className="mr-2 h-4 w-4" />}
+              Finish setup
+            </Button>
           </CardFooter>
         </Card>
       ) : null}

@@ -2,8 +2,8 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Navigation } from "@/components/navigation"
-import { BookOpen, Sparkles, Star, Users } from "lucide-react"
-import { createServerClient } from "@/lib/supabase-server"
+import { BarChart3, Sparkles, Star, Users } from "lucide-react"
+import { createAdminClient, createServerClient } from "@/lib/supabase-server"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -163,6 +163,9 @@ export default async function HomePage() {
         case "list_created":
           return `created the list “${listName}”.`
         case "list_item_added":
+          if (listName === "Current Reading") {
+            return <>started reading {titleNode}.</>
+          }
           return (
             <>
               added {titleNode} to <span>“{listName}”</span>.
@@ -355,14 +358,15 @@ export default async function HomePage() {
     )
   }
 
+  const aggregateClient = createAdminClient()
   const [
-    { count: titleCount },
-    { count: readerCount },
+    { count: trackedTitleCount },
     { count: reviewCount },
+    { count: clubCount },
   ] = await Promise.all([
-    supabase.from("titles").select("id", { count: "exact", head: true }),
-    supabase.from("public_profiles").select("id", { count: "exact", head: true }),
+    aggregateClient.from("title_user_progress").select("id", { count: "exact", head: true }),
     supabase.from("reviews").select("id", { count: "exact", head: true }),
+    supabase.from("clubs").select("id", { count: "exact", head: true }),
   ])
 
   return (
@@ -380,8 +384,8 @@ export default async function HomePage() {
               Keep your reading life in one place.
             </h1>
             <p className="font-ui mx-auto mt-6 max-w-[58ch] text-base leading-7 text-muted-foreground sm:text-lg lg:mx-0">
-              Find your next title, keep a thoughtful reading record, and trade recommendations with people who care
-              about books as much as you do.
+              Discover your next read, track your progress, trade recommendations, and join book clubs and writers’
+              groups - or create your own!
             </p>
 
             <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row lg:justify-start">
@@ -394,25 +398,18 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="relative mx-auto flex min-h-[350px] w-full max-w-md items-end justify-center overflow-hidden rounded-[1.75rem] border border-border/70 bg-card px-5 pt-5 shadow-lg sm:min-h-[410px] sm:px-8 sm:pt-8">
-            <div aria-hidden="true" className="absolute inset-x-7 top-7 border-t border-dashed border-border/70" />
-            <div aria-hidden="true" className="absolute left-7 top-7 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" />
-            <div aria-hidden="true" className="absolute right-7 top-7 h-2 w-2 translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" />
-            <div className="absolute inset-x-0 bottom-0 h-24 bg-muted/50" aria-hidden="true" />
+          <div className="relative mx-auto flex min-h-[350px] w-full max-w-md items-end justify-center sm:min-h-[410px]">
             <GuestWelcomeMascot />
-            <p className="font-ui absolute left-5 top-4 rounded-md border border-border bg-background/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground shadow-sm">
-              Meet Bookworm
-            </p>
           </div>
         </div>
 
         {/* Features Grid */}
         <div className="grid md:grid-cols-3 gap-8 mt-20">
           <div className="text-center p-6 bg-card rounded-lg shadow-md border">
-            <BookOpen className="h-12 w-12 text-primary mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2 text-card-foreground">Vast Library</h3>
+            <BarChart3 className="h-12 w-12 text-primary mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2 text-card-foreground">Track reading progress</h3>
             <p className="font-ui text-muted-foreground">
-              Explore thousands of books across all genres and discover your next great read.
+              Log reading sessions, follow your progress, and keep a useful record of every title.
             </p>
           </div>
 
@@ -432,16 +429,16 @@ export default async function HomePage() {
         {/* Stats Section */}
         <div className="font-ui grid md:grid-cols-3 gap-8 mt-16 text-center">
           <div>
-            <div className="text-3xl font-bold text-primary">{formatCount(titleCount)}</div>
-            <div className="text-muted-foreground">Titles Cataloged</div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-primary">{formatCount(readerCount)}</div>
-            <div className="text-muted-foreground">Active Readers</div>
+            <div className="text-3xl font-bold text-primary">{formatCount(trackedTitleCount)}</div>
+            <div className="text-muted-foreground">Titles Tracked</div>
           </div>
           <div>
             <div className="text-3xl font-bold text-primary">{formatCount(reviewCount)}</div>
             <div className="text-muted-foreground">Reviews Written</div>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-primary">{formatCount(clubCount)}</div>
+            <div className="text-muted-foreground">Clubs Created</div>
           </div>
         </div>
       </div>

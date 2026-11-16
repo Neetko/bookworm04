@@ -29,6 +29,10 @@ export function Navigation() {
   const [unreadCounts, setUnreadCounts] = useState({ notifications: 0, messages: 0, total: 0 })
 
   useEffect(() => {
+    if (user) setShowAuthModal(false)
+  }, [user])
+
+  useEffect(() => {
     let isMounted = true
 
     const loadProfile = async () => {

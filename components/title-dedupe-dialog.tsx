@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { GitMerge } from "lucide-react"
@@ -15,9 +16,11 @@ type LinkedTitleSummary = {
 
 export function TitleDedupeDialog({
   titleId,
+  isSignedIn,
   canAutoApprove = false,
 }: {
   titleId: string
+  isSignedIn: boolean
   canAutoApprove?: boolean
 }) {
   const [open, setOpen] = useState(false)
@@ -76,6 +79,17 @@ export function TitleDedupeDialog({
     } finally {
       setSaving(false)
     }
+  }
+
+  if (!isSignedIn) {
+    return (
+      <Button variant="ghost" size="sm" className="gap-1.5" asChild>
+        <Link href="/auth">
+          <GitMerge className="h-4 w-4" />
+          Sign in to suggest
+        </Link>
+      </Button>
+    )
   }
 
   return (

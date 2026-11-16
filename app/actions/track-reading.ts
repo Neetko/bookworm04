@@ -19,6 +19,12 @@ import { findExistingTitleForGoogleVolume } from "@/lib/server/title-matching"
 import { revalidatePath } from "next/cache"
 import { extractPlainTextFromHtml } from "@/lib/sanitize"
 import { awardPointsForTitleAction } from "@/app/actions/rewards"
+import { parseActionInput } from "@/lib/validation/action"
+import {
+  claimAndTrackGoogleBookSchema,
+  trackTitleProgressSchema,
+  updateDiaryEntrySchema,
+} from "@/lib/validation/track-reading"
 
 type ProgressMode = "pages" | "audiobook"
 
@@ -813,10 +819,11 @@ export async function trackTitleProgress(input: {
   noteHtml?: string
   noteText?: string
 }) {
+  const validatedInput = parseActionInput(trackTitleProgressSchema, input)
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
 
-  const { titleId, progress, noteHtml, noteText } = input
+  const { titleId, progress, noteHtml, noteText } = validatedInput
 
   const update: Record<string, any> = {
     user_profile_id: profileId,
@@ -948,6 +955,7 @@ export async function updateDiaryEntry(input: {
   noteHtml?: string
   noteText?: string
 }) {
+  const validatedInput = parseActionInput(updateDiaryEntrySchema, input)
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
 
@@ -955,7 +963,7 @@ export async function updateDiaryEntry(input: {
     .from("reading_diary_entries")
     .select("id,title_id")
     .eq("user_profile_id", profileId)
-    .eq("id", input.entryId)
+    .eq("id", validatedInput.entryId)
     .single()
 
   if (entryError || !entry) {
@@ -966,8 +974,8 @@ export async function updateDiaryEntry(input: {
     throw new Error("Diary entry missing title")
   }
 
-  const normalizedUpdateNoteHtml = (input.noteHtml ?? "").trim() || null
-  const normalizedUpdateNoteText = (input.noteText ?? "").trim() || (normalizedUpdateNoteHtml ? extractPlainTextFromHtml(normalizedUpdateNoteHtml) : null)
+  const normalizedUpdateNoteHtml = validatedInput.noteHtml ?? null
+  const normalizedUpdateNoteText = validatedInput.noteText ?? (normalizedUpdateNoteHtml ? extractPlainTextFromHtml(normalizedUpdateNoteHtml) : null)
   const update: Record<string, any> = {
     note_html: normalizedUpdateNoteHtml,
     note_text: normalizedUpdateNoteText,
@@ -976,7 +984,7 @@ export async function updateDiaryEntry(input: {
   const { error: updateError } = await supabase
     .from("reading_diary_entries")
     .update(update)
-    .eq("id", input.entryId)
+    .eq("id", validatedInput.entryId)
     .eq("user_profile_id", profileId)
 
   if (updateError) {
@@ -984,17 +992,19 @@ export async function updateDiaryEntry(input: {
     throw new Error("Failed to update diary entry")
   }
 
-  revalidatePath(`/diary/${input.entryId}`)
+  revalidatePath(`/diary/${validatedInput.entryId}`)
   revalidatePath("/diary")
   revalidatePath(`/titles/${entry.title_id}`)
-  return { entryId: input.entryId }
+  return { entryId: validatedInput.entryId }
 }
 
 export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackProgressInput) {
+  const validatedInput = parseActionInput(claimAndTrackGoogleBookSchema, { volumeId, progress })
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
 
-  const ensured = await ensureBookFromGoogleVolume(volumeId)
+  const ensured = await ensureBookFromGoogleVolume(validatedInput.volumeId)
+  const validatedProgress = validatedInput.progress
 
   const update: Record<string, any> = {
     user_profile_id: profileId,
@@ -1004,9 +1014,9 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
   let isCompleted = false
   let progressPercent = 0
 
-  if (progress.mode === "pages") {
-    const totalPages = Math.max(1, Math.floor(progress.totalPages))
-    const currentPage = clamp(Math.floor(progress.currentPage), 0, totalPages)
+  if (validatedProgress.mode === "pages") {
+    const totalPages = validatedProgress.totalPages
+    const currentPage = validatedProgress.currentPage
     const percent = Math.round((currentPage / totalPages) * 100)
 
     update.current_page = currentPage
@@ -1017,8 +1027,8 @@ export async function claimAndTrackGoogleBook(volumeId: string, progress: TrackP
     update.minutes_listened = null
     update.total_minutes = null
   } else {
-    const totalMinutes = Math.max(1, Math.floor(progress.totalMinutes))
-    const minutesListened = clamp(Math.floor(progress.minutesListened), 0, totalMinutes)
+    const totalMinutes = validatedProgress.totalMinutes
+    const minutesListened = validatedProgress.minutesListened
     const percent = Math.round((minutesListened / totalMinutes) * 100)
 
     update.minutes_listened = minutesListened

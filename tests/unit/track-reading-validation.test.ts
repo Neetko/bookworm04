@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { ActionValidationError, parseActionInput } from "@/lib/validation/action"
 import {
+  claimAndTrackGoogleBookSchema,
   confirmGoogleBookIngestSchema,
   googleVolumeIdSchema,
   trackTitleProgressSchema,
+  updateDiaryEntrySchema,
 } from "@/lib/validation/track-reading"
 
 const titleId = "11111111-1111-4111-8111-111111111111"
@@ -55,6 +57,54 @@ describe("track-reading validation", () => {
         },
       })
     ).toThrow("Minutes listened cannot be greater than total minutes")
+  })
+
+  it("trims diary entry notes and enforces their storage bounds", () => {
+    expect(
+      parseActionInput(updateDiaryEntrySchema, {
+        entryId: titleId,
+        noteHtml: "  <p>A useful note.</p>  ",
+        noteText: "  A useful note.  ",
+      })
+    ).toEqual({
+      entryId: titleId,
+      noteHtml: "<p>A useful note.</p>",
+      noteText: "A useful note.",
+    })
+
+    expect(() =>
+      parseActionInput(updateDiaryEntrySchema, {
+        entryId: titleId,
+        noteText: "x".repeat(20_001),
+      })
+    ).toThrow("Diary note is too long")
+  })
+
+  it("validates Google tracking input as one contract", () => {
+    expect(
+      parseActionInput(claimAndTrackGoogleBookSchema, {
+        volumeId: "  google-volume  ",
+        progress: {
+          mode: "pages",
+          currentPage: 50,
+          totalPages: 200,
+        },
+      })
+    ).toMatchObject({
+      volumeId: "google-volume",
+      progress: { mode: "pages", currentPage: 50, totalPages: 200 },
+    })
+
+    expect(() =>
+      parseActionInput(claimAndTrackGoogleBookSchema, {
+        volumeId: "google-volume",
+        progress: {
+          mode: "pages",
+          currentPage: 201,
+          totalPages: 200,
+        },
+      })
+    ).toThrow("Current page cannot be greater than total pages")
   })
 
   it("requires at least one selected canonical genre for ingest", () => {

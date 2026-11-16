@@ -31,9 +31,10 @@ interface PostData {
 
 interface DiscussionPostProps {
   post: PostData
+  canLike?: boolean
 }
 
-export function DiscussionPost({ post }: DiscussionPostProps) {
+export function DiscussionPost({ post, canLike = true }: DiscussionPostProps) {
   const userProfile = post.user_profiles
   const [isLiked, setIsLiked] = useState(Boolean(post.viewer_has_liked))
   const [likesCount, setLikesCount] = useState(post.likes_count ?? 0)
@@ -43,7 +44,7 @@ export function DiscussionPost({ post }: DiscussionPostProps) {
     : "Unknown"
 
   const handleLike = async () => {
-    if (isSubmitting) return
+    if (isSubmitting || !canLike) return
     const nextLiked = !isLiked
     const nextCount = Math.max(0, likesCount + (nextLiked ? 1 : -1))
 
@@ -159,7 +160,8 @@ export function DiscussionPost({ post }: DiscussionPostProps) {
               size="sm"
               className="absolute bottom-2 left-2 gap-1 h-8 px-2"
               onClick={handleLike}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !canLike}
+              title={canLike ? "Like this post" : "Sign in to like posts"}
             >
               <ThumbsUp className={`h-3 w-3 ${isLiked ? "text-primary" : ""}`} />
               <span className="text-xs">({likesCount})</span>

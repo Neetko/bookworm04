@@ -1,35 +1,28 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, Circle, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { getTitleReadStatus, setTitleReadStatus } from "@/app/actions/title"
+import { setTitleReadStatus } from "@/app/actions/title"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
 interface MarkReadButtonProps {
   titleId: string
+  initialIsRead: boolean
+  isSignedIn: boolean
 }
 
-export function MarkReadButton({ titleId }: MarkReadButtonProps) {
-  const [isRead, setIsRead] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+export function MarkReadButton({ titleId, initialIsRead, isSignedIn }: MarkReadButtonProps) {
+  const [isRead, setIsRead] = useState(initialIsRead)
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const status = await getTitleReadStatus(titleId)
-        setIsRead(status)
-      } catch (error) {
-        console.error("Failed to fetch read status", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    checkStatus()
-  }, [titleId])
+    setIsRead(initialIsRead)
+  }, [initialIsRead])
 
   const handleToggle = async () => {
     setIsLoading(true)
@@ -49,6 +42,17 @@ export function MarkReadButton({ titleId }: MarkReadButtonProps) {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (!isSignedIn) {
+    return (
+      <Button variant="outline" size="sm" className="gap-1.5" asChild>
+        <Link href="/auth">
+          <Circle className="h-4 w-4" />
+          Sign in to mark as read
+        </Link>
+      </Button>
+    )
   }
 
   if (isLoading) {

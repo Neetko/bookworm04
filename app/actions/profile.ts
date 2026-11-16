@@ -10,6 +10,7 @@ import { normalizeUsernameLookup, sanitizeUsernameInput, validateUsernameInput }
 import { GENRES, type Genre } from "@/lib/types"
 import { summarizeGenrePoints } from "@/app/actions/rewards"
 import { getSupabasePublicEnv, getSupabaseServiceRoleEnv } from "@/lib/supabase-config"
+import { isPostgresUniqueViolation } from "@/lib/server/postgres-errors"
 
 const { url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabasePublicEnv()
 const { isConfigured: hasServiceRoleKey } = getSupabaseServiceRoleEnv()
@@ -351,7 +352,13 @@ export async function updateUserProfile(token: string, formData: FormData) {
       })
       .eq("auth_user_id", user.id)
     
-    if (error) throw error
+    if (error) {
+      if (isPostgresUniqueViolation(error)) {
+        return { error: "That username is already taken" }
+      }
+
+      throw error
+    }
 
     revalidatePath("/profile")
     revalidatePath("/onboarding")

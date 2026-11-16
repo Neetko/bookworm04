@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   }
 
   if (genres.length > 0) {
-    query = query.overlaps("genre", genres)
+    query = query.contains("genre", genres)
   }
 
   const { data, error } = await query.order("created_at", { ascending: false }).limit(8)

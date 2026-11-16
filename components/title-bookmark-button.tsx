@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Bookmark, Loader2 } from "lucide-react"
 import { getTitleBookmarkStatus, toggleTitleBookmark } from "@/app/actions/title"
@@ -9,14 +10,20 @@ import { useRouter } from "next/navigation"
 
 interface TitleBookmarkButtonProps {
   titleId: string
+  isSignedIn: boolean
 }
 
-export function TitleBookmarkButton({ titleId }: TitleBookmarkButtonProps) {
+export function TitleBookmarkButton({ titleId, isSignedIn }: TitleBookmarkButtonProps) {
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
+    if (!isSignedIn) {
+      setIsLoading(false)
+      return
+    }
+
     const loadStatus = async () => {
       try {
         const status = await getTitleBookmarkStatus(titleId)
@@ -29,7 +36,7 @@ export function TitleBookmarkButton({ titleId }: TitleBookmarkButtonProps) {
     }
 
     loadStatus()
-  }, [titleId])
+  }, [isSignedIn, titleId])
 
   const handleToggle = async () => {
     if (isLoading) return
@@ -49,6 +56,17 @@ export function TitleBookmarkButton({ titleId }: TitleBookmarkButtonProps) {
      } finally {
        setIsLoading(false)
      }
+   }
+
+   if (!isSignedIn) {
+     return (
+       <Button variant="outline" size="sm" className="gap-1.5" asChild>
+         <Link href="/auth">
+           <Bookmark className="h-4 w-4" />
+           Sign in to bookmark
+         </Link>
+       </Button>
+     )
    }
 
    return (

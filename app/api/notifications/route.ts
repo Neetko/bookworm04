@@ -22,7 +22,7 @@ export async function GET() {
   const { supabase, profileId } = await getProfileId()
 
   if (!profileId) {
-    return NextResponse.json({ results: [] })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const { data, error } = await supabase

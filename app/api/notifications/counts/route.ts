@@ -8,7 +8,7 @@ export async function GET() {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.json({ notifications: 0, messages: 0, total: 0 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const { data: profile } = await supabase
@@ -18,7 +18,7 @@ export async function GET() {
     .maybeSingle()
 
   if (!profile?.id) {
-    return NextResponse.json({ notifications: 0, messages: 0, total: 0 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const { count: notifications } = await supabase

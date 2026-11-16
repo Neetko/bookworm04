@@ -18,6 +18,21 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Supabase Auth UI inherits a browser-default black input color in dark mode. */
+.supabase-auth-ui_ui-input,
+.supabase-auth-ui_ui-input input,
+.supabase-auth-ui_ui-input:focus,
+.supabase-auth-ui_ui-input:focus-visible {
+  color: var(--foreground) !important;
+  caret-color: var(--foreground);
+}
+
+.supabase-auth-ui_ui-input::placeholder,
+.supabase-auth-ui_ui-input input::placeholder {
+  color: var(--muted-foreground) !important;
+  opacity: 1;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

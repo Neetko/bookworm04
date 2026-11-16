@@ -5,26 +5,13 @@
   isolation: isolate;
 }
 
-.mascot,
-.toothyFrame {
+.mascot {
   position: absolute;
   right: 50%;
   bottom: 0;
   width: clamp(200px, 20vw, 224px);
   transform: translateX(50%);
-}
-
-.mascot {
   z-index: 1;
-}
-
-.toothyFrame {
-  z-index: 2;
-  height: auto;
-  opacity: 0;
-  image-rendering: pixelated;
-  pointer-events: none;
-  user-select: none;
 }
 
 .bubble {
@@ -77,11 +64,6 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .toothyFrame {
-    animation: guest-welcome-toothy 6.2s cubic-bezier(0.16, 1, 0.3, 1) 1 both;
-    will-change: opacity;
-  }
-
   .bubbleFirst {
     animation: guest-welcome-first 6.2s cubic-bezier(0.16, 1, 0.3, 1) 1 both;
   }
@@ -96,12 +78,6 @@
     opacity: 1;
     transform: none;
   }
-}
-
-@keyframes guest-welcome-toothy {
-  0%, 16.129032% { opacity: 0; }
-  19.354839%, 40.322581% { opacity: 1; }
-  44.354839%, 100% { opacity: 0; }
 }
 
 @keyframes guest-welcome-first {
@@ -134,11 +110,22 @@
   }
 }
 
+/* The longer line needs a wider berth from the sprite's head. */
+.bubbleSecond {
+  left: clamp(-28px, -2vw, -12px);
+  max-width: 176px;
+}
+
 @media (max-width: 420px) {
   .bubble {
     top: 40px;
     left: 0;
     max-width: 172px;
     font-size: 12px;
+  }
+
+  .bubbleSecond {
+    left: -16px;
+    max-width: 160px;
   }
 }

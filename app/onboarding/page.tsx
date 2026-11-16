@@ -35,6 +35,7 @@ export default async function OnboardingPage() {
 
       <OnboardingClient
         initialUsername={data.profile.hasPlaceholderUsername ? "" : data.profile.username}
+        initialFavoriteGenres={data.profile.favoriteGenres}
         initialTitles={data.initialTitles}
       />
     </div>

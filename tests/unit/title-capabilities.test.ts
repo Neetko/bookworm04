@@ -23,14 +23,14 @@ describe("title capabilities", () => {
       canViewReviews: true,
       canTrackReading: false,
       canWriteReview: false,
-      canViewDiscussion: false,
+      canViewDiscussion: true,
     })
   })
 
   it("requires both sign-in and read status before review and discussion writes", () => {
     expect(getTitleEngagementCapabilities({ isSignedIn: true, hasReadTitle: false })).toMatchObject({
       canWriteReview: false,
-      canViewDiscussion: false,
+      canViewDiscussion: true,
       canWriteDiscussionPost: false,
     })
 

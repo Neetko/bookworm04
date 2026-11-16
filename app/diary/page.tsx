@@ -8,6 +8,7 @@ import { DiaryFilters, type DiaryFilterMode } from "@/components/diary-filters"
 import { buildNoteHtmlFromText, extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
 import { BookOpen } from "lucide-react"
 import { isGenre, normalizeGenres, type Genre, GENRE_BG_CLASS } from "@/lib/types"
+import { hasEverySelectedGenre } from "@/lib/genre-filter"
 import Link from "next/link"
 
 async function requireProfileId() {
@@ -75,7 +76,7 @@ function applyDiaryFilters(
     return entries.filter((entry) => {
       if (!entry.title_id) return false
       const titleGenres = titleGenresByTitleId.get(entry.title_id) ?? []
-      return selectedGenres.some((genre) => titleGenres.includes(genre))
+      return hasEverySelectedGenre(titleGenres, selectedGenres)
     })
   }
 

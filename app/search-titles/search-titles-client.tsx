@@ -5,6 +5,7 @@ import type { Genre, SearchTitleResult } from "@/lib/types"
 import { TrackReadingSearch } from "@/components/track-reading-search"
 import { TrackReadingResultList } from "@/components/track-reading-result-list"
 import { Card, CardContent } from "@/components/ui/card"
+import { hasEverySelectedGenre } from "@/lib/genre-filter"
 
 type SearchTitlesClientProps = {
   initialResults: SearchTitleResult[]
@@ -69,7 +70,7 @@ export function SearchTitlesClient({
       const matchesGenres =
         query.genres.length === 0
           ? true
-          : result.genres?.some((genre) => query.genres.includes(genre))
+          : hasEverySelectedGenre(result.genres, query.genres)
 
       return matchesTitle && matchesAuthor && matchesGenres
     })

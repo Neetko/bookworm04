@@ -78,15 +78,8 @@ This branch introduces a reader activity feed, follow relationships, and a smoot
 - [supabase/migrations/20260401001000_activity_event_types.sql](supabase/migrations/20260401001000_activity_event_types.sql)
   - Supabase migration for `activity_events` and event-type constraint.
 
-- [scripts/seed-activity-feed.ts](scripts/seed-activity-feed.ts)
-  - Seeds sample profiles, lists, reviews, clubs, and activity events for feed demos.
-
-- [scripts/seed-title-reviews.ts](scripts/seed-title-reviews.ts)
-  - Seeds reviews + finished list items for existing users and titles.
-
-- [package.json](package.json)
-  - Adds `db:seed-activity-feed` and `db:seed-reviews` scripts.
+- Historical note: the activity-feed and title-review seed scripts were removed because they changed existing profiles and used shared demo credentials. Local catalog fixtures now live in `supabase/seed.sql`.
 
 ## Notes / follow-ups
 - No changelog update requested.
-- Consider running `db:seed-activity-feed` and `db:seed-reviews` in staging to validate feed display.
+- Use only isolated, environment-specific fixtures for future activity-feed demos.

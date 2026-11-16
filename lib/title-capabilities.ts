@@ -41,7 +41,7 @@ export function getTitleEngagementCapabilities({
     canBookmarkTitle: isSignedIn,
     canSuggestTitleMetadata: isSignedIn,
     canWriteReview: isSignedIn && hasReadTitle,
-    canViewDiscussion: isSignedIn && hasReadTitle,
+    canViewDiscussion: true,
     canWriteDiscussionPost: isSignedIn && hasReadTitle,
   }
 }

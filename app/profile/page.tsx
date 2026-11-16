@@ -143,6 +143,9 @@ function ProfilePageContent({ profileData }: ProfilePageContentProps) {
       case "list_created":
         return `${actorName} created the list “${listName}”.`
       case "list_item_added":
+        if (listName === "Current Reading") {
+          return `${actorName} started reading ${titleName}.`
+        }
         return `${actorName} added ${titleName} to “${listName}”.`
       case "club_created":
         return `${actorName} created the club “${clubName}”.`

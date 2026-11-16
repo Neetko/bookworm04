@@ -10,13 +10,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:local": "pnpm exec supabase db reset --local && playwright test",
     "test:e2e:prod": "PLAYWRIGHT_REQUIRE_BASE_URL=1 playwright test --grep @prod-smoke",
+    "demo:covers": "node scripts/prepare-demo-covers.mjs",
     "drizzle:generate": "drizzle-kit generate",
     "drizzle:migrate": "drizzle-kit migrate",
-    "db:types": "supabase gen types typescript --local --schema public > lib/database.types.ts",
-    "db:seed": "tsx scripts/seed-title-reviews.ts",
-    "db:seed-activity-feed": "tsx scripts/seed-activity-feed.ts",
-    "db:seed-reviews": "tsx scripts/seed-title-reviews.ts"
+    "db:types": "supabase gen types typescript --local --schema public > lib/database.types.ts"
   },
   "dependencies": {
     "@fontsource/im-fell-english-sc": "^5.2.6",
