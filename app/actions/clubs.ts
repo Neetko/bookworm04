@@ -7,6 +7,7 @@ import { normalizeGenres, type Genre } from "@/lib/types"
 import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
 import { randomUUID } from "crypto"
 import { resizeAvatarImage } from "@/lib/avatar-image"
+import { getOwnedAvatarObjectPath } from "@/lib/avatar-storage"
 
 export type ClubType = "book" | "writer"
 export type ClubJoinPolicy = "open" | "approval_required" | "invite_only"
@@ -818,12 +819,25 @@ export async function removeClubReadingItem(clubId: string, itemId: string) {
 
 export async function uploadClubAvatar(clubId: string, formData: FormData) {
   const supabase = await createServerClient()
-  await requireOwnerProfileId(supabase, clubId)
+  const ownerProfileId = await requireOwnerProfileId(supabase, clubId)
+  const { data: existingClub, error: existingClubError } = await supabase
+    .from("clubs")
+    .select("avatar_url")
+    .eq("id", clubId)
+    .single()
+  if (existingClubError || !existingClub) throw new Error("Club not found")
 
   const file = formData.get("file")
   if (!(file instanceof File)) throw new Error("Missing file")
   if (!file.type.startsWith("image/")) throw new Error("File must be an image")
   if (file.size > 5 * 1024 * 1024) throw new Error("Image must be <= 5MB")
+
+  const admin = createAdminClient()
+  const { data: withinQuota, error: quotaError } = await admin.rpc("consume_avatar_upload_quota", {
+    p_profile_id: ownerProfileId,
+  })
+  if (quotaError) throw new Error("Failed to check avatar upload limit")
+  if (!withinQuota) throw new Error("Avatar upload limit reached for today")
 
   let resized
   try {
@@ -835,13 +849,13 @@ export async function uploadClubAvatar(clubId: string, formData: FormData) {
 
   const path = `clubs/${clubId}/${randomUUID()}.${resized.ext}`
 
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await admin.storage
     .from("club-avatars")
-    .upload(path, resized.buffer, { upsert: true, contentType: resized.contentType })
+    .upload(path, resized.buffer, { upsert: false, contentType: resized.contentType })
 
   if (uploadError) throw new Error("Failed to upload avatar")
 
-  const { data: publicUrlData } = supabase.storage.from("club-avatars").getPublicUrl(path)
+  const { data: publicUrlData } = admin.storage.from("club-avatars").getPublicUrl(path)
   const publicUrl = publicUrlData.publicUrl
 
   const { error: updateError } = await supabase
@@ -849,7 +863,17 @@ export async function uploadClubAvatar(clubId: string, formData: FormData) {
     .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
     .eq("id", clubId)
 
-  if (updateError) throw new Error("Failed to save avatar")
+  if (updateError) {
+    const { error: cleanupError } = await admin.storage.from("club-avatars").remove([path])
+    if (cleanupError) console.error("Failed to remove unsaved club avatar", cleanupError)
+    throw new Error("Failed to save avatar")
+  }
+
+  const oldPath = getOwnedAvatarObjectPath(existingClub.avatar_url, "club-avatars", `clubs/${clubId}`)
+  if (oldPath && oldPath !== path) {
+    const { error: cleanupError } = await admin.storage.from("club-avatars").remove([oldPath])
+    if (cleanupError) console.error("Failed to remove replaced club avatar", cleanupError)
+  }
 
   revalidatePath(`/community/clubs/${clubId}`)
   revalidatePath(`/community/clubs/${clubId}/manage`)
