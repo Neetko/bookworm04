@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase-server"
+import { createAdminClient, createServerClient } from "@/lib/supabase-server"
 import { sanitizeMessageBody } from "@/lib/message-content"
+import { parseMessageWrite, readMessageJson } from "@/lib/message-write"
 
 const getProfileId = async () => {
   const supabase = await createServerClient()
@@ -131,26 +132,21 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const payload = await request.json()
-  const title = (payload?.title ?? "").trim()
-  const recipient = (payload?.recipient ?? "").trim()
-  const body = typeof payload?.body === "string" ? sanitizeMessageBody(payload.body.trim()) : ""
-  const status = (payload?.status ?? "sent").toLowerCase()
-  const replyTo = payload?.replyTo ?? null
+  const json = await readMessageJson(request)
+  if (!json.ok) return NextResponse.json({ error: json.error }, { status: json.status })
 
-  if (!title || !body) {
-    return NextResponse.json({ error: "Title and body are required" }, { status: 400 })
-  }
+  const message = parseMessageWrite(json.value)
+  if (!message) return NextResponse.json({ error: "Invalid message" }, { status: 400 })
 
-  if (status !== "sent" && status !== "draft") {
-    return NextResponse.json({ error: "Invalid status" }, { status: 400 })
-  }
+  const { title, recipient, body, status, replyTo } = message
 
   const { supabase, profileId } = await getProfileId()
 
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  const admin = createAdminClient()
 
   let recipientProfileId: string | null = null
   let recipientUsername: string | null = null
@@ -173,7 +169,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Recipient required" }, { status: 400 })
   }
 
-  const { data, error } = await supabase
+  if (replyTo) {
+    const { data: original, error: originalError } = await supabase
+      .from("messages")
+      .select("sender_profile_id, recipient_profile_id")
+      .eq("id", replyTo)
+      .eq("status", "sent")
+      .maybeSingle()
+
+    const participants = [original?.sender_profile_id, original?.recipient_profile_id]
+    if (originalError || !original || !participants.includes(profileId) || !recipientProfileId || !participants.includes(recipientProfileId)) {
+      return NextResponse.json({ error: "Invalid reply target" }, { status: 400 })
+    }
+  }
+
+  const { data: allowed, error: quotaError } = await admin.rpc("consume_message_write_quota", {
+    p_profile_id: profileId,
+    p_status: status,
+  })
+
+  if (quotaError) {
+    console.error("Failed to check message quota", quotaError)
+    return NextResponse.json({ error: "Failed to create message" }, { status: 500 })
+  }
+  if (allowed !== true) return NextResponse.json({ error: "Message rate limit reached" }, { status: 429 })
+
+  const { data, error } = await admin
     .from("messages")
     .insert({
       sender_profile_id: profileId,

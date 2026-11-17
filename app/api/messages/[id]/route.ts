@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 import { createAdminClient, createServerClient } from "@/lib/supabase-server"
 import { sanitizeMessageBody } from "@/lib/message-content"
+import { parseMessageWrite, readMessageJson } from "@/lib/message-write"
+import { z } from "zod"
+
+const markReadSchema = z.object({ isRead: z.boolean() }).strict()
 
 const getProfileId = async () => {
   const supabase = await createServerClient()
@@ -115,20 +119,21 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { supabase, profileId } = await getProfileId()
-  const admin = createAdminClient()
 
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const payload = await request.json()
-  const hasContentUpdate =
-    typeof payload?.title === "string" ||
-    typeof payload?.body === "string" ||
-    typeof payload?.recipient === "string" ||
-    typeof payload?.status === "string"
+  const json = await readMessageJson(request)
+  if (!json.ok) return NextResponse.json({ error: json.error }, { status: json.status })
 
-  const isReadOnlyUpdate = !hasContentUpdate && typeof payload?.isRead !== "undefined"
+  const markRead = markReadSchema.safeParse(json.value)
+  const update = markRead.success ? null : parseMessageWrite(json.value)
+  if (!markRead.success && !update) {
+    return NextResponse.json({ error: "Invalid message update" }, { status: 400 })
+  }
+
+  const admin = createAdminClient()
 
   const { data: message } = await supabase
     .from("messages")
@@ -140,18 +145,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
-  if (isReadOnlyUpdate) {
-    if (message.recipient_profile_id !== profileId) {
+  if (markRead.success) {
+    if (message.recipient_profile_id !== profileId || message.status !== "sent") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const { error } = await admin
+    const { data: changed, error } = await admin
       .from("messages")
-      .update({ is_read: Boolean(payload?.isRead), updated_at: new Date().toISOString() })
+      .update({ is_read: markRead.data.isRead, updated_at: new Date().toISOString() })
       .eq("id", id)
       .eq("recipient_profile_id", profileId)
+      .eq("status", "sent")
+      .select("id")
+      .maybeSingle()
 
-    if (error) {
+    if (error || !changed) {
       return NextResponse.json({ error: "Failed to update message" }, { status: 500 })
     }
 
@@ -166,18 +174,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Only drafts can be edited" }, { status: 403 })
   }
 
-  const title = (payload?.title ?? "").trim()
-  const body = typeof payload?.body === "string" ? sanitizeMessageBody(payload.body.trim()) : ""
-  const recipient = (payload?.recipient ?? "").trim()
-  const status = (payload?.status ?? "sent").toLowerCase()
-
-  if (!title || !body) {
-    return NextResponse.json({ error: "Title and body are required" }, { status: 400 })
-  }
-
-  if (status !== "sent" && status !== "draft") {
-    return NextResponse.json({ error: "Invalid status" }, { status: 400 })
-  }
+  if (!update) return NextResponse.json({ error: "Invalid message update" }, { status: 400 })
+  if (update.replyTo) return NextResponse.json({ error: "Reply target cannot be changed" }, { status: 400 })
+  const { title, body, recipient, status } = update
 
   let recipientProfileId: string | null = null
   let recipientUsername: string | null = null
@@ -200,7 +199,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Recipient required" }, { status: 400 })
   }
 
-  const { error } = await admin
+  const { data: allowed, error: quotaError } = await admin.rpc("consume_message_write_quota", {
+    p_profile_id: profileId,
+    p_status: status,
+  })
+
+  if (quotaError) {
+    console.error("Failed to check message quota", quotaError)
+    return NextResponse.json({ error: "Failed to update message" }, { status: 500 })
+  }
+  if (allowed !== true) return NextResponse.json({ error: "Message rate limit reached" }, { status: 429 })
+
+  const { data: changed, error } = await admin
     .from("messages")
     .update({
       subject: title,
@@ -214,8 +224,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .eq("id", id)
     .eq("sender_profile_id", profileId)
     .eq("status", "draft")
+    .select("id")
+    .maybeSingle()
 
-  if (error) {
+  if (error || !changed) {
     return NextResponse.json({ error: "Failed to update message" }, { status: 500 })
   }
 
