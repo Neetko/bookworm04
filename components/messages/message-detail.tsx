@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RichTextEditor } from "@/components/rich-text-editor"
+import { sanitizeMessageBody } from "@/lib/message-content"
 
 const folderLabels: Record<MessageFolder, string> = {
   inbox: "Inbox",
@@ -76,7 +77,7 @@ export function MessageDetail({ message, folder, onSend, onSaveDraft }: MessageD
 
           <div
             className="prose prose-sm mt-6 max-w-none text-foreground"
-            dangerouslySetInnerHTML={{ __html: message.body }}
+            dangerouslySetInnerHTML={{ __html: sanitizeMessageBody(message.body) }}
           />
         </Card>
 

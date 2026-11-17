@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient, createServerClient } from "@/lib/supabase-server"
+import { sanitizeMessageBody } from "@/lib/message-content"
 
 const getProfileId = async () => {
   const supabase = await createServerClient()
@@ -89,7 +90,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const normalized = {
     id: message.id as string,
     subject: message.subject as string,
-    body: message.body as string,
+    body: sanitizeMessageBody(message.body as string),
     date: message.created_at as string,
     read: Boolean(message.is_read),
     type: message.status === "draft" ? "draft" : message.recipient_profile_id === profileId ? "inbox" : "sent",
@@ -162,7 +163,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const title = (payload?.title ?? "").trim()
-  const body = (payload?.body ?? "").trim()
+  const body = typeof payload?.body === "string" ? sanitizeMessageBody(payload.body.trim()) : ""
   const recipient = (payload?.recipient ?? "").trim()
   const status = (payload?.status ?? "sent").toLowerCase()
 
