@@ -1,30 +1,16 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase-server"
-import { canManageRoles, getCurrentUserAccess, normalizeAppRole } from "@/lib/server/roles"
+import { canManageRoles, getCurrentUserAccess } from "@/lib/server/roles"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-
-async function syncPublicRoleLabel(
-  admin: ReturnType<typeof createAdminClient>,
-  authUserId: string,
-  publicRoleLabel: "reader" | "moderator" | "admin"
-) {
-  const { error } = await admin
-    .from("user_profiles")
-    .update({ role: publicRoleLabel })
-    .eq("auth_user_id", authUserId)
-
-  if (error) {
-    console.error("Failed to sync public role label", error)
-    throw new Error("Failed to sync public role label")
-  }
-}
 
 function parseAuthUserId(input: FormData, fieldName = "authUserId") {
   const authUserId = String(input.get(fieldName) ?? "").trim()
 
-  if (!authUserId) throw new Error("Missing user id")
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(authUserId)) {
+    throw new Error("Invalid user id")
+  }
 
   return authUserId
 }
@@ -58,6 +44,7 @@ async function requireAdminRoleManagementAccess() {
     access,
     admin: createAdminClient(),
     profileId: access.profileId,
+    actorAuthUserId: access.user.id,
   }
 }
 
@@ -110,42 +97,36 @@ function revalidateRoleManagementPaths() {
   revalidatePath("/admin/suggestions")
 }
 
+async function changeModeratorRole(
+  admin: ReturnType<typeof createAdminClient>,
+  actorAuthUserId: string,
+  targetAuthUserId: string,
+  makeModerator: boolean
+) {
+  const { data, error } = await admin.rpc("change_moderator_role", {
+    p_actor_auth_user_id: actorAuthUserId,
+    p_target_auth_user_id: targetAuthUserId,
+    p_make_moderator: makeModerator,
+  })
+
+  if (error || !Array.isArray(data) || data.length !== 1) {
+    console.error("Failed to change moderator role", error)
+    throw new Error("Failed to change moderator role")
+  }
+
+  return data[0].changed === true
+}
+
 export async function assignModeratorRoleAction(formData: FormData) {
-  const { access, admin, profileId } = await requireAdminRoleManagementAccess()
+  const { actorAuthUserId, admin, profileId } = await requireAdminRoleManagementAccess()
   const authUserId = parseAuthUserId(formData)
   const redirectTo = parseRedirectTo(formData)
 
   const targetProfile = await getTargetProfile(admin, authUserId)
 
-  const { data: existingRoleRow, error: existingRoleError } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", authUserId)
-    .maybeSingle()
+  const changed = await changeModeratorRole(admin, actorAuthUserId, authUserId, true)
 
-  if (existingRoleError) {
-    console.error("Failed to load existing app role", existingRoleError)
-    throw new Error("Failed to load existing app role")
-  }
-
-  const existingRole = normalizeAppRole(existingRoleRow?.role)
-
-  if (existingRole === "admin") {
-    throw new Error("Admins are managed separately")
-  }
-
-  const { error: upsertError } = await admin
-    .from("user_roles")
-    .upsert({ user_id: authUserId, role: "moderator" }, { onConflict: "user_id" })
-
-  if (upsertError) {
-    console.error("Failed to assign moderator role", upsertError)
-    throw new Error("Failed to assign moderator role")
-  }
-
-  await syncPublicRoleLabel(admin, authUserId, "moderator")
-
-  if (targetProfile.profileId !== profileId) {
+  if (changed && targetProfile.profileId !== profileId) {
     const actorMeta = await getActorMetadata(admin, profileId)
 
     await admin.from("notifications").insert({
@@ -166,39 +147,12 @@ export async function assignModeratorRoleAction(formData: FormData) {
 }
 
 export async function removeModeratorRoleAction(formData: FormData) {
-  const { admin } = await requireAdminRoleManagementAccess()
+  const { actorAuthUserId, admin } = await requireAdminRoleManagementAccess()
   const authUserId = parseAuthUserId(formData)
   const redirectTo = parseRedirectTo(formData)
 
-  const { data: existingRoleRow, error: existingRoleError } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", authUserId)
-    .maybeSingle()
-
-  if (existingRoleError) {
-    console.error("Failed to load existing app role", existingRoleError)
-    throw new Error("Failed to load existing app role")
-  }
-
-  const existingRole = normalizeAppRole(existingRoleRow?.role)
-
-  if (existingRole === "admin") {
-    throw new Error("Admin accounts cannot be changed here")
-  }
-
   await getTargetProfile(admin, authUserId)
-
-  const { error: upsertError } = await admin
-    .from("user_roles")
-    .upsert({ user_id: authUserId, role: "user" }, { onConflict: "user_id" })
-
-  if (upsertError) {
-    console.error("Failed to reset user role", upsertError)
-    throw new Error("Failed to reset user role")
-  }
-
-  await syncPublicRoleLabel(admin, authUserId, "reader")
+  await changeModeratorRole(admin, actorAuthUserId, authUserId, false)
 
   revalidateRoleManagementPaths()
   redirect(redirectTo)
