@@ -132,7 +132,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { data: message } = await supabase
     .from("messages")
-    .select("sender_profile_id, recipient_profile_id")
+    .select("sender_profile_id, recipient_profile_id, status")
     .eq("id", id)
     .maybeSingle()
 
@@ -160,6 +160,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (message.sender_profile_id !== profileId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  if (message.status !== "draft") {
+    return NextResponse.json({ error: "Only drafts can be edited" }, { status: 403 })
   }
 
   const title = (payload?.title ?? "").trim()
@@ -209,6 +213,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     })
     .eq("id", id)
     .eq("sender_profile_id", profileId)
+    .eq("status", "draft")
 
   if (error) {
     return NextResponse.json({ error: "Failed to update message" }, { status: 500 })
