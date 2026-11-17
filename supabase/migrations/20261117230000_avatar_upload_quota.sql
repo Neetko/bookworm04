@@ -13,7 +13,7 @@ grant select, insert, update, delete on public.avatar_upload_quota to service_ro
 create or replace function public.consume_avatar_upload_quota(p_profile_id uuid)
 returns boolean
 language plpgsql
-security definer
+security invoker
 set search_path = public, pg_temp
 as $$
 declare
