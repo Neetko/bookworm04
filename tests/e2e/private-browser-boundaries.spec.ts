@@ -186,6 +186,44 @@ test("private data and role writes stay outside even an admin browser session", 
     })
     expect(spoofMessageError).not.toBeNull()
 
+    const { error: directMessageError } = await sender.client.from("messages").insert({
+      sender_profile_id: sender.profileId,
+      recipient_profile_id: recipient.profileId,
+      subject: "Bypass server validation",
+      body: "<img src=x onerror=alert(1)>",
+      status: "sent",
+      is_read: false,
+    })
+    expect(directMessageError).not.toBeNull()
+
+    const { error: directUpdateError } = await sender.client
+      .from("messages")
+      .update({ body: "Bypass server validation" })
+      .eq("id", sentId)
+    expect(directUpdateError).not.toBeNull()
+
+    const { error: directDeleteError } = await sender.client
+      .from("messages")
+      .delete()
+      .eq("id", sentId)
+    expect(directDeleteError).not.toBeNull()
+
+    const { error: quotaBypassError } = await sender.client.rpc("consume_message_write_quota", {
+      p_profile_id: sender.profileId,
+      p_status: "sent",
+    })
+    expect(quotaBypassError).not.toBeNull()
+
+    const quotaAttempts = await Promise.all(Array.from({ length: 21 }, () =>
+      admin.rpc("consume_message_write_quota", {
+        p_profile_id: sender.profileId,
+        p_status: "sent",
+      })
+    ))
+    expect(quotaAttempts.every(({ error }) => error === null)).toBe(true)
+    expect(quotaAttempts.some(({ data }) => data === true)).toBe(true)
+    expect(quotaAttempts.some(({ data }) => data === false)).toBe(true)
+
     await staff.client
       .from("user_profiles")
       .update({ bio: "Changed by admin browser" })
