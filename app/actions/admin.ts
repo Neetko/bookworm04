@@ -64,7 +64,7 @@ async function requireAdminRoleManagementAccess() {
 async function getTargetProfile(admin: ReturnType<typeof createAdminClient>, authUserId: string) {
   const { data: targetProfile, error } = await admin
     .from("user_profiles")
-    .select("id,username,email,auth_user_id")
+    .select("id,username,auth_user_id")
     .eq("auth_user_id", authUserId)
     .maybeSingle()
 
@@ -81,7 +81,6 @@ async function getTargetProfile(admin: ReturnType<typeof createAdminClient>, aut
     profileId: targetProfile.id as string,
     authUserId: targetProfile.auth_user_id as string,
     username: targetProfile.username ?? null,
-    email: targetProfile.email ?? null,
   }
 }
 

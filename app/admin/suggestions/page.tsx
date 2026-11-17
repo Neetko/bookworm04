@@ -42,7 +42,7 @@ export default async function SuggestionsAdminPage() {
   const { data, error } = await admin
     .from("suggestions")
     .select(
-      "id,title_id,suggested_genres,algorithm_suggested_genres,suggested_selected_work_ids,suggested_selected_work_snapshots,admin_final_genres,admin_final_selected_work_ids,admin_final_selected_work_snapshots,admin_final_cover_selection,admin_reviewed_at,status,created_at,title:titles!suggestions_title_id_fkey(id,title,author),suggested_by:user_profiles!suggestions_suggested_by_profile_id_fkey(id,username,email),bookworm_matches:suggestion_work_matches(id,work_id,match_type,confidence_score,reason,work_snapshot,created_at)"
+      "id,title_id,suggested_genres,algorithm_suggested_genres,suggested_selected_work_ids,suggested_selected_work_snapshots,admin_final_genres,admin_final_selected_work_ids,admin_final_selected_work_snapshots,admin_final_cover_selection,admin_reviewed_at,status,created_at,title:titles!suggestions_title_id_fkey(id,title,author),suggested_by:user_profiles!suggestions_suggested_by_profile_id_fkey(id,username),bookworm_matches:suggestion_work_matches(id,work_id,match_type,confidence_score,reason,work_snapshot,created_at)"
     )
     .eq("status", "pending")
     .order("created_at", { ascending: false })
@@ -104,7 +104,7 @@ export default async function SuggestionsAdminPage() {
                     titleId: row.title_id,
                     title: row.title?.title ?? "Untitled",
                     author: row.title?.author ?? "Unknown author",
-                    suggestedBy: row.suggested_by?.username ?? row.suggested_by?.email ?? "Unknown",
+                    suggestedBy: row.suggested_by?.username ?? "Unknown",
                     suggestedGenres: normalizeGenres(row.suggested_genres ?? []),
                     algorithmSuggestedGenres: normalizeGenres(row.algorithm_suggested_genres ?? []),
                     suggestedWorkIds,
