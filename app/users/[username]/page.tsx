@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BookOpen, TrendingUp } from "lucide-react"
 import { GENRES, GENRE_BG_CLASS, type Genre } from "@/lib/types"
-import { summarizeGenrePoints } from "@/app/actions/rewards"
+import { summarizeGenrePoints } from "@/lib/server/rewards"
 import { FollowButton } from "@/components/follow-button"
 
 async function getUserProfile(profileId: string) {
