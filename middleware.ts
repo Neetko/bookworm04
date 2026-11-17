@@ -14,6 +14,7 @@ function redirectWithRefreshedCookies(request: NextRequest, response: NextRespon
   response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie))
   const csp = response.headers.get("Content-Security-Policy")
   if (csp) redirectResponse.headers.set("Content-Security-Policy", csp)
+  redirectResponse.headers.set("Cache-Control", "private, no-store, max-age=0")
   return redirectResponse
 }
 
@@ -37,6 +38,7 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set("Content-Security-Policy", csp)
     const next = NextResponse.next({ request: { headers: requestHeaders } })
     next.headers.set("Content-Security-Policy", csp)
+    next.headers.set("Cache-Control", "private, no-store, max-age=0")
     return next
   }
 

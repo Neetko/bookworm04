@@ -32,9 +32,11 @@ test("API responses and protected redirects keep security headers", async ({ req
   const api = await request.get("/api/messages")
   expect(api.status()).toBe(401)
   expect(api.headers()["content-security-policy"]).toContain("script-src-attr 'none'")
+  expect(api.headers()["cache-control"]).toContain("no-store")
 
   const redirect = await request.get("/messages", { maxRedirects: 0 })
   expect(redirect.status()).toBeGreaterThanOrEqual(300)
   expect(redirect.status()).toBeLessThan(400)
   expect(redirect.headers()["content-security-policy"]).toContain("script-src-attr 'none'")
+  expect(redirect.headers()["cache-control"]).toContain("no-store")
 })
