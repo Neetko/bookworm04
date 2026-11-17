@@ -60,6 +60,7 @@ export interface UserProfile {
   avatar_url: string | null
   bio: string | null
   role?: string | null
+  favorite_genres?: Genre[] | null
   signature?: string | null
   signature_image?: string | null
   created_at: string

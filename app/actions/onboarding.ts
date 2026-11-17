@@ -18,12 +18,15 @@ import {
 } from "@/lib/onboarding"
 import type { SearchTitleResult } from "@/lib/types"
 import { getSupabaseServiceRoleEnv } from "@/lib/supabase-config"
+import { isPostgresUniqueViolation } from "@/lib/server/postgres-errors"
+import { genreListSchema } from "@/lib/validation/primitives"
 
 type ProfileRow = {
   id: string
   auth_user_id: string | null
   username: string | null
   onboarding_completed_at: string | null
+  favorite_genres: string[] | null
 }
 
 export type OnboardingFollowSuggestion = {
@@ -91,7 +94,7 @@ async function ensureAuthedProfile() {
 
   const { data: existing, error: existingError } = await client
     .from("user_profiles")
-    .select("id, auth_user_id, username, onboarding_completed_at")
+    .select("id, auth_user_id, username, onboarding_completed_at, favorite_genres")
     .eq("auth_user_id", user.id)
     .maybeSingle()
 
@@ -116,7 +119,7 @@ async function ensureAuthedProfile() {
       },
       { onConflict: "auth_user_id" }
     )
-    .select("id, auth_user_id, username, onboarding_completed_at")
+    .select("id, auth_user_id, username, onboarding_completed_at, favorite_genres")
     .single()
 
   if (createError || !created?.id) {
@@ -134,12 +137,14 @@ function uniqueIds(values: string[]) {
 export async function getOnboardingBootstrapData() {
   const { profile } = await ensureAuthedProfile()
   const initialTitles = profile.onboarding_completed_at ? [] : await getInitialTitles()
+  const favoriteGenres = genreListSchema.safeParse(profile.favorite_genres)
 
   return {
     profile: {
       id: profile.id,
       username: profile.username,
       onboardingCompletedAt: profile.onboarding_completed_at,
+      favoriteGenres: favoriteGenres.success ? favoriteGenres.data : [],
       needsOnboarding: !profile.onboarding_completed_at,
       hasPlaceholderUsername: isPlaceholderUsername(profile.username),
     },
@@ -148,7 +153,7 @@ export async function getOnboardingBootstrapData() {
 }
 
 export async function checkUsernameAvailability(username: string) {
-  const { user } = await requireAuthedUser()
+  const { user, supabase } = await requireAuthedUser()
   const validationError = validateUsernameInput(username)
   const sanitized = sanitizeUsernameInput(username)
 
@@ -160,7 +165,7 @@ export async function checkUsernameAvailability(username: string) {
     }
   }
 
-  const client = getProfileClient((await requireAuthedUser()).supabase)
+  const client = getProfileClient(supabase)
   const collision = await findUsernameCollision(client, sanitized, user.id)
 
   return {
@@ -195,6 +200,10 @@ export async function completeOnboardingUsername(username: string) {
     .eq("id", profile.id)
 
   if (error) {
+    if (isPostgresUniqueViolation(error)) {
+      return { error: "That username is already taken" }
+    }
+
     console.error("Failed to save onboarding username", error)
     return { error: "Failed to save username" }
   }
@@ -314,17 +323,24 @@ export async function getOnboardingFollowSuggestions(selectedTitleIds: string[])
 }
 
 export async function saveOnboardingSelections(input: {
+  favoriteGenres: string[]
   finishedTitleIds: string[]
   currentTitleIds: string[]
   plannedTitleIds: string[]
   followProfileIds: string[]
 }) {
+  const parsedGenres = genreListSchema.safeParse(input.favoriteGenres)
+  if (!parsedGenres.success) {
+    return { error: parsedGenres.error.issues[0]?.message ?? "Select at least one genre" }
+  }
+
   const { supabase, profile } = await ensureAuthedProfile()
 
   const finishedTitleIds = uniqueIds(input.finishedTitleIds)
   const currentTitleIds = uniqueIds(input.currentTitleIds)
   const plannedTitleIds = uniqueIds(input.plannedTitleIds)
   const followProfileIds = uniqueIds(input.followProfileIds).filter((profileId) => profileId !== profile.id)
+  const favoriteGenres = parsedGenres.data
 
   const combined = [...finishedTitleIds, ...currentTitleIds, ...plannedTitleIds]
   if (new Set(combined).size !== combined.length) {
@@ -373,6 +389,7 @@ export async function saveOnboardingSelections(input: {
   const { error: completeError } = await supabase
     .from("user_profiles")
     .update({
+      favorite_genres: favoriteGenres,
       onboarding_completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })

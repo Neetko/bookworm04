@@ -6,6 +6,8 @@ import { requireAuthedProfileId } from "@/lib/server/auth"
 import { ensureFinishedReadingListForProfile } from "@/lib/server/title-lists"
 import { revalidatePath } from "next/cache"
 import { awardPointsForTitleAction } from "@/app/actions/rewards"
+import { parseActionInput } from "@/lib/validation/action"
+import { submitReviewSchema } from "@/lib/validation/reviews"
 
 async function getOptionalProfileId(supabase: Awaited<ReturnType<typeof createServerClient>>) {
   const {
@@ -197,11 +199,12 @@ export async function getMyReview(titleId: string) {
 }
 
 export async function submitReview(titleId: string, rating: number, reviewText: string) {
+  const validatedInput = parseActionInput(submitReviewSchema, { titleId, rating, reviewText })
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
-  await requireTitleRead(supabase, profileId, titleId)
+  await requireTitleRead(supabase, profileId, validatedInput.titleId)
 
-  const cleanedReview = sanitizeRichTextHtml(reviewText)
+  const cleanedReview = sanitizeRichTextHtml(validatedInput.reviewText)
 
   // Check if review already exists
   const { data, error } = await supabase
@@ -209,8 +212,8 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
     .upsert(
       {
         user_id: profileId,
-        title_id: titleId,
-        rating,
+        title_id: validatedInput.titleId,
+        rating: validatedInput.rating,
         review_text: cleanedReview,
         updated_at: new Date().toISOString(),
       },
@@ -225,7 +228,7 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
     await awardPointsForTitleAction({
       supabase,
       profileId,
-      titleId,
+      titleId: validatedInput.titleId,
       sourceType: "review",
       sourceId: data.id,
       basePoints: 1,
@@ -237,16 +240,16 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
   const { data: title } = await supabase
     .from("titles")
     .select("id, title, cover_image_url")
-    .eq("id", titleId)
+    .eq("id", validatedInput.titleId)
     .maybeSingle()
 
   const metadata = {
     title: {
-      id: titleId,
+      id: validatedInput.titleId,
       title: title?.title ?? "a title",
       cover: (title as any)?.cover_image_url ?? null,
     },
-    rating,
+    rating: validatedInput.rating,
     reviewText: reviewPlainText,
   }
 
@@ -255,7 +258,7 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
     .select("id")
     .eq("user_profile_id", profileId)
     .eq("event_type", "review_posted")
-    .eq("title_id", titleId)
+    .eq("title_id", validatedInput.titleId)
     .maybeSingle()
 
   if (existingEvent?.id) {
@@ -266,11 +269,11 @@ export async function submitReview(titleId: string, rating: number, reviewText: 
   } else {
     await supabase.from("activity_events").insert({
       user_profile_id: profileId,
-      title_id: titleId,
+      title_id: validatedInput.titleId,
       event_type: "review_posted",
       metadata,
     })
   }
 
-  revalidatePath(`/titles/${titleId}`)
+  revalidatePath(`/titles/${validatedInput.titleId}`)
 }

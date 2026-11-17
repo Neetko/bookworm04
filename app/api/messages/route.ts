@@ -57,7 +57,7 @@ export async function GET(request: Request) {
   const { supabase, profileId } = await getProfileId()
 
   if (!profileId) {
-    return NextResponse.json({ results: [], counts: { inbox: 0, sent: 0, drafts: 0 } })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   let query = supabase.from("messages").select("*")
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
 
   if (error) {
     console.error("Failed to load messages", error)
-    return NextResponse.json({ results: [], counts: { inbox: 0, sent: 0, drafts: 0 } })
+    return NextResponse.json({ error: "Failed to load messages" }, { status: 500 })
   }
 
   const profileIds = Array.from(

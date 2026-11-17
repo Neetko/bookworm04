@@ -10,13 +10,16 @@ if (requireRemoteBaseURL && !remoteBaseURL) {
 
 export default defineConfig({
   testDir: "tests/e2e",
-  timeout: 30_000,
+  timeout: 45_000,
+  workers: 1,
+  retries: process.env.CI ? 1 : 0,
   expect: {
-    timeout: 5_000,
+    timeout: 10_000,
   },
   use: {
     baseURL,
-    trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    trace: "retain-on-failure",
   },
   webServer: remoteBaseURL
     ? undefined

@@ -22,8 +22,9 @@ import {
   addClubReadingItem,
   declineClubApplication,
   inviteMemberToClub,
-  kickMemberFromClub,
+  removeMemberFromClub,
   removeClubReadingItem,
+  revokeClubInvitation,
   setClubCurrentReading,
   uploadClubAvatar,
   updateClubSettings,
@@ -40,6 +41,7 @@ const JOIN_POLICY_LABEL: Record<ClubJoinPolicy, string> = {
 
 type Club = {
   id: string
+  owner_user_id: string
   type: ClubType
   join_policy: ClubJoinPolicy
   name: string
@@ -167,6 +169,7 @@ export function ClubManageForm({
   const [inviteSuggestionsOpen, setInviteSuggestionsOpen] = useState(false)
   const [loadingInviteSuggestions, setLoadingInviteSuggestions] = useState(false)
   const [applicationActionId, setApplicationActionId] = useState<string | null>(null)
+  const [invitationActionId, setInvitationActionId] = useState<string | null>(null)
   const inviteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const connectedInviteSuggestions = inviteSuggestions.filter((candidate) => candidate.relationship !== "other")
   const otherInviteSuggestions = inviteSuggestions.filter((candidate) => candidate.relationship === "other")
@@ -251,7 +254,7 @@ export function ClubManageForm({
       router.refresh()
     } catch (e) {
       console.error(e)
-      toast.error("Failed to approve application")
+      toast.error(e instanceof Error ? e.message : "Failed to approve application")
     } finally {
       setApplicationActionId(null)
     }
@@ -265,22 +268,36 @@ export function ClubManageForm({
       router.refresh()
     } catch (e) {
       console.error(e)
-      toast.error("Failed to decline application")
+      toast.error(e instanceof Error ? e.message : "Failed to decline application")
     } finally {
       setApplicationActionId(null)
     }
   }
 
+  const onRevokeInvitation = async (invitationId: string) => {
+    setInvitationActionId(invitationId)
+    try {
+      await revokeClubInvitation(club.id, invitationId)
+      toast.success("Invitation revoked")
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      toast.error(e instanceof Error ? e.message : "Failed to revoke invitation")
+    } finally {
+      setInvitationActionId(null)
+    }
+  }
+
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
-  const onKick = async (memberId: string) => {
+  const onRemoveMember = async (memberId: string) => {
     setRemovingMemberId(memberId)
     try {
-      await kickMemberFromClub(club.id, memberId)
+      await removeMemberFromClub(club.id, memberId)
       toast.success("Member removed")
       router.refresh()
     } catch (e) {
       console.error(e)
-      toast.error("Failed to remove member")
+      toast.error(e instanceof Error ? e.message : "Failed to remove member")
     } finally {
       setRemovingMemberId(null)
     }
@@ -656,10 +673,24 @@ export function ClubManageForm({
                     </div>
                   </div>
 
-                  <Badge variant="outline" className="gap-1">
-                    <Mail className="h-3.5 w-3.5" />
-                    Pending
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="gap-1">
+                      <Mail className="h-3.5 w-3.5" />
+                      Pending
+                    </Badge>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onRevokeInvitation(invitation.id)}
+                      disabled={invitationActionId === invitation.id}
+                    >
+                      {invitationActionId === invitation.id && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Revoke
+                    </Button>
+                  </div>
                 </div>
               ))
             )}
@@ -683,15 +714,19 @@ export function ClubManageForm({
                       </div>
                     </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onKick(m.id)}
-                      disabled={removingMemberId === m.id}
-                    >
-                      {removingMemberId === m.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Kick
-                    </Button>
+                    {m.id === club.owner_user_id ? (
+                      <Badge variant="secondary">Owner</Badge>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onRemoveMember(m.id)}
+                        disabled={removingMemberId === m.id}
+                      >
+                        {removingMemberId === m.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Remove
+                      </Button>
+                    )}
                   </div>
                 ))
               )}

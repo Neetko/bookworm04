@@ -4,7 +4,12 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
-import { acceptClubInvitation, applyToClub, declineClubInvitation } from "@/app/actions/clubs"
+import {
+  acceptClubInvitation,
+  applyToClub,
+  declineClubInvitation,
+  withdrawClubApplication,
+} from "@/app/actions/clubs"
 import { useRouter } from "next/navigation"
 
 export function ClubApplyButton({
@@ -16,7 +21,7 @@ export function ClubApplyButton({
   pending?: boolean
   invitationId?: string | null
 }) {
-  const [isLoading, setIsLoading] = useState<"apply" | "accept" | "decline" | null>(null)
+  const [isLoading, setIsLoading] = useState<"apply" | "withdraw" | "accept" | "decline" | null>(null)
   const [hasPendingApplication, setHasPendingApplication] = useState(pending)
   const router = useRouter()
 
@@ -33,7 +38,22 @@ export function ClubApplyButton({
       router.refresh()
     } catch (e) {
       console.error(e)
-      toast.error("Failed to apply")
+      toast.error(e instanceof Error ? e.message : "Failed to apply")
+    } finally {
+      setIsLoading(null)
+    }
+  }
+
+  const onWithdraw = async () => {
+    setIsLoading("withdraw")
+    try {
+      await withdrawClubApplication(clubId)
+      setHasPendingApplication(false)
+      toast.success("Application withdrawn")
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+      toast.error(e instanceof Error ? e.message : "Failed to withdraw application")
     } finally {
       setIsLoading(null)
     }
@@ -48,7 +68,7 @@ export function ClubApplyButton({
       router.refresh()
     } catch (e) {
       console.error(e)
-      toast.error("Failed to accept invitation")
+      toast.error(e instanceof Error ? e.message : "Failed to accept invitation")
     } finally {
       setIsLoading(null)
     }
@@ -63,7 +83,7 @@ export function ClubApplyButton({
       router.refresh()
     } catch (e) {
       console.error(e)
-      toast.error("Failed to decline invitation")
+      toast.error(e instanceof Error ? e.message : "Failed to decline invitation")
     } finally {
       setIsLoading(null)
     }
@@ -84,14 +104,19 @@ export function ClubApplyButton({
     )
   }
 
+  if (hasPendingApplication) {
+    return (
+      <Button onClick={onWithdraw} disabled={isLoading !== null} variant="outline">
+        {isLoading === "withdraw" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Withdraw application
+      </Button>
+    )
+  }
+
   return (
-    <Button
-      onClick={onApply}
-      disabled={hasPendingApplication || isLoading !== null}
-      variant={hasPendingApplication ? "outline" : "default"}
-    >
+    <Button onClick={onApply} disabled={isLoading !== null}>
       {isLoading === "apply" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-      {hasPendingApplication ? "Application pending" : "Apply"}
+      Apply
     </Button>
   )
 }

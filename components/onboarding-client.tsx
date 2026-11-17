@@ -10,7 +10,11 @@ import {
   searchOnboardingTitles,
   type OnboardingFollowSuggestion,
 } from "@/app/actions/onboarding"
-import { CoverImage } from "@/components/cover-image"
+import { CanonGenreToggleGroup } from "@/components/canon-genre-toggle-group"
+import {
+  OnboardingBookStep,
+  type OnboardingShelf,
+} from "@/components/onboarding/onboarding-book-step"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,11 +29,9 @@ import {
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { sanitizeUsernameInput } from "@/lib/onboarding"
-import type { SearchTitleResult } from "@/lib/types"
-import { BookOpen, Check, Loader2, Search, UserPlus, Users } from "lucide-react"
+import type { Genre, SearchTitleResult } from "@/lib/types"
+import { Check, Loader2, UserPlus, Users } from "lucide-react"
 import { toast } from "sonner"
-
-type ShelfKey = "finished" | "current" | "planned"
 
 type UsernameStatus = "idle" | "checking" | "available" | "error"
 
@@ -40,43 +42,20 @@ type UsernameFeedback = {
 
 type OnboardingClientProps = {
   initialUsername: string | null
+  initialFavoriteGenres: Genre[]
   initialTitles: SearchTitleResult[]
 }
 
 const STEPS = [
   "Choose username",
+  "Favorite genres",
   "Finished books",
   "Current reads",
   "Planned reads",
   "Find readers",
 ] as const
 
-const BOOK_STEP_ORDER: ShelfKey[] = ["finished", "current", "planned"]
-
-const BOOK_STEP_COPY: Record<
-  ShelfKey,
-  {
-    title: string
-    description: string
-    empty: string
-  }
-> = {
-  finished: {
-    title: "What have you already finished?",
-    description: "Pick any ingested titles you have completed. We'll add them to your Finished Reading list.",
-    empty: "No finished titles selected yet.",
-  },
-  current: {
-    title: "What are you reading right now?",
-    description: "Add titles you are currently reading. Anything chosen earlier is automatically hidden here.",
-    empty: "No current reads selected yet.",
-  },
-  planned: {
-    title: "What do you plan to read next?",
-    description: "Build your Planned Reading list. Titles already chosen in other onboarding steps stay out of the suggestions.",
-    empty: "No planned reads selected yet.",
-  },
-}
+const BOOK_STEP_ORDER: OnboardingShelf[] = ["finished", "current", "planned"]
 
 function getInitials(name: string) {
   const normalized = name.trim()
@@ -88,7 +67,7 @@ function getInitials(name: string) {
   return normalized.slice(0, 2).toUpperCase()
 }
 
-export function OnboardingClient({ initialUsername, initialTitles }: OnboardingClientProps) {
+export function OnboardingClient({ initialUsername, initialFavoriteGenres, initialTitles }: OnboardingClientProps) {
   const router = useRouter()
 
   const [step, setStep] = useState(0)
@@ -99,23 +78,24 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
     message: "Choose the username other readers will see.",
   })
   const [usernameSubmitting, setUsernameSubmitting] = useState(false)
+  const [favoriteGenres, setFavoriteGenres] = useState<Genre[]>(initialFavoriteGenres)
 
-  const [selections, setSelections] = useState<Record<ShelfKey, SearchTitleResult[]>>({
+  const [selections, setSelections] = useState<Record<OnboardingShelf, SearchTitleResult[]>>({
     finished: [],
     current: [],
     planned: [],
   })
-  const [queries, setQueries] = useState<Record<ShelfKey, string>>({
+  const [queries, setQueries] = useState<Record<OnboardingShelf, string>>({
     finished: "",
     current: "",
     planned: "",
   })
-  const [searchResults, setSearchResults] = useState<Record<ShelfKey, SearchTitleResult[]>>({
+  const [searchResults, setSearchResults] = useState<Record<OnboardingShelf, SearchTitleResult[]>>({
     finished: [],
     current: [],
     planned: [],
   })
-  const [searchLoading, setSearchLoading] = useState<Record<ShelfKey, boolean>>({
+  const [searchLoading, setSearchLoading] = useState<Record<OnboardingShelf, boolean>>({
     finished: false,
     current: false,
     planned: false,
@@ -125,7 +105,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
   const [selectedFollowIds, setSelectedFollowIds] = useState<string[]>([])
   const [finishing, setFinishing] = useState(false)
 
-  const activeShelf = step >= 1 && step <= 3 ? BOOK_STEP_ORDER[step - 1] : null
+  const activeShelf = step >= 2 && step <= 4 ? BOOK_STEP_ORDER[step - 2] : null
 
   const allSelectedTitleIds = useMemo(
     () => Array.from(new Set(Object.values(selections).flat().map((title) => title.id))),
@@ -188,7 +168,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
   }, [activeShelf, allSelectedTitleIds, queries])
 
   useEffect(() => {
-    if (step !== 4) return
+    if (step !== 5) return
 
     if (allSelectedTitleIds.length === 0) {
       setFollowSuggestions([])
@@ -227,11 +207,11 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
     })
   }, [activeShelf, allSelectedTitleIds, initialTitles, queries, searchResults])
 
-  const updateQuery = (shelf: ShelfKey, value: string) => {
+  const updateQuery = (shelf: OnboardingShelf, value: string) => {
     setQueries((prev) => ({ ...prev, [shelf]: value }))
   }
 
-  const addTitle = (shelf: ShelfKey, title: SearchTitleResult) => {
+  const addTitle = (shelf: OnboardingShelf, title: SearchTitleResult) => {
     setSelections((prev) => {
       const alreadySelected = Object.values(prev).some((items) => items.some((item) => item.id === title.id))
       if (alreadySelected) return prev
@@ -242,7 +222,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
     })
   }
 
-  const removeTitle = (shelf: ShelfKey, titleId: string) => {
+  const removeTitle = (shelf: OnboardingShelf, titleId: string) => {
     setSelections((prev) => ({
       ...prev,
       [shelf]: prev[shelf].filter((title) => title.id !== titleId),
@@ -290,6 +270,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
     setFinishing(true)
     try {
       const result = await saveOnboardingSelections({
+        favoriteGenres,
         finishedTitleIds: selections.finished.map((title) => title.id),
         currentTitleIds: selections.current.map((title) => title.id),
         plannedTitleIds: selections.planned.map((title) => title.id),
@@ -311,6 +292,12 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
     }
   }
 
+  const toggleFavoriteGenre = (genre: Genre) => {
+    setFavoriteGenres((current) =>
+      current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre]
+    )
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mb-8 flex items-center justify-between gap-4">
@@ -318,7 +305,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
           <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">New account</p>
           <h1 className="mt-2 text-3xl font-semibold text-foreground">Set up your reading world</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Pick your username first. Everything after that is optional, and you can always change your books or follows later.
+            Choose a username and at least one favorite genre. Your books and reader follows are optional and can be changed later.
           </p>
         </div>
         <Badge variant="outline">Step {step + 1} of {STEPS.length}</Badge>
@@ -326,7 +313,7 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
 
       <div className="mb-8 space-y-3">
         <Progress value={progressValue} className="h-2" />
-        <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-5">
+        <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-6">
           {STEPS.map((label, index) => (
             <div
               key={label}
@@ -341,9 +328,9 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
       {step === 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Choose your username</CardTitle>
+            <CardTitle role="heading" aria-level={2}>Choose your username</CardTitle>
             <CardDescription>
-              This is the only required onboarding step. We preserve your casing, but availability is checked case-insensitively.
+              Your username is required. We preserve your casing, but availability is checked case-insensitively.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -386,119 +373,53 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
         </Card>
       ) : null}
 
-      {activeShelf ? (
+      {step === 1 ? (
         <Card>
           <CardHeader>
-            <CardTitle>{BOOK_STEP_COPY[activeShelf].title}</CardTitle>
-            <CardDescription>{BOOK_STEP_COPY[activeShelf].description}</CardDescription>
+            <CardTitle role="heading" aria-level={2}>Choose your favorite genres</CardTitle>
+            <CardDescription>
+              Pick one or more genres you enjoy. We save these preferences to your profile for future discovery and recommendations.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground" htmlFor={`search-${activeShelf}`}>
-                Search ingested titles
-              </label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id={`search-${activeShelf}`}
-                  value={queries[activeShelf]}
-                  onChange={(event) => updateQuery(activeShelf, event.target.value)}
-                  placeholder="Search by title or author"
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-medium text-foreground">Selected titles</h2>
-                <Badge variant="secondary">{selections[activeShelf].length}</Badge>
-              </div>
-              {selections[activeShelf].length > 0 ? (
-                <div className="grid gap-3 md:grid-cols-2">
-                  {selections[activeShelf].map((title) => (
-                    <div key={`${activeShelf}-${title.id}`} className="flex items-center gap-3 rounded-lg border p-3">
-                      <div className="relative h-16 w-12 overflow-hidden rounded bg-muted">
-                        <CoverImage src={title.coverImageUrl} alt={title.title} sizes="48px" />
-                        {!title.coverImageUrl ? (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <BookOpen className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium text-foreground">{title.title}</div>
-                        <div className="truncate text-sm text-muted-foreground">{title.author}</div>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => removeTitle(activeShelf, title.id)}>
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  {BOOK_STEP_COPY[activeShelf].empty}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-medium text-foreground">Suggestions</h2>
-                {searchLoading[activeShelf] ? (
-                  <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Loading
-                  </span>
-                ) : null}
-              </div>
-              {visibleResults.length > 0 ? (
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {visibleResults.slice(0, 18).map((title) => (
-                    <button
-                      key={`${activeShelf}-result-${title.id}`}
-                      type="button"
-                      onClick={() => addTitle(activeShelf, title)}
-                      className="flex items-center gap-3 rounded-lg border p-3 text-left transition hover:border-primary hover:bg-muted/40"
-                    >
-                      <div className="relative h-20 w-14 overflow-hidden rounded bg-muted">
-                        <CoverImage src={title.coverImageUrl} alt={title.title} sizes="56px" />
-                        {!title.coverImageUrl ? (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <BookOpen className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="line-clamp-2 font-medium text-foreground">{title.title}</div>
-                        <div className="truncate text-sm text-muted-foreground">{title.author}</div>
-                      </div>
-                      <span className="rounded-full border px-2 py-1 text-xs text-muted-foreground">Add</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  No matching ingested titles yet.
-                </div>
-              )}
+          <CardContent className="space-y-4">
+            <CanonGenreToggleGroup
+              selectedGenres={favoriteGenres}
+              onToggle={toggleFavoriteGenre}
+              className="flex-wrap"
+              buttonClassName="h-9 px-3"
+            />
+            <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+              {favoriteGenres.length > 0
+                ? `${favoriteGenres.length} ${favoriteGenres.length === 1 ? "genre" : "genres"} selected`
+                : "Select at least one genre to continue."}
             </div>
           </CardContent>
           <CardFooter className="justify-between gap-3">
             <Button variant="outline" onClick={goBack}>Back</Button>
-            <div className="flex gap-3">
-              <Button variant="ghost" onClick={goNext}>Skip</Button>
-              <Button onClick={goNext}>Continue</Button>
-            </div>
+            <Button onClick={goNext} disabled={favoriteGenres.length === 0}>Continue</Button>
           </CardFooter>
         </Card>
       ) : null}
 
-      {step === 4 ? (
+      {activeShelf ? (
+        <OnboardingBookStep
+          shelf={activeShelf}
+          query={queries[activeShelf]}
+          selectedTitles={selections[activeShelf]}
+          visibleResults={visibleResults}
+          searchLoading={searchLoading[activeShelf]}
+          onQueryChange={(value) => updateQuery(activeShelf, value)}
+          onAddTitle={(title) => addTitle(activeShelf, title)}
+          onRemoveTitle={(titleId) => removeTitle(activeShelf, titleId)}
+          onBack={goBack}
+          onNext={goNext}
+        />
+      ) : null}
+
+      {step === 5 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Find readers with overlap</CardTitle>
+            <CardTitle role="heading" aria-level={2}>Find readers with overlap</CardTitle>
             <CardDescription>
               Follow people who already share some of the books you picked. This step is optional too.
             </CardDescription>
@@ -578,15 +499,10 @@ export function OnboardingClient({ initialUsername, initialTitles }: OnboardingC
           </CardContent>
           <CardFooter className="justify-between gap-3">
             <Button variant="outline" onClick={goBack} disabled={finishing}>Back</Button>
-            <div className="flex gap-3">
-              <Button variant="ghost" onClick={handleFinish} disabled={finishing}>
-                Finish without more
-              </Button>
-              <Button onClick={handleFinish} disabled={finishing}>
-                {finishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Users className="mr-2 h-4 w-4" />}
-                Finish setup
-              </Button>
-            </div>
+            <Button onClick={handleFinish} disabled={finishing}>
+              {finishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Users className="mr-2 h-4 w-4" />}
+              Finish setup
+            </Button>
           </CardFooter>
         </Card>
       ) : null}

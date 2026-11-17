@@ -9,13 +9,26 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const exchange = async () => {
-      try {
-        await supabase.auth.exchangeCodeForSession(window.location.href)
-      } finally {
-        router.replace("/onboarding")
+      const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href)
+      if (exchangeError || !data.session) {
+        router.replace("/auth?error=sign-in-callback")
+        return
       }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("user_profiles")
+        .select("onboarding_completed_at")
+        .eq("auth_user_id", data.session.user.id)
+        .maybeSingle()
+
+      if (profileError) {
+        router.replace("/auth?error=profile-check")
+        return
+      }
+
+      router.replace(profile?.onboarding_completed_at ? "/" : "/onboarding")
     }
-    exchange()
+    void exchange()
   }, [router])
 
   return (

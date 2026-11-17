@@ -2,21 +2,27 @@
   "name": "bookworm",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=22 <23",
+    "pnpm": ">=10 <11"
+  },
   "scripts": {
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:local": "pnpm exec supabase db reset --local && playwright test",
     "test:e2e:prod": "PLAYWRIGHT_REQUIRE_BASE_URL=1 playwright test --grep @prod-smoke",
+    "demo:covers": "node scripts/prepare-demo-covers.mjs",
     "drizzle:generate": "drizzle-kit generate",
     "drizzle:migrate": "drizzle-kit migrate",
-    "db:types": "supabase gen types typescript --local --schema public > lib/database.types.ts",
-    "db:seed": "tsx scripts/seed-title-reviews.ts",
-    "db:seed-activity-feed": "tsx scripts/seed-activity-feed.ts",
-    "db:seed-reviews": "tsx scripts/seed-title-reviews.ts"
+    "db:types": "supabase gen types typescript --local --schema public > lib/database.types.ts"
   },
   "dependencies": {
     "@fontsource/im-fell-english-sc": "^5.2.6",

@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { trackTitleProgress } from "@/app/actions/track-reading"
+import { getErrorMessage } from "@/lib/errors"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { ReadingProgressSelector, type ReadingProgressMode } from "@/components/reading-progress-selector"
@@ -153,8 +154,8 @@ export function DiaryEntryDialog({
       toast.success("Diary entry saved")
       setOpen(false)
       router.refresh()
-    } catch (error: any) {
-      toast.error(error?.message ?? "Failed to save diary entry")
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to save diary entry"))
     } finally {
       setSubmitting(false)
     }

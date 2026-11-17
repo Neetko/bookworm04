@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { updateDiaryEntry } from "@/app/actions/track-reading"
+import { getErrorMessage } from "@/lib/errors"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -46,8 +47,8 @@ export function DiaryEntryEditor({
       toast.success("Entry updated")
       setOpen(false)
       router.refresh()
-    } catch (error: any) {
-      toast.error(error?.message ?? "Failed to update entry")
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update entry"))
     } finally {
       setSaving(false)
     }

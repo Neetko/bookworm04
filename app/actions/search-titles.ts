@@ -6,6 +6,7 @@ import { enforceGenreRulesFromList } from "@/lib/book-tagging"
 import { isGenre, type Genre, type SearchTitleResult } from "@/lib/types"
 import { getTitleSearchCapabilities } from "@/lib/title-capabilities"
 import { mergeSearchTitleResults } from "@/lib/title-search-results"
+import { hasEverySelectedGenre } from "@/lib/genre-filter"
 import {
   getBestEffortCanonicalExternalMatchReport,
   type CanonicalExternalMatchReport,
@@ -174,9 +175,7 @@ export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitl
 
   const filteredLocalResults =
     genres.length > 0
-      ? localResults.filter((result) =>
-          result.genres?.some((genre) => genres.includes(genre))
-        )
+      ? localResults.filter((result) => hasEverySelectedGenre(result.genres, genres))
       : localResults
 
   const googleResults: SearchTitleResult[] = googleBooks
@@ -211,7 +210,5 @@ export async function getInitialTitles(genres: Genre[] = []): Promise<SearchTitl
 
   if (genres.length === 0) return localResults
 
-  return localResults.filter((result) =>
-    result.genres?.some((genre) => genres.includes(genre))
-  )
+  return localResults.filter((result) => hasEverySelectedGenre(result.genres, genres))
 }

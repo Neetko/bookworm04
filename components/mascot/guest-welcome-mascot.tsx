@@ -1,4 +1,3 @@
-import Image from "next/image"
 import { BookwormSprite } from "./bookworm-sprite"
 import styles from "./guest-welcome-mascot.module.css"
 
@@ -21,17 +20,6 @@ export function GuestWelcomeMascot() {
         label="Bookworm welcoming new readers"
         priority
         size="lg"
-      />
-      <Image
-        aria-hidden="true"
-        alt=""
-        className={styles.toothyFrame}
-        draggable={false}
-        height={480}
-        priority
-        src="/mascot/welcome/toothy.png"
-        unoptimized
-        width={320}
       />
     </div>
   )

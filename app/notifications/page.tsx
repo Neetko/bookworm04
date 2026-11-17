@@ -10,6 +10,11 @@ import { formatDistanceToNow } from "date-fns"
 import { Bell, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { acceptClubInvitation, declineClubInvitation } from "@/app/actions/clubs"
+import {
+  notifyUnreadCountsChanged,
+  parseNotificationCursor,
+  type NotificationCursor,
+} from "@/lib/notifications"
 
 interface NotificationRow {
   id: string
@@ -22,7 +27,8 @@ interface NotificationRow {
     role?: { name?: string | null }
     club?: { id?: string | null; name?: string | null; avatarUrl?: string | null }
     invitation?: { id?: string | null; status?: string | null; respondedAt?: string | null }
-    application?: { id?: string | null }
+    application?: { id?: string | null; status?: string | null; respondedAt?: string | null }
+    membership?: { reason?: string | null }
     resolution?: { action?: string | null; respondedAt?: string | null }
   } | null
 }
@@ -30,10 +36,36 @@ interface NotificationRow {
 const getInvitationResolution = (notification: NotificationRow) =>
   notification.metadata?.resolution?.action ?? notification.metadata?.invitation?.status ?? null
 
+const getApplicationResolution = (notification: NotificationRow) =>
+  notification.metadata?.resolution?.action ?? notification.metadata?.application?.status ?? null
+
 const getNotificationTimestamp = (notification: NotificationRow) =>
   notification.metadata?.resolution?.respondedAt ??
   notification.metadata?.invitation?.respondedAt ??
+  notification.metadata?.application?.respondedAt ??
   notification.created_at
+
+const getNextCursor = (value: unknown): NotificationCursor | null => {
+  if (!value || typeof value !== "object") return null
+
+  const candidate = value as { createdAt?: unknown; id?: unknown }
+  const parsed = parseNotificationCursor(
+    typeof candidate.createdAt === "string" ? candidate.createdAt : null,
+    typeof candidate.id === "string" ? candidate.id : null
+  )
+
+  return parsed?.cursor ?? null
+}
+
+const buildNotificationsUrl = (cursor: NotificationCursor | null) => {
+  if (!cursor) return "/api/notifications"
+
+  const params = new URLSearchParams({
+    before: cursor.createdAt,
+    beforeId: cursor.id,
+  })
+  return `/api/notifications?${params.toString()}`
+}
 
 const NotificationEntityLink = ({
   href,
@@ -56,6 +88,7 @@ const buildLabel = (notification: NotificationRow) => {
   const titleName = notification.metadata?.title?.title ?? "a title"
   const clubName = notification.metadata?.club?.name ?? "the club"
   const invitationResolution = getInvitationResolution(notification)
+  const applicationResolution = getApplicationResolution(notification)
   const actorHref = notification.metadata?.actor?.id
     ? `/users/${encodeURIComponent(notification.metadata.actor.id)}`
     : null
@@ -82,6 +115,15 @@ const buildLabel = (notification: NotificationRow) => {
     case "moderator_assigned":
       return <>{actorNode} made you a moderator.</>
     case "club_application_received":
+      if (applicationResolution === "approved" || applicationResolution === "accepted") {
+        return <>{actorNode}&apos;s request to join {clubNode} was approved.</>
+      }
+      if (applicationResolution === "declined") {
+        return <>{actorNode}&apos;s request to join {clubNode} was declined.</>
+      }
+      if (applicationResolution === "withdrawn") {
+        return <>{actorNode} withdrew their request to join {clubNode}.</>
+      }
       return <>{actorNode} applied to join {clubNode}.</>
     case "club_application_approved":
       return <>{actorNode} approved your request to join {clubNode}.</>
@@ -94,11 +136,26 @@ const buildLabel = (notification: NotificationRow) => {
       if (invitationResolution === "declined") {
         return <>You declined the invitation to join {clubNode}.</>
       }
+      if (invitationResolution === "revoked") {
+        return <>Your invitation to join {clubNode} was revoked.</>
+      }
+      if (invitationResolution === "expired") {
+        return <>Your invitation to join {clubNode} expired.</>
+      }
       return <>{actorNode} invited you to join {clubNode}.</>
     case "club_invitation_accepted":
       return <>{actorNode} accepted your invitation to join {clubNode}.</>
     case "club_invitation_declined":
       return <>{actorNode} declined your invitation to join {clubNode}.</>
+    case "club_membership_removed":
+      return (
+        <>
+          {actorNode} removed you from {clubNode}
+          {notification.metadata?.membership?.reason
+            ? `: ${notification.metadata.membership.reason}.`
+            : "."}
+        </>
+      )
     default:
       return <>{actorNode} sent you a notification.</>
   }
@@ -108,16 +165,19 @@ export default function NotificationsPage() {
   const router = useRouter()
   const [notifications, setNotifications] = useState<NotificationRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isMarking, setIsMarking] = useState(false)
   const [inviteActionId, setInviteActionId] = useState<string | null>(null)
+  const [nextCursor, setNextCursor] = useState<NotificationCursor | null>(null)
 
   const loadNotifications = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch("/api/notifications")
+      const response = await fetch(buildNotificationsUrl(null), { cache: "no-store" })
       if (!response.ok) throw new Error("Failed to load notifications")
       const data = await response.json()
       setNotifications(Array.isArray(data?.results) ? data.results : [])
+      setNextCursor(getNextCursor(data?.nextCursor))
     } catch (error) {
       console.error(error)
       toast.error("Unable to load notifications")
@@ -130,6 +190,57 @@ export default function NotificationsPage() {
     loadNotifications()
   }, [loadNotifications])
 
+  const loadMoreNotifications = async () => {
+    if (nextCursor === null || isLoadingMore) return
+
+    setIsLoadingMore(true)
+    try {
+      const response = await fetch(buildNotificationsUrl(nextCursor), { cache: "no-store" })
+      if (!response.ok) throw new Error("Failed to load more notifications")
+      const data = await response.json()
+      const nextRows = Array.isArray(data?.results) ? (data.results as NotificationRow[]) : []
+
+      setNotifications((current) => {
+        const byId = new Map(current.map((notification) => [notification.id, notification]))
+        nextRows.forEach((notification) => byId.set(notification.id, notification))
+        return Array.from(byId.values())
+      })
+      setNextCursor(getNextCursor(data?.nextCursor))
+    } catch (error) {
+      console.error(error)
+      toast.error("Unable to load more notifications")
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
+
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    setNotifications((current) =>
+      current.map((notification) => {
+        if (notification.id !== notificationId || notification.is_read) return notification
+        return { ...notification, is_read: true }
+      })
+    )
+
+    try {
+      const response = await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: notificationId }),
+        keepalive: true,
+      })
+      if (!response.ok) throw new Error("Failed to mark notification read")
+      notifyUnreadCountsChanged()
+    } catch (error) {
+      console.error(error)
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.id === notificationId ? { ...notification, is_read: false } : notification
+        )
+      )
+    }
+  }, [])
+
   const handleMarkAllRead = async () => {
     setIsMarking(true)
     try {
@@ -140,6 +251,7 @@ export default function NotificationsPage() {
       })
       if (!response.ok) throw new Error("Failed to mark notifications read")
       setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })))
+      notifyUnreadCountsChanged()
     } catch (error) {
       console.error(error)
       toast.error("Unable to mark notifications read")
@@ -163,6 +275,7 @@ export default function NotificationsPage() {
       }
 
       await loadNotifications()
+      notifyUnreadCountsChanged()
       router.refresh()
     } catch (error) {
       console.error(error)
@@ -182,7 +295,12 @@ export default function NotificationsPage() {
               <Bell className="h-5 w-5" />
               Notifications
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={handleMarkAllRead} disabled={isMarking}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMarkAllRead}
+              disabled={isMarking || notifications.every((notification) => notification.is_read)}
+            >
               Mark all read
             </Button>
           </CardHeader>
@@ -196,49 +314,63 @@ export default function NotificationsPage() {
                 <div
                   key={notification.id}
                   className={`rounded-lg border p-4 ${notification.is_read ? "bg-muted/40" : "bg-background"}`}
+                  onClickCapture={() => {
+                    if (!notification.is_read) void markNotificationRead(notification.id)
+                  }}
                 >
                   {(() => {
                     const invitationResolution = getInvitationResolution(notification)
                     const canRespondToInvitation =
                       notification.event_type === "club_invited_to_club" &&
                       !!notification.metadata?.invitation?.id &&
-                      invitationResolution !== "accepted" &&
-                      invitationResolution !== "declined"
+                      (invitationResolution === null || invitationResolution === "pending")
 
                     return (
                       <>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="font-medium">{buildLabel(notification)}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(getNotificationTimestamp(notification)), { addSuffix: true })}
-                    </div>
-                  </div>
-                  {canRespondToInvitation ? (
-                    <div className="mt-3 flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleInvitationAction(notification, "accept")}
-                        disabled={inviteActionId === notification.id}
-                      >
-                        {inviteActionId === notification.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Accept
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleInvitationAction(notification, "decline")}
-                        disabled={inviteActionId === notification.id}
-                      >
-                        Decline
-                      </Button>
-                    </div>
-                  ) : null}
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="font-medium">{buildLabel(notification)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(getNotificationTimestamp(notification)), {
+                              addSuffix: true,
+                            })}
+                          </div>
+                        </div>
+                        {canRespondToInvitation ? (
+                          <div className="mt-3 flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleInvitationAction(notification, "accept")}
+                              disabled={inviteActionId === notification.id}
+                            >
+                              {inviteActionId === notification.id && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              )}
+                              Accept
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleInvitationAction(notification, "decline")}
+                              disabled={inviteActionId === notification.id}
+                            >
+                              Decline
+                            </Button>
+                          </div>
+                        ) : null}
                       </>
                     )
                   })()}
                 </div>
               ))
             )}
+            {nextCursor !== null ? (
+              <div className="flex justify-center pt-2">
+                <Button variant="outline" onClick={loadMoreNotifications} disabled={isLoadingMore}>
+                  {isLoadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Load more
+                </Button>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>

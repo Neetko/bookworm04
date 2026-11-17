@@ -5,61 +5,58 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Lock } from "lucide-react"
 import { DiscussionPost } from "./discussion-post"
 import { DiscussionPostForm } from "./discussion-post-form"
-import { getDiscussionPosts, getTitleReadStatus, type DiscussionPostRow } from "@/app/actions/title"
+import { getDiscussionPosts, type DiscussionPostRow } from "@/app/actions/title"
 
 interface DiscussionForumProps {
   titleId: string
+  canWrite: boolean
+  isSignedIn: boolean
 }
 
-export function DiscussionForum({ titleId }: DiscussionForumProps) {
-  const [canView, setCanView] = useState(false)
+export function DiscussionForum({ titleId, canWrite, isSignedIn }: DiscussionForumProps) {
   const [isLoading, setIsLoading] = useState(true)
 
   const [posts, setPosts] = useState<DiscussionPostRow[]>([])
 
   useEffect(() => {
-    const checkAccess = async () => {
+    const loadPosts = async () => {
       try {
-        const isRead = await getTitleReadStatus(titleId)
-        setCanView(isRead)
-
-        if (isRead) {
-          const loaded = await getDiscussionPosts(titleId)
-          setPosts(loaded)
-        }
+        const loaded = await getDiscussionPosts(titleId)
+        setPosts(loaded)
       } catch (error) {
-        console.error("Failed to check access", error)
+        console.error("Failed to load discussion", error)
       } finally {
         setIsLoading(false)
       }
     }
-    checkAccess()
+    loadPosts()
   }, [titleId])
 
   if (isLoading) {
     return <div>Loading discussion...</div>
   }
 
-  if (!canView) {
-    return (
-      <Card className="mt-8 bg-muted/50 border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="bg-muted p-4 rounded-full mb-4">
-            <Lock className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-xl font-semibold mb-2">Discussion Locked</h3>
-          <p className="text-muted-foreground max-w-md">
-            You must mark this book as &quot;Read&quot; to view and participate in the discussion forum. This helps prevent spoilers for other readers!
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <div className="space-y-6">
-      {/* Post Form */}
-      <DiscussionPostForm titleId={titleId} />
+      {canWrite ? (
+        <DiscussionPostForm titleId={titleId} />
+      ) : (
+        <Card className="border-dashed bg-muted/40">
+          <CardContent className="flex items-start gap-3 p-5">
+            <div className="rounded-full bg-muted p-2">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Read-only discussion</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {isSignedIn
+                  ? "Mark this title as read to post. You can still browse every discussion below."
+                  : "Sign in and mark this title as read to post. You can still browse every discussion below."}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Posts List */}
       <div className="space-y-6">
@@ -73,7 +70,9 @@ export function DiscussionForum({ titleId }: DiscussionForumProps) {
             </CardContent>
           </Card>
         ) : (
-          posts.map((post) => <DiscussionPost key={post.id} post={post as any} />)
+          posts.map((post) => (
+            <DiscussionPost key={post.id} post={post as any} canLike={canWrite} />
+          ))
         )}
       </div>
     </div>

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ReviewForm } from "@/components/review-form"
 import { DiscussionForum } from "@/components/discussion-forum"
+import { getErrorMessage } from "@/lib/errors"
 import { sanitizeRichTextHtml } from "@/lib/sanitize"
 import { Button } from "@/components/ui/button"
 import { ThumbsUp } from "lucide-react"
@@ -27,10 +28,11 @@ type ReviewRow = {
 type TitleEngagementTabsProps = {
   titleId: string
   canRead: boolean
+  isSignedIn: boolean
   reviews: ReviewRow[]
 }
 
-export function TitleEngagementTabs({ titleId, canRead, reviews }: TitleEngagementTabsProps) {
+export function TitleEngagementTabs({ titleId, canRead, isSignedIn, reviews }: TitleEngagementTabsProps) {
   const reviewCountLabel = useMemo(() => {
     const count = reviews.length
     return count === 1 ? "1 review" : `${count} reviews`
@@ -40,7 +42,7 @@ export function TitleEngagementTabs({ titleId, canRead, reviews }: TitleEngageme
     <Tabs defaultValue="reviews" className="w-full">
       <TabsList className="mb-4">
         <TabsTrigger value="reviews">Reviews</TabsTrigger>
-        {canRead ? <TabsTrigger value="discussion">Discussion</TabsTrigger> : null}
+        <TabsTrigger value="discussion">Discussion</TabsTrigger>
       </TabsList>
 
       <TabsContent value="reviews">
@@ -53,7 +55,9 @@ export function TitleEngagementTabs({ titleId, canRead, reviews }: TitleEngageme
               <ReviewForm titleId={titleId} canWrite={canRead} />
             ) : (
               <p className="text-sm text-muted-foreground">
-                Mark this title as read to write a review.
+                {isSignedIn
+                  ? "Mark this title as read to write a review."
+                  : "Sign in and mark this title as read to write a review."}
               </p>
             )}
 
@@ -93,6 +97,7 @@ export function TitleEngagementTabs({ titleId, canRead, reviews }: TitleEngageme
                       reviewId={review.id}
                       initialCount={review.likes_count ?? 0}
                       initialLiked={Boolean(review.viewer_has_liked)}
+                      canLike={isSignedIn}
                     />
                   </div>
                 ))}
@@ -102,18 +107,16 @@ export function TitleEngagementTabs({ titleId, canRead, reviews }: TitleEngageme
         </Card>
       </TabsContent>
 
-      {canRead ? (
-        <TabsContent value="discussion">
-          <Card>
-            <CardHeader>
-              <CardTitle>Discussion</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DiscussionForum titleId={titleId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      ) : null}
+      <TabsContent value="discussion">
+        <Card>
+          <CardHeader>
+            <CardTitle>Discussion</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DiscussionForum titleId={titleId} canWrite={canRead} isSignedIn={isSignedIn} />
+          </CardContent>
+        </Card>
+      </TabsContent>
     </Tabs>
   )
 }
@@ -122,17 +125,19 @@ function ReviewLikeButton({
   reviewId,
   initialCount,
   initialLiked,
+  canLike,
 }: {
   reviewId: string
   initialCount: number
   initialLiked: boolean
+  canLike: boolean
 }) {
   const [isLiked, setIsLiked] = useState(initialLiked)
   const [likesCount, setLikesCount] = useState(initialCount)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleLike = async () => {
-    if (isSubmitting) return
+    if (isSubmitting || !canLike) return
     const nextLiked = !isLiked
     const nextCount = Math.max(0, likesCount + (nextLiked ? 1 : -1))
 
@@ -146,7 +151,7 @@ function ReviewLikeButton({
       console.error(error)
       setIsLiked(!nextLiked)
       setLikesCount(likesCount)
-      toast.error((error as any)?.message ?? "Failed to update like")
+      toast.error(getErrorMessage(error, "Failed to update like"))
     } finally {
       setIsSubmitting(false)
     }
@@ -159,7 +164,8 @@ function ReviewLikeButton({
         size="sm"
         className="gap-2 text-muted-foreground hover:text-foreground"
         onClick={handleLike}
-        disabled={isSubmitting}
+        disabled={isSubmitting || !canLike}
+        title={canLike ? undefined : "Sign in to like reviews"}
       >
         <ThumbsUp className={`h-4 w-4 ${isLiked ? "text-primary" : ""}`} />
         <span>{likesCount}</span>

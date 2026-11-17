@@ -10,6 +10,7 @@ import { isGenre, normalizeGenres, type Genre, GENRE_BG_CLASS } from "@/lib/type
 import type { DiaryFilterMode } from "@/components/diary-filters"
 import { Badge } from "@/components/ui/badge"
 import { DiaryEntryEditor } from "@/components/diary-entry-editor"
+import { hasEverySelectedGenre } from "@/lib/genre-filter"
 
 async function requireProfileId() {
   const supabase = await createServerClient()
@@ -75,7 +76,7 @@ function applyDiaryFilters(
     return entries.filter((entry) => {
       if (!entry.title_id) return false
       const titleGenres = titleGenresByTitleId.get(entry.title_id) ?? []
-      return selectedGenres.some((genre) => titleGenres.includes(genre))
+      return hasEverySelectedGenre(titleGenres, selectedGenres)
     })
   }
 

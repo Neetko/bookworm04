@@ -14,11 +14,12 @@ export async function requireAuthedProfileId(supabase: SupabaseServerClient) {
 
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
-    .select("id")
+    .select("id,onboarding_completed_at")
     .eq("auth_user_id", user.id)
     .single()
 
   if (profileError || !profile) throw new Error("Profile not found")
+  if (!profile.onboarding_completed_at) throw new Error("Onboarding required")
 
   return profile.id as string
 }

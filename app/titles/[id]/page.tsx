@@ -22,6 +22,7 @@ import { getTitleReferenceWorkIds } from "@/lib/reference-data"
 import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
 import { cn } from "@/lib/utils"
 import { buildAmazonProductUrl, buildAmazonSearchUrl } from "@/lib/amazon"
+import { getTitleEngagementCapabilities } from "@/lib/title-capabilities"
 
 type TitleRow = {
   id: string
@@ -163,6 +164,10 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
   const featuredEditions = pickFeaturedEditions(editions)
   const todayDiaryNote = await getTodayDiaryNoteForTitle(title.id)
   const access = await getCurrentUserAccess()
+  const engagementCapabilities = getTitleEngagementCapabilities({
+    isSignedIn: Boolean(access.user),
+    hasReadTitle: canRead,
+  })
 
   const amazonSearchUrl = buildAmazonSearchUrl(`${title.title} ${title.author}`)
   const audibleSearchUrl = buildAmazonSearchUrl(`${title.title} ${title.author} Audible`)
@@ -194,9 +199,24 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                 ) : null}
               </div>
 
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold mb-2">{title.title}</h1>
-                <p className="text-xl text-muted-foreground mb-4">by {title.author}</p>
+              <div className="min-w-0 flex-1">
+                <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <h1 className="text-3xl font-bold mb-2">{title.title}</h1>
+                    <p className="text-xl text-muted-foreground">by {title.author}</p>
+                  </div>
+
+                  <div className="shrink-0 sm:w-64 sm:text-right">
+                    <MarkReadButton
+                      titleId={title.id}
+                      initialIsRead={canRead}
+                      isSignedIn={Boolean(access.user)}
+                    />
+                    <p className="font-ui mt-2 text-sm leading-5 text-muted-foreground sm:ml-auto">
+                      After reading the title you can leave a review and participate in the discussion!
+                    </p>
+                  </div>
+                </div>
 
                 {genres.length > 0 ? (
                   <div className="flex flex-wrap gap-2 mb-4">
@@ -267,11 +287,14 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
 
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-center gap-3">
-                    <MarkReadButton titleId={title.id} />
-                    <TitleBookmarkButton titleId={title.id} />
+                    <TitleBookmarkButton
+                      titleId={title.id}
+                      isSignedIn={engagementCapabilities.canBookmarkTitle}
+                    />
                     <TitleTrackProgressButton
                       titleId={title.id}
                       title={title.title}
+                      isSignedIn={engagementCapabilities.canTrackReading}
                       initialNoteHtml={todayDiaryNote?.noteHtml ?? null}
                       initialNoteText={todayDiaryNote?.noteText ?? null}
                     />
@@ -282,6 +305,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                     <TitleEditionsDialog titleId={title.id} />
                     <TitleDedupeDialog
                       titleId={title.id}
+                      isSignedIn={engagementCapabilities.canSuggestTitleMetadata}
                       canAutoApprove={canReviewSuggestions(access.role)}
                     />
                   </div>
@@ -323,7 +347,12 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
           </CardContent>
         </Card>
 
-        <TitleEngagementTabs titleId={title.id} reviews={reviews as any[]} canRead={canRead} />
+        <TitleEngagementTabs
+          titleId={title.id}
+          reviews={reviews as any[]}
+          canRead={engagementCapabilities.canWriteReview}
+          isSignedIn={Boolean(access.user)}
+        />
       </div>
     </div>
   )

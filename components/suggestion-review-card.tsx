@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { getErrorMessage } from "@/lib/errors"
 import type { Genre } from "@/lib/types"
 import {
   buildFallbackWorkSnapshot,
@@ -208,8 +209,8 @@ export function SuggestionReviewCard({ suggestion }: SuggestionReviewCardProps) 
         })
 
         setCoverChoices(result)
-      } catch (error: any) {
-        setCoverError(error?.message ?? "Failed to load cover options")
+      } catch (error: unknown) {
+        setCoverError(getErrorMessage(error, "Failed to load cover options"))
       }
     })
   }
@@ -230,8 +231,8 @@ export function SuggestionReviewCard({ suggestion }: SuggestionReviewCardProps) 
         setStep(0)
         toast.success("Review saved")
         router.refresh()
-      } catch (error: any) {
-        toast.error(error?.message ?? "Failed to save review")
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to save review"))
       }
     })
   }
@@ -243,8 +244,8 @@ export function SuggestionReviewCard({ suggestion }: SuggestionReviewCardProps) 
         setRemoved(true)
         toast.success("Suggestion approved")
         router.refresh()
-      } catch (error: any) {
-        toast.error(error?.message ?? "Failed to approve suggestion")
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to approve suggestion"))
       }
     })
   }
@@ -256,8 +257,8 @@ export function SuggestionReviewCard({ suggestion }: SuggestionReviewCardProps) 
         setRemoved(true)
         toast.success("Suggestion dismissed")
         router.refresh()
-      } catch (error: any) {
-        toast.error(error?.message ?? "Failed to dismiss suggestion")
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to dismiss suggestion"))
       }
     })
   }

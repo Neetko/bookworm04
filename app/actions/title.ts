@@ -8,8 +8,11 @@ import { getLinkedTitlesByWorkId, getTitleReferenceWorkIds, type LinkedTitleSumm
 import { isExactTitleAuthorMatch, normalizeWorkIdList, normalizeWorkSnapshots, type WorkSnapshot } from "@/lib/suggestions"
 import { finalizeSuggestionApproval } from "@/lib/server/suggestion-approval"
 import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
-import { requireAuthedProfileId } from "@/lib/server/auth"
-import { ensureCurrentReadingListForProfile, ensureFinishedReadingListForProfile, ensureToReadListForProfile } from "@/lib/server/title-lists"
+import { getAuthedProfileId, requireAuthedProfileId } from "@/lib/server/auth"
+import {
+  ensureFinishedReadingListForProfile,
+  removeTitleFromDefaultList,
+} from "@/lib/server/title-lists"
 import { revalidatePath } from "next/cache"
 import { awardPointsForTitleAction } from "@/app/actions/rewards"
 
@@ -73,34 +76,6 @@ async function buildTitleMetadata(
   }
 }
 
-async function removeFromToReadList(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string,
-  titleId: string
-) {
-  const listId = await ensureToReadListForProfile(supabase, profileId)
-  if (!listId) return
-  await supabase
-    .from("title_list_items")
-    .delete()
-    .eq("list_id", listId)
-    .eq("title_id", titleId)
-}
-
-async function removeFromCurrentReadingList(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string,
-  titleId: string
-) {
-  const listId = await ensureCurrentReadingListForProfile(supabase, profileId)
-  if (!listId) return
-  await supabase
-    .from("title_list_items")
-    .delete()
-    .eq("list_id", listId)
-    .eq("title_id", titleId)
-}
-
 async function backfillCompletedTitleProgress(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
   profileId: string,
@@ -122,6 +97,57 @@ async function backfillCompletedTitleProgress(
   if (error) {
     console.error("Failed to backfill completed title progress", error)
     throw new Error("Failed to update read status")
+  }
+}
+
+async function clearCompletedTitleProgress(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string,
+  titleId: string
+) {
+  const { error } = await supabase
+    .from("title_user_progress")
+    .delete()
+    .eq("user_profile_id", profileId)
+    .eq("title_id", titleId)
+    .eq("is_completed", true)
+
+  if (error) {
+    console.error("Failed to clear completed title progress", error)
+    throw new Error("Failed to update read status")
+  }
+}
+
+async function ensureTitleFinishedActivity(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  profileId: string,
+  titleId: string
+) {
+  const { data: existing } = await supabase
+    .from("activity_events")
+    .select("id")
+    .eq("user_profile_id", profileId)
+    .eq("title_id", titleId)
+    .eq("event_type", "title_finished")
+    .limit(1)
+    .maybeSingle()
+
+  if (existing?.id) return
+
+  const title = await buildTitleMetadata(supabase, titleId)
+  const { error } = await supabase.from("activity_events").insert({
+    user_profile_id: profileId,
+    title_id: titleId,
+    event_type: "title_finished",
+    metadata: {
+      title: title
+        ? { id: title.id, title: title.title, cover: title.coverUrl }
+        : { id: titleId, title: "a title", cover: null },
+    },
+  })
+
+  if (error) {
+    console.error("Failed to record title completion activity", error)
   }
 }
 
@@ -195,12 +221,14 @@ export async function setTitleReadStatus(titleId: string, isRead: boolean) {
         reason: "completed_reading",
       })
 
+      await ensureTitleFinishedActivity(supabase, profileId, titleId)
+
     }
 
     await backfillCompletedTitleProgress(supabase, profileId, titleId)
 
-    await removeFromCurrentReadingList(supabase, profileId, titleId)
-    await removeFromToReadList(supabase, profileId, titleId)
+    await removeTitleFromDefaultList(supabase, profileId, titleId, "current-reading")
+    await removeTitleFromDefaultList(supabase, profileId, titleId, "to-read")
   } else {
     const { error } = await supabase
       .from("title_list_items")
@@ -212,6 +240,8 @@ export async function setTitleReadStatus(titleId: string, isRead: boolean) {
       console.error("Failed to mark title as unread", error)
       throw new Error("Failed to update read status")
     }
+
+    await clearCompletedTitleProgress(supabase, profileId, titleId)
   }
 
   revalidatePath(`/titles/${titleId}`)
@@ -236,8 +266,7 @@ export type DiscussionPostRow = {
 
 export async function getDiscussionPosts(titleId: string): Promise<DiscussionPostRow[]> {
   const supabase = await createServerClient()
-  const profileId = await requireAuthedProfileId(supabase)
-  await requireTitleRead(supabase, profileId, titleId)
+  const profileId = await getAuthedProfileId(supabase)
 
   const { data, error } = await supabase
     .from("discussion_posts")
@@ -264,7 +293,7 @@ export async function getDiscussionPosts(titleId: string): Promise<DiscussionPos
 
   const profileMap = new Map((profiles ?? []).map((profile) => [profile.id as string, profile]))
 
-  if (postIds.length > 0) {
+  if (profileId && postIds.length > 0) {
     const { data: likedRows } = await supabase
       .from("post_likes")
       .select("post_id")
@@ -436,12 +465,24 @@ export async function toggleDiscussionPostLike(postId: string) {
 
 export async function getTitleBookmarkStatus(titleId: string) {
   const supabase = await createServerClient()
-  const profileId = await requireAuthedProfileId(supabase)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return false
+
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle()
+
+  if (!profile?.id) return false
 
   const { data, error } = await supabase
     .from("title_bookmarks")
     .select("id")
-    .eq("user_profile_id", profileId)
+    .eq("user_profile_id", profile.id)
     .eq("title_id", titleId)
     .maybeSingle()
 
@@ -655,6 +696,7 @@ export async function getTitleDedupeCandidatesAction(titleId: string): Promise<{
   linkedElsewhere: Record<string, LinkedTitleSummary[]>
 }> {
   const supabase = await createServerClient()
+  await requireAuthedProfileId(supabase)
   const core = await getTitleCore(titleId)
   if (!core) return { candidates: [], selected: [], linkedElsewhere: {} }
 

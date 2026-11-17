@@ -1,6 +1,6 @@
 import "server-only"
 
-import { createServerClient as createSupabaseServerClient, type CookieOptions } from "@supabase/ssr"
+import { createServerClient as createSupabaseServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import { getSupabasePublicEnv, getSupabaseServiceRoleEnv } from "@/lib/supabase-config"
@@ -13,21 +13,16 @@ export const createServerClient = async () => {
 
   return createSupabaseServerClient(url, anon, {
     cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value
+      getAll() {
+        return cookieStore.getAll()
       },
-      set(name: string, value: string, options: CookieOptions) {
+      setAll(cookiesToSet) {
         try {
-          cookieStore.set({ name, value, ...options })
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options)
+          })
         } catch {
-          // In some contexts (e.g. certain Server Components), cookies are read-only.
-        }
-      },
-      remove(name: string, options: CookieOptions) {
-        try {
-          cookieStore.set({ name, value: "", ...options, maxAge: 0 })
-        } catch {
-          // Same rationale as set()
+          // Server Components cannot write cookies; middleware refreshes them instead.
         }
       },
     },

@@ -12,6 +12,7 @@ import type { SearchTitleResult } from "@/lib/types"
 import { confirmGoogleBookIngest, getGoogleIngestSuggestion } from "@/app/actions/google-ingest"
 import { toast } from "sonner"
 import { sanitizeDescriptionHtml } from "@/lib/sanitize"
+import { getErrorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
 import { CanonGenreToggleGroup } from "@/components/canon-genre-toggle-group"
 
@@ -171,10 +172,10 @@ export function TrackReadingResultList({
       setLocalDuplicates(suggestion.localDuplicates ?? [])
       setAutoDupeMatchCount(suggestion.autoDupeMatchCount ?? 0)
       setBookwormSuggestedMatchCount(suggestion.bookwormSuggestedMatchCount ?? 0)
-    } catch (e: any) {
+    } catch (error: unknown) {
       if (ingestRequestIdRef.current !== requestId) return
 
-      const message = e?.message ?? "Failed to load duplicate review details"
+      const message = getErrorMessage(error, "Failed to load duplicate review details")
       setSuggestionError(message)
       toast.error(message)
     } finally {
@@ -226,8 +227,8 @@ export function TrackReadingResultList({
       setDialogOpen(false)
       setDialogResult(null)
       router.refresh()
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to ingest title")
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to ingest title"))
     } finally {
       setSubmittingIngest(false)
     }
