@@ -1,6 +1,6 @@
 # Legacy and roadmap inventory
 
-This inventory records code that is currently unreachable, superseded, or retained for compatibility. Nothing listed here was removed during the Step 3 cleanup. Each item needs an explicit product decision before it is completed, archived, or deleted.
+This inventory records code that is currently unreachable, preserved for future work, or retained for compatibility. It also records cleanup decisions already approved by the repository owner so removed code is not mistaken for an accidental loss.
 
 ## Planned features that are currently unreachable
 
@@ -31,51 +31,28 @@ Decision required: either deliberately build threaded discussions with migration
 
 Files:
 
-- `app/books/[id]/read/reader-client.tsx`
-- `app/books/[id]/read/reader.css`
+- `docs/archive/prototypes/public-domain-reader/reader-client.tsx`
+- `docs/archive/prototypes/public-domain-reader/reader.css`
+- `docs/archive/prototypes/public-domain-reader/README.md`
 
-This is a substantial page-turning reader prototype. It is unreachable because `/books/[id]/read` redirects to `/titles/[id]`, and the old `book_contents` table was removed from the active data model. The CSS also depends on remote CodePen assets and changes global root styling.
+This is a substantial page-turning reader prototype. It was moved outside the application route tree when the obsolete `/books` routes were removed. The old `book_contents` table is no longer part of the active data model, and the prototype CSS still depends on remote CodePen assets and changes global root styling.
 
-Decision required: if an in-app reader remains on the roadmap, preserve the product idea but redesign it around a legitimate content/licensing model and the current title architecture. The old implementation cannot simply be re-enabled.
+Product decision: a future reader should launch from canonical `/titles/[id]` pages only for titles with verified public-domain text. The archived README records the implementation requirements. The old implementation must not be re-enabled directly.
 
-## Superseded interfaces
+## Resolved cleanup decisions
 
-These files have no imports and are not part of a current route:
+The repository owner approved removal of the following superseded interfaces:
 
-- `components/book-grid.tsx`: old catalog grid with a hard-coded `8.4/10` rating.
-- `components/search-bar.tsx`: sends old query parameters to `/library`, which now redirects to `/search-titles`.
-- `components/book-content-tabs.tsx`: earlier engagement tabs superseded by `TitleEngagementTabs`.
-- `components/club-edit-form.tsx`: real but smaller club editor superseded by `ClubManageForm`.
+- `components/book-grid.tsx` (superseded catalog grid with a hard-coded rating);
+- `components/search-bar.tsx` (superseded by the current Search Titles experience);
+- `components/book-content-tabs.tsx` (superseded by `TitleEngagementTabs`);
+- `components/club-edit-form.tsx` (superseded by `ClubManageForm`).
 
-Decision required: retain only if one of these layouts is intentionally returning; otherwise archive/remove them after approval.
+The obsolete `/books/[id]`, `/books/[id]/read`, and `/library` redirects were also removed. Search and discovery now use `/search-titles`, and canonical detail pages use `/titles/[id]`.
 
-## Authentication history
+The Kinde `410 Gone` compatibility route and the historical `scripts/003-migrate-to-supabase-auth.sql` script were removed after confirmation that backward compatibility was unnecessary. Supabase Auth is the only active authentication system.
 
-### Kinde compatibility tombstone
-
-`app/api/auth/[kindeAuth]/route.js` contains no Kinde integration. It returns HTTP `410 Gone` and directs callers to `/auth`. The current application uses Supabase Auth and `/auth/callback`.
-
-This route is harmless and may be useful for old external links. Remove it only after deciding that backward compatibility with earlier deployments is no longer needed.
-
-### Historical migration script
-
-`scripts/003-migrate-to-supabase-auth.sql` is a one-time Kinde-to-Supabase migration. It is not part of any package script and now conflicts with current username/onboarding invariants. It should not be presented as a runnable setup step.
-
-Decision required: archive it as historical implementation context or remove it after its useful history is captured in the development log.
-
-## Compatibility routes
-
-These routes are small redirects rather than dead features:
-
-| Route | Current behavior | Note |
-| --- | --- | --- |
-| `/books/[id]` | Redirects to `/titles/[id]` | Preserves old title bookmarks |
-| `/books/[id]/read` | Redirects to `/titles/[id]` | Also makes the reader prototype unreachable |
-| `/library` | Redirects to `/search-titles` | Currently drops old `q` and `g` parameters |
-| `/track-reading` | Redirects to `/search-titles` | Preserves the old `q` query |
-| `/api/auth/[kindeAuth]` | Returns `410 Gone` | Explains the Supabase replacement |
-
-Decision required: keep and test these shims if old links matter. If `/library` stays, translate or preserve its old filters.
+`/track-reading` remains a small redirect to `/search-titles` and can be reviewed separately.
 
 ## Empty and deprecated remnants
 

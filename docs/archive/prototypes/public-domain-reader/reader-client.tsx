@@ -1,3 +1,4 @@
+// Preserved prototype: not imported by the application.
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
