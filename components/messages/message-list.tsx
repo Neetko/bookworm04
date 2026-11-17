@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { messagePreviewText, sanitizeMessageBody } from "@/lib/message-content"
 import { Trash } from "lucide-react"
 
 const PAGE_SIZE = 10
@@ -149,8 +150,8 @@ export function MessageList({ messages, folder, onSendNewMessage, onSaveDraftNew
     setDraftId(message.id)
     setTitle(message.subject ?? "")
     setRecipient(message.to?.name ?? "")
-    setBodyHtml(message.body ?? "")
-    setBodyText(stripHtml(message.body ?? ""))
+    setBodyHtml(sanitizeMessageBody(message.body ?? ""))
+    setBodyText(messagePreviewText(message.body ?? ""))
     setComposeOpen(true)
   }
 
@@ -313,7 +314,7 @@ export function MessageList({ messages, folder, onSendNewMessage, onSaveDraftNew
                       </div>
                       <p className="text-sm font-medium text-foreground/90">{message.subject}</p>
                       <p className="text-sm text-muted-foreground line-clamp-2">
-                        {stripHtml(message.body)}
+                        {messagePreviewText(message.body)}
                       </p>
                     </div>
                   </div>
@@ -412,11 +413,4 @@ export function MessageList({ messages, folder, onSendNewMessage, onSaveDraftNew
       </div>
     </div>
   )
-}
-
-const stripHtml = (value: string) => {
-  if (typeof document === "undefined") return value
-  const div = document.createElement("div")
-  div.innerHTML = value
-  return div.textContent || div.innerText || ""
 }
