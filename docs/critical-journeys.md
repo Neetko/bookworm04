@@ -19,7 +19,10 @@ Bookworm protects its core product behavior at three layers:
 | Finished reader | Mark read and contribute | Read state survives reload and unlocks review/discussion writing | Finished-list state, server actions, and browser tests |
 | Active reader | Track progress | Valid progress persists and appears in the diary | Zod action validation, RLS, and browser tests |
 | Signed-in reader | Join and leave an open club | Membership and member counts persist through the real UI and database | Club server actions, membership policies, and browser/database assertions |
-| Direct client | Bypass the interface | Anonymous and unread engagement writes fail; invalid ratings fail at the database | Authenticated integration tests against local Supabase |
+| Applicant | Request or withdraw club access | One pending application exists, duplicate submissions are idempotent, and withdrawal resolves the owner notification | Transactional database functions and lifecycle integration tests |
+| Club owner | Review applications and manage invitations | Only the owner can approve, decline, invite, revoke, or remove; each transition is pending-only and atomic | Owner checks inside security-definer functions, row locks, and direct-client tests |
+| Invitee | Accept or decline an invitation | The invitation and membership change together, repeated identical responses are harmless, and stale actions disappear | Transactional database functions and notification resolution metadata |
+| Direct client | Bypass the interface | Engagement writes, restricted club membership, invitation rewrites, and forged notifications fail at the database | Authenticated integration tests against local Supabase |
 
 ## Deterministic local verification
 
@@ -46,7 +49,7 @@ PLAYWRIGHT_BASE_URL=https://your-deployment.example pnpm test:e2e:prod
 
 ## Maintenance rules
 
-- Add a positive browser assertion and a negative authorization assertion when introducing a new user-owned mutation.
+- Add a positive journey assertion and a negative authorization assertion when introducing a new user-owned mutation.
 - Keep tests state-independent. Use stable seeded identifiers, unique transient records, and cleanup in `finally` blocks.
 - Do not treat a hidden or disabled control as authorization; the server action and RLS policy remain the security boundary.
 - Keep hosted smoke tests read-only. Database-reset and stateful authorization tests belong to the local suite.

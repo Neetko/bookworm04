@@ -33,7 +33,7 @@ export function ClubMembershipButton({
       router.refresh()
     } catch (e) {
       console.error(e)
-      toast.error("Failed to update membership")
+      toast.error(e instanceof Error ? e.message : "Failed to update membership")
     } finally {
       setIsLoading(false)
     }

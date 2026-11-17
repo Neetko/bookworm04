@@ -152,279 +152,6 @@ async function getAuthedProfileIdOrNull(supabase: Awaited<ReturnType<typeof crea
   return (profile?.id as string | null) ?? null
 }
 
-async function getActorNotificationMeta(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  profileId: string
-) {
-  const { data } = await supabase
-    .from("public_profiles")
-    .select("id, username, avatar_url")
-    .eq("id", profileId)
-    .maybeSingle()
-
-  if (!data) return null
-
-  return {
-    id: data.id as string,
-    username: (data.username as string | null) ?? null,
-    avatarUrl: (data.avatar_url as string | null) ?? null,
-  }
-}
-
-async function getClubNotificationMeta(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  clubId: string
-) {
-  const { data } = await supabase
-    .from("clubs")
-    .select("id, name, avatar_url")
-    .eq("id", clubId)
-    .maybeSingle()
-
-  if (!data) return null
-
-  return {
-    id: data.id as string,
-    name: data.name as string,
-    avatarUrl: (data.avatar_url as string | null) ?? null,
-  }
-}
-
-async function createClubNotification(
-  _supabase: Awaited<ReturnType<typeof createServerClient>>,
-  payload: {
-    recipient_profile_id: string
-    actor_profile_id?: string | null
-    event_type: string
-    metadata?: Record<string, unknown> | null
-  }
-) {
-  const admin = createAdminClient()
-
-  const { error } = await admin.from("notifications").insert({
-    recipient_profile_id: payload.recipient_profile_id,
-    actor_profile_id: payload.actor_profile_id ?? null,
-    event_type: payload.event_type,
-    metadata: payload.metadata ?? null,
-  })
-
-  if (error) {
-    console.error("Failed to create club notification", {
-      eventType: payload.event_type,
-      recipientProfileId: payload.recipient_profile_id,
-      actorProfileId: payload.actor_profile_id ?? null,
-      error,
-    })
-    throw new Error("Failed to send notification")
-  }
-}
-
-async function runBestEffortClubNotificationEffect(effectName: string, effect: () => Promise<void>) {
-  try {
-    await effect()
-  } catch (error) {
-    console.error(`Club notification effect failed: ${effectName}`, error)
-  }
-}
-
-function isNotificationMetadataRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-async function resolveClubInvitationNotification(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  args: {
-    recipientProfileId: string
-    invitationId: string
-    accepted: boolean
-    respondedAt: string
-  }
-) {
-  const admin = createAdminClient()
-
-  const { data, error } = await admin
-    .from("notifications")
-    .select("id, metadata, created_at")
-    .eq("recipient_profile_id", args.recipientProfileId)
-    .eq("event_type", "club_invited_to_club")
-
-  if (error) {
-    console.error("Failed to load club invitation notifications", {
-      recipientProfileId: args.recipientProfileId,
-      invitationId: args.invitationId,
-      error,
-    })
-    return
-  }
-
-  const matchingNotifications = (data ?? []).filter((notification) => {
-    if (!isNotificationMetadataRecord(notification.metadata)) return false
-    const invitation = notification.metadata.invitation
-    return isNotificationMetadataRecord(invitation) && invitation.id === args.invitationId
-  })
-
-  if (matchingNotifications.length === 0) return
-
-  const unresolvedNotifications = matchingNotifications.filter((notification) => {
-    if (!isNotificationMetadataRecord(notification.metadata)) return true
-
-    const resolution = notification.metadata.resolution
-    if (isNotificationMetadataRecord(resolution)) {
-      const action = resolution.action
-      if (action === "accepted" || action === "declined") return false
-    }
-
-    const invitation = notification.metadata.invitation
-    if (isNotificationMetadataRecord(invitation)) {
-      const status = invitation.status
-      if (status === "accepted" || status === "declined") return false
-    }
-
-    return true
-  })
-
-  const notificationsToUpdate =
-    unresolvedNotifications.length > 0
-      ? unresolvedNotifications
-      : [...matchingNotifications]
-          .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
-          .slice(0, 1)
-
-  await Promise.all(
-    notificationsToUpdate.map(async (notification) => {
-      const existingMetadata = isNotificationMetadataRecord(notification.metadata) ? notification.metadata : {}
-      const existingInvitation = isNotificationMetadataRecord(existingMetadata.invitation)
-        ? existingMetadata.invitation
-        : {}
-
-      const metadata = {
-        ...existingMetadata,
-        invitation: {
-          ...existingInvitation,
-          id: args.invitationId,
-          status: args.accepted ? "accepted" : "declined",
-          respondedAt: args.respondedAt,
-        },
-        resolution: {
-          action: args.accepted ? "accepted" : "declined",
-          respondedAt: args.respondedAt,
-        },
-      }
-
-      const { error: updateError } = await admin
-        .from("notifications")
-        .update({
-          is_read: true,
-          metadata,
-        })
-        .eq("id", notification.id)
-        .eq("recipient_profile_id", args.recipientProfileId)
-
-      if (updateError) {
-        console.error("Failed to update club invitation notification", {
-          notificationId: notification.id,
-          recipientProfileId: args.recipientProfileId,
-          invitationId: args.invitationId,
-          updateError,
-        })
-      }
-    })
-  )
-}
-
-async function notifyClubInvitee(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  args: {
-    inviteeProfileId: string
-    ownerProfileId: string
-    clubId: string
-    invitationId: string
-  }
-) {
-  const [actorMeta, clubMeta] = await Promise.all([
-    getActorNotificationMeta(supabase, args.ownerProfileId),
-    getClubNotificationMeta(supabase, args.clubId),
-  ])
-
-  if (!clubMeta) throw new Error("Club not found")
-
-  await createClubNotification(supabase, {
-    recipient_profile_id: args.inviteeProfileId,
-    actor_profile_id: args.ownerProfileId,
-    event_type: "club_invited_to_club",
-    metadata: {
-      actor: actorMeta,
-      club: clubMeta,
-      invitation: {
-        id: args.invitationId,
-      },
-    },
-  })
-}
-
-async function notifyClubOwnerOfApplication(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  args: {
-    ownerProfileId: string
-    applicantProfileId: string
-    clubId: string
-    applicationId: string
-    submittedAt: string
-  }
-) {
-  const [actorMeta, clubMeta] = await Promise.all([
-    getActorNotificationMeta(supabase, args.applicantProfileId),
-    getClubNotificationMeta(supabase, args.clubId),
-  ])
-
-  if (!clubMeta) throw new Error("Club not found")
-
-  await createClubNotification(supabase, {
-    recipient_profile_id: args.ownerProfileId,
-    actor_profile_id: args.applicantProfileId,
-    event_type: "club_application_received",
-    metadata: {
-      actor: actorMeta,
-      club: clubMeta,
-      application: {
-        id: args.applicationId,
-        submittedAt: args.submittedAt,
-      },
-    },
-  })
-}
-
-async function notifyClubOwnerOfInvitationResponse(
-  supabase: Awaited<ReturnType<typeof createServerClient>>,
-  args: {
-    ownerProfileId: string
-    inviteeProfileId: string
-    clubId: string
-    invitationId: string
-    accepted: boolean
-  }
-) {
-  const [actorMeta, clubMeta] = await Promise.all([
-    getActorNotificationMeta(supabase, args.inviteeProfileId),
-    getClubNotificationMeta(supabase, args.clubId),
-  ])
-
-  if (!clubMeta) throw new Error("Club not found")
-
-  await createClubNotification(supabase, {
-    recipient_profile_id: args.ownerProfileId,
-    actor_profile_id: args.inviteeProfileId,
-    event_type: args.accepted ? "club_invitation_accepted" : "club_invitation_declined",
-    metadata: {
-      actor: actorMeta,
-      club: clubMeta,
-      invitation: {
-        id: args.invitationId,
-      },
-    },
-  })
-}
-
 async function getClubViewerState(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
   clubId: string,
@@ -504,6 +231,45 @@ async function requireOwnerProfileId(supabase: Awaited<ReturnType<typeof createS
   if (club.owner_user_id !== profileId) throw new Error("Forbidden")
 
   return profileId
+}
+
+const CLUB_RPC_ERROR_MESSAGES = [
+  "Club not found",
+  "User not found",
+  "Application not found",
+  "Invitation not found",
+  "You are already a member of this club",
+  "You already have a pending invitation",
+  "This club is not accepting applications",
+  "This club requires approval or an invitation",
+  "This reader already manages the club",
+  "This reader is already a member",
+  "This reader already has a pending application",
+  "Application is no longer pending",
+  "Invitation is no longer pending",
+  "Transfer ownership or delete the club before leaving",
+  "Cannot remove the club owner",
+] as const
+
+function throwClubRpcError(error: { message?: string; code?: string }, fallback: string): never {
+  const message = error.message?.trim() ?? ""
+  const userMessage = CLUB_RPC_ERROR_MESSAGES.find((knownMessage) => message.includes(knownMessage))
+
+  console.error("Club lifecycle operation failed", {
+    code: error.code,
+    message,
+  })
+
+  if (message.includes("Unauthorized")) throw new Error("Please sign in to continue")
+  if (message.includes("Forbidden")) throw new Error("You do not have permission to do that")
+  throw new Error(userMessage ?? fallback)
+}
+
+function revalidateClubLifecycle(clubId: string) {
+  revalidatePath(`/community/clubs/${clubId}`)
+  revalidatePath(`/community/clubs/${clubId}/manage`)
+  revalidatePath("/community")
+  revalidatePath("/notifications")
 }
 
 export async function getClubs() {
@@ -945,119 +711,43 @@ export async function inviteMemberToClub(
   if (profileError || !profile) throw new Error("User not found")
   if ((profile.id as string) === ownerProfileId) throw new Error("You already manage this club")
 
-  const { data: existing } = await supabase
-    .from("club_members")
-    .select("id")
-    .eq("club_id", clubId)
-    .eq("user_id", profile.id)
-    .maybeSingle()
-
-  if (existing) return
-
-  const { data: applicationRows } = await supabase
-    .from("club_applications")
-    .select("id, status, created_at, reviewed_at")
-    .eq("club_id", clubId)
-    .eq("user_id", profile.id)
-    .order("created_at", { ascending: false })
-
-  const pendingApplication = pickPreferredClubStatusRow(
-    (applicationRows ?? []) as Array<{ id: string; status: string | null; created_at: string | null; reviewed_at: string | null }>
-  )
-
-  if (pendingApplication?.status === "pending") {
-    throw new Error("This reader already has a pending application")
-  }
-
-  const { data: invitationRows } = await supabase
-    .from("club_invitations")
-    .select("id, status, created_at, responded_at")
-    .eq("club_id", clubId)
-    .eq("invitee_user_id", profile.id)
-    .order("created_at", { ascending: false })
-
-  const existingInvitationRows = (invitationRows ?? []) as Array<{
-    id: string
-    status: string | null
-    created_at: string | null
-    responded_at: string | null
-  }>
-  const existingInvitation = pickPreferredClubStatusRow(existingInvitationRows)
-
-  const now = new Date().toISOString()
-
-  if (existingInvitation?.status === "pending") {
-    return
-  }
-
-  const invitationMutation = existingInvitation?.id
-    ? supabase
-        .from("club_invitations")
-        .update({
-          inviter_user_id: ownerProfileId,
-          status: "pending",
-          responded_at: null,
-          created_at: now,
-        })
-        .eq("id", existingInvitation.id)
-    : supabase.from("club_invitations").insert({
-        club_id: clubId,
-        inviter_user_id: ownerProfileId,
-        invitee_user_id: profile.id,
-        status: "pending",
-      })
-
-  const { error } = await invitationMutation
-
-  if (error) throw new Error("Failed to invite")
-
-  const { data: pendingInvitations } = await supabase
-    .from("club_invitations")
-    .select("id")
-    .eq("club_id", clubId)
-    .eq("invitee_user_id", profile.id)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false })
-
-  const pendingInvitationId = (pendingInvitations?.[0]?.id as string | undefined) ?? undefined
-  if (!pendingInvitationId) throw new Error("Failed to create invitation")
-
-  await runBestEffortClubNotificationEffect("inviteMemberToClub", async () => {
-    await notifyClubInvitee(supabase, {
-      inviteeProfileId: profile.id as string,
-      ownerProfileId,
-      clubId,
-      invitationId: pendingInvitationId,
-    })
+  const { error } = await supabase.rpc("invite_club_member", {
+    target_club_id: clubId,
+    target_invitee_profile_id: profile.id as string,
   })
 
-  revalidatePath(`/community/clubs/${clubId}`)
-  revalidatePath(`/community/clubs/${clubId}/manage`)
-  revalidatePath("/notifications")
+  if (error) throwClubRpcError(error, "Failed to invite reader")
+
+  revalidateClubLifecycle(clubId)
 }
 
-export async function kickMemberFromClub(clubId: string, memberProfileId: string) {
+export async function revokeClubInvitation(clubId: string, invitationId: string) {
   const supabase = await createServerClient()
   await requireOwnerProfileId(supabase, clubId)
 
-  const { data: club } = await supabase
-    .from("clubs")
-    .select("owner_user_id")
-    .eq("id", clubId)
-    .single()
+  const { error } = await supabase.rpc("revoke_club_invitation", {
+    target_club_id: clubId,
+    target_invitation_id: invitationId,
+  })
 
-  if (club?.owner_user_id === memberProfileId) throw new Error("Cannot remove owner")
+  if (error) throwClubRpcError(error, "Failed to revoke invitation")
 
-  const { error } = await supabase
-    .from("club_members")
-    .delete()
-    .eq("club_id", clubId)
-    .eq("user_id", memberProfileId)
+  revalidateClubLifecycle(clubId)
+}
 
-  if (error) throw new Error("Failed to remove member")
+export async function removeMemberFromClub(clubId: string, memberProfileId: string) {
+  const supabase = await createServerClient()
+  await requireOwnerProfileId(supabase, clubId)
 
-  revalidatePath(`/community/clubs/${clubId}`)
-  revalidatePath(`/community/clubs/${clubId}/manage`)
+  const { error } = await supabase.rpc("remove_club_member", {
+    target_club_id: clubId,
+    target_member_profile_id: memberProfileId,
+    removal_reason: null,
+  })
+
+  if (error) throwClubRpcError(error, "Failed to remove member")
+
+  revalidateClubLifecycle(clubId)
 }
 
 export async function addClubReadingItem(
@@ -1425,359 +1115,112 @@ export async function getClubReadingItems(clubId: string) {
 
 export async function applyToClub(clubId: string) {
   const supabase = await createServerClient()
-  const admin = createAdminClient()
-  const profileId = await requireAuthedProfileId(supabase)
+  await requireAuthedProfileId(supabase)
 
-  const state = await getClubViewerState(supabase, clubId, profileId)
-  const joinPolicy = normalizeJoinPolicy(state.club.join_policy as string | null)
+  const { error } = await supabase.rpc("submit_club_application", {
+    target_club_id: clubId,
+  })
 
-  if (state.isOwner || state.isMember) return
-  if (state.invitation?.status === "pending") {
-    throw new Error("You already have a pending invitation")
-  }
-  if (joinPolicy === "open") throw new Error("This club is open to join directly")
-  if (joinPolicy === "invite_only") throw new Error("This club is invite only")
+  if (error) throwClubRpcError(error, "Failed to submit application")
 
-  const now = new Date().toISOString()
+  revalidateClubLifecycle(clubId)
+}
 
-  const mutation = state.application?.id
-    ? admin
-        .from("club_applications")
-        .update({
-          status: "pending",
-          reviewed_at: null,
-          reviewed_by_user_id: null,
-        })
-        .eq("id", state.application.id)
-    : supabase.from("club_applications").insert({
-        club_id: clubId,
-        user_id: profileId,
-        status: "pending",
-        reviewed_at: null,
-        reviewed_by_user_id: null,
-      })
+export async function withdrawClubApplication(clubId: string) {
+  const supabase = await createServerClient()
+  await requireAuthedProfileId(supabase)
 
-  const { error } = await mutation
+  const { error } = await supabase.rpc("withdraw_club_application", {
+    target_club_id: clubId,
+  })
 
-  if (error) throw new Error("Failed to apply")
+  if (error) throwClubRpcError(error, "Failed to withdraw application")
 
-  const { data: pendingApplication } = await supabase
-    .from("club_applications")
-    .select("id")
-    .eq("club_id", clubId)
-    .eq("user_id", profileId)
-    .eq("status", "pending")
-    .maybeSingle()
-
-  const pendingApplicationId = pendingApplication?.id as string | undefined
-  if (!pendingApplicationId) throw new Error("Failed to create application")
-
-  if (state.club.owner_user_id !== profileId) {
-    await runBestEffortClubNotificationEffect("applyToClub", async () => {
-      await notifyClubOwnerOfApplication(supabase, {
-        ownerProfileId: state.club.owner_user_id as string,
-        applicantProfileId: profileId,
-        clubId,
-        applicationId: pendingApplicationId,
-        submittedAt: now,
-      })
-    })
-  }
-
-  revalidatePath(`/community/clubs/${clubId}`)
-  revalidatePath(`/community/clubs/${clubId}/manage`)
-  revalidatePath("/notifications")
+  revalidateClubLifecycle(clubId)
 }
 
 export async function joinClub(clubId: string) {
   const supabase = await createServerClient()
-  const profileId = await requireAuthedProfileId(supabase)
+  await requireAuthedProfileId(supabase)
 
-  const state = await getClubViewerState(supabase, clubId, profileId)
-  const joinPolicy = normalizeJoinPolicy(state.club.join_policy as string | null)
-
-  if (state.isOwner || state.isMember) return
-  if (joinPolicy !== "open") throw new Error("This club requires approval or an invitation")
-
-  const { error } = await supabase.from("club_members").insert({
-    club_id: clubId,
-    user_id: profileId,
+  const { error } = await supabase.rpc("join_open_club", {
+    target_club_id: clubId,
   })
 
-  if (error) throw new Error("Failed to join club")
+  if (error) throwClubRpcError(error, "Failed to join club")
 
-  await supabase.from("club_applications").delete().eq("club_id", clubId).eq("user_id", profileId)
-  await supabase.from("club_invitations").delete().eq("club_id", clubId).eq("invitee_user_id", profileId)
-
-  const { data: club } = await supabase
-    .from("clubs")
-    .select("id, name, avatar_url")
-    .eq("id", clubId)
-    .maybeSingle()
-
-  await supabase.from("activity_events").insert({
-    user_profile_id: profileId,
-    event_type: "club_joined",
-    metadata: {
-      club: {
-        id: clubId,
-        name: club?.name ?? "a club",
-        avatar_url: (club as any)?.avatar_url ?? null,
-      },
-    },
-  })
-
-  revalidatePath(`/community/clubs/${clubId}`)
-  revalidatePath(`/community/clubs/${clubId}/manage`)
-  revalidatePath("/notifications")
+  revalidateClubLifecycle(clubId)
 }
 
 export async function acceptClubApplication(clubId: string, applicationId: string) {
   const supabase = await createServerClient()
-  const reviewerProfileId = await requireOwnerProfileId(supabase, clubId)
+  await requireOwnerProfileId(supabase, clubId)
 
-  const { data: application, error: applicationError } = await supabase
-    .from("club_applications")
-    .select("id, user_id, status")
-    .eq("id", applicationId)
-    .eq("club_id", clubId)
-    .single()
-
-  if (applicationError || !application) throw new Error("Application not found")
-
-  const now = new Date().toISOString()
-
-  const { error: membershipError } = await supabase.from("club_members").insert({
-    club_id: clubId,
-    user_id: application.user_id,
+  const { error } = await supabase.rpc("review_club_application", {
+    target_club_id: clubId,
+    target_application_id: applicationId,
+    approve_application: true,
   })
 
-  if (membershipError) throw new Error("Failed to approve application")
+  if (error) throwClubRpcError(error, "Failed to approve application")
 
-  const { error } = await supabase
-    .from("club_applications")
-    .update({
-      status: "accepted",
-      reviewed_at: now,
-      reviewed_by_user_id: reviewerProfileId,
-    })
-    .eq("id", applicationId)
-
-  if (error) throw new Error("Failed to approve application")
-
-  await supabase
-    .from("club_invitations")
-    .update({ status: "accepted", responded_at: now })
-    .eq("club_id", clubId)
-    .eq("invitee_user_id", application.user_id)
-    .eq("status", "pending")
-
-  await runBestEffortClubNotificationEffect("acceptClubApplication", async () => {
-    const [actorMeta, clubMeta] = await Promise.all([
-      getActorNotificationMeta(supabase, reviewerProfileId),
-      getClubNotificationMeta(supabase, clubId),
-    ])
-
-    if (!clubMeta) return
-
-    await createClubNotification(supabase, {
-      recipient_profile_id: application.user_id as string,
-      actor_profile_id: reviewerProfileId,
-      event_type: "club_application_approved",
-      metadata: {
-        actor: actorMeta,
-        club: clubMeta,
-        application: {
-          id: applicationId,
-        },
-      },
-    })
-  })
-
-  revalidatePath(`/community/clubs/${clubId}`)
-  revalidatePath(`/community/clubs/${clubId}/manage`)
-  revalidatePath("/notifications")
+  revalidateClubLifecycle(clubId)
 }
 
 export async function declineClubApplication(clubId: string, applicationId: string) {
   const supabase = await createServerClient()
-  const reviewerProfileId = await requireOwnerProfileId(supabase, clubId)
+  await requireOwnerProfileId(supabase, clubId)
 
-  const { data: application, error: applicationError } = await supabase
-    .from("club_applications")
-    .select("id, user_id")
-    .eq("id", applicationId)
-    .eq("club_id", clubId)
-    .single()
-
-  if (applicationError || !application) throw new Error("Application not found")
-
-  const now = new Date().toISOString()
-  const { error } = await supabase
-    .from("club_applications")
-    .update({
-      status: "declined",
-      reviewed_at: now,
-      reviewed_by_user_id: reviewerProfileId,
-    })
-    .eq("id", applicationId)
-
-  if (error) throw new Error("Failed to decline application")
-
-  await runBestEffortClubNotificationEffect("declineClubApplication", async () => {
-    const [actorMeta, clubMeta] = await Promise.all([
-      getActorNotificationMeta(supabase, reviewerProfileId),
-      getClubNotificationMeta(supabase, clubId),
-    ])
-
-    if (!clubMeta) return
-
-    await createClubNotification(supabase, {
-      recipient_profile_id: application.user_id as string,
-      actor_profile_id: reviewerProfileId,
-      event_type: "club_application_declined",
-      metadata: {
-        actor: actorMeta,
-        club: clubMeta,
-        application: {
-          id: applicationId,
-        },
-      },
-    })
+  const { error } = await supabase.rpc("review_club_application", {
+    target_club_id: clubId,
+    target_application_id: applicationId,
+    approve_application: false,
   })
 
-  revalidatePath(`/community/clubs/${clubId}`)
-  revalidatePath(`/community/clubs/${clubId}/manage`)
-  revalidatePath("/notifications")
+  if (error) throwClubRpcError(error, "Failed to decline application")
+
+  revalidateClubLifecycle(clubId)
 }
 
 export async function acceptClubInvitation(invitationId: string) {
   const supabase = await createServerClient()
-  const profileId = await requireAuthedProfileId(supabase)
+  await requireAuthedProfileId(supabase)
 
-  const { data: invitation, error: invitationError } = await supabase
-    .from("club_invitations")
-    .select("id, club_id, inviter_user_id, invitee_user_id, status")
-    .eq("id", invitationId)
-    .single()
-
-  if (invitationError || !invitation) throw new Error("Invitation not found")
-  if (invitation.invitee_user_id !== profileId) throw new Error("Forbidden")
-  if (invitation.status !== "pending") return
-
-  const now = new Date().toISOString()
-
-  const { error: membershipError } = await supabase.from("club_members").insert({
-    club_id: invitation.club_id,
-    user_id: profileId,
+  const { data: clubId, error } = await supabase.rpc("respond_to_club_invitation", {
+    target_invitation_id: invitationId,
+    accept_invitation: true,
   })
 
-  if (membershipError) throw new Error("Failed to accept invitation")
+  if (error) throwClubRpcError(error, "Failed to accept invitation")
 
-  const { error } = await supabase
-    .from("club_invitations")
-    .update({ status: "accepted", responded_at: now })
-    .eq("id", invitationId)
-
-  if (error) throw new Error("Failed to accept invitation")
-
-  await runBestEffortClubNotificationEffect("acceptClubInvitation:resolve", async () => {
-    await resolveClubInvitationNotification(supabase, {
-      recipientProfileId: profileId,
-      invitationId,
-      accepted: true,
-      respondedAt: now,
-    })
-  })
-
-  await supabase.from("club_applications").delete().eq("club_id", invitation.club_id).eq("user_id", profileId)
-
-  const clubMeta = await getClubNotificationMeta(supabase, invitation.club_id)
-  await supabase.from("activity_events").insert({
-    user_profile_id: profileId,
-    event_type: "club_joined",
-    metadata: {
-      club: {
-        id: invitation.club_id,
-        name: clubMeta?.name ?? "a club",
-        avatar_url: clubMeta?.avatarUrl ?? null,
-      },
-    },
-  })
-
-  await runBestEffortClubNotificationEffect("acceptClubInvitation:ownerResponse", async () => {
-    await notifyClubOwnerOfInvitationResponse(supabase, {
-      ownerProfileId: invitation.inviter_user_id as string,
-      inviteeProfileId: profileId,
-      clubId: invitation.club_id as string,
-      invitationId,
-      accepted: true,
-    })
-  })
-
-  revalidatePath(`/community/clubs/${invitation.club_id}`)
-  revalidatePath(`/community/clubs/${invitation.club_id}/manage`)
-  revalidatePath("/notifications")
+  if (typeof clubId === "string") revalidateClubLifecycle(clubId)
+  else revalidatePath("/notifications")
 }
 
 export async function declineClubInvitation(invitationId: string) {
   const supabase = await createServerClient()
-  const profileId = await requireAuthedProfileId(supabase)
+  await requireAuthedProfileId(supabase)
 
-  const { data: invitation, error: invitationError } = await supabase
-    .from("club_invitations")
-    .select("id, club_id, inviter_user_id, invitee_user_id, status")
-    .eq("id", invitationId)
-    .single()
-
-  if (invitationError || !invitation) throw new Error("Invitation not found")
-  if (invitation.invitee_user_id !== profileId) throw new Error("Forbidden")
-  if (invitation.status !== "pending") return
-
-  const respondedAt = new Date().toISOString()
-
-  const { error } = await supabase
-    .from("club_invitations")
-    .update({ status: "declined", responded_at: respondedAt })
-    .eq("id", invitationId)
-
-  if (error) throw new Error("Failed to decline invitation")
-
-  await runBestEffortClubNotificationEffect("declineClubInvitation:resolve", async () => {
-    await resolveClubInvitationNotification(supabase, {
-      recipientProfileId: profileId,
-      invitationId,
-      accepted: false,
-      respondedAt,
-    })
+  const { data: clubId, error } = await supabase.rpc("respond_to_club_invitation", {
+    target_invitation_id: invitationId,
+    accept_invitation: false,
   })
 
-  await runBestEffortClubNotificationEffect("declineClubInvitation:ownerResponse", async () => {
-    await notifyClubOwnerOfInvitationResponse(supabase, {
-      ownerProfileId: invitation.inviter_user_id as string,
-      inviteeProfileId: profileId,
-      clubId: invitation.club_id as string,
-      invitationId,
-      accepted: false,
-    })
-  })
+  if (error) throwClubRpcError(error, "Failed to decline invitation")
 
-  revalidatePath(`/community/clubs/${invitation.club_id}`)
-  revalidatePath(`/community/clubs/${invitation.club_id}/manage`)
-  revalidatePath("/notifications")
+  if (typeof clubId === "string") revalidateClubLifecycle(clubId)
+  else revalidatePath("/notifications")
 }
 
 export async function leaveClub(clubId: string) {
   const supabase = await createServerClient()
-  const profileId = await requireAuthedProfileId(supabase)
+  await requireAuthedProfileId(supabase)
 
-  const { error } = await supabase
-    .from("club_members")
-    .delete()
-    .eq("club_id", clubId)
-    .eq("user_id", profileId)
+  const { error } = await supabase.rpc("leave_club", {
+    target_club_id: clubId,
+  })
 
-  if (error) throw new Error("Failed to leave club")
+  if (error) throwClubRpcError(error, "Failed to leave club")
 
-  revalidatePath(`/community/clubs/${clubId}`)
+  revalidateClubLifecycle(clubId)
 }

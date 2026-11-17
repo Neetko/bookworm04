@@ -168,9 +168,41 @@ Initial low-risk improvements:
 - extracted the onboarding book-selection renderer while retaining state and effects in the onboarding controller;
 - introduced `getErrorMessage(error: unknown, fallback)` and removed loose error casts from client mutation controls;
 - added a deterministic open-club join/leave journey with direct database assertions and cleanup;
-- documented unreachable prototypes and compatibility routes without deleting them.
+- documented unreachable prototypes and compatibility routes before making explicit cleanup decisions;
+- removed the approved superseded interfaces, Kinde history, and obsolete `/books` and `/library` routes;
+- preserved the animated reader prototype outside the route tree for a future public-domain reader launched from canonical title pages.
 
-Large club and ingest files were not split immediately. Club membership now has an initial member journey, but owner, applicant, invitation, and writer-club journeys still need coverage before that domain is safely divided. The overlapping legacy ingest paths also need a product/caller decision before consolidation.
+Large club and ingest files were not split immediately. The club domain now has member, applicant, owner, invitation, direct-client, and notification-boundary coverage, which makes a later structural split safer. Writer-club authoring still needs its own dedicated browser journey. The overlapping legacy ingest paths also need a product/caller decision before consolidation.
+
+## 2026-11 — Club lifecycle and notification hardening
+
+The membership audit found that several interface-level rules were not true database security boundaries. A signed-in client could directly insert a membership for a restricted club, rewrite an invitation row, or create a misleading notification without using the intended server action.
+
+Club lifecycle writes now use narrow transactional Postgres functions for:
+
+- open-club joining;
+- application submission, withdrawal, approval, and decline;
+- invitation creation, revocation, acceptance, and decline;
+- member departure and owner-driven removal;
+- recipient-scoped notification read state.
+
+These functions re-derive the current profile, check club policy/ownership, lock the affected rows, enforce pending-only transitions, and write membership, activity, request state, and in-app notification changes in one transaction. Repeated identical submissions or responses are idempotent. Direct authenticated inserts, updates, and deletes on membership workflow tables and notifications are no longer allowed.
+
+Owner membership is now created automatically and backfilled so member counts agree across list and detail views. Owners cannot remove themselves through the ordinary leave flow, and the management interface no longer offers to remove the owner. Applicants can withdraw pending requests, owners can revoke invitations, removed members receive a notification, and resolved requests no longer leave stale action buttons.
+
+Notification handling was also tightened:
+
+- mark-one and mark-all requests require explicit validated payloads;
+- read mutations use a recipient-scoped database function;
+- the feed uses stable timestamp-and-id cursor pagination;
+- clicked notifications update read state and navigation badges;
+- badge counts refresh after mutations, on focus/visibility, and periodically;
+- revoked/expired invitations, resolved applications, and member removals have explicit presentation;
+- feed and unread-count queries have purpose-built indexes.
+
+The showcase seed now includes open, approval-required, and invite-only clubs. New direct-client tests prove that restricted membership, forged notifications, and invitation rewrites are rejected, while application and invitation transitions remain atomic and idempotent.
+
+Deliberate follow-up work remains: ownership transfer, invitation auto-expiry, a distinct ban/cooldown workflow for open clubs, a durable external-notification outbox, and a production-data inventory before constraining every historical notification event type.
 
 ## Current verification contract
 
@@ -191,15 +223,15 @@ pnpm test:e2e:local
 
 The E2E command resets the local Supabase database, applies all migrations, loads the showcase seed, and runs browser and RLS journeys with deterministic worker settings.
 
-Current verified result: 14 browser/database-policy journeys and 69 unit tests pass.
+Current verified result: 18 browser/database-policy journeys and 73 unit tests pass.
 
 ## Open engineering decisions
 
 - Whether to implement or archive the earlier threaded-discussion prototype.
-- Whether an in-app reader belongs in the product and what licensed content model it would use.
-- How long to retain redirects for legacy `/books`, `/library`, and `/track-reading` URLs.
+- How to build the planned public-domain reader around verified text sources and canonical title pages.
+- How long to retain the remaining legacy `/track-reading` redirect.
 - Whether to consolidate overlapping Google ingest actions after production callers are mapped.
 - How to split club membership/current-reading/management actions after dedicated club journeys exist.
 - When to adopt regenerated Supabase database types across each domain.
 
-See `docs/legacy-and-roadmap-inventory.md` for the exact files involved in the first three decisions.
+See `docs/legacy-and-roadmap-inventory.md` for preserved prototypes and completed cleanup decisions.

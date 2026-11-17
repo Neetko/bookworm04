@@ -48,7 +48,7 @@ Prerequisites: Node.js 22, pnpm 10, Docker with its daemon running, and the [Sup
    supabase db reset --local
    ```
 
-   `supabase/seed.sql` creates 30 tagged titles, five active community profiles, and one login-ready local demo reader with a populated feed. The committed cover files are resized WebP assets, so the catalog does not make 30 live cover requests. `db reset --local` deletes **local** database data before replaying migrations and this seed; never pass a remote target for this workflow.
+   `supabase/seed.sql` creates 30 tagged titles, five active community profiles, one login-ready local demo reader with a populated feed, and showcase clubs covering open, approval-required, and invite-only membership. The committed cover files are resized WebP assets, so the catalog does not make 30 live cover requests. `db reset --local` deletes **local** database data before replaying migrations and this seed; never pass a remote target for this workflow.
 
 3. Copy the environment template and fill in the local keys printed by `supabase status -o env`:
 
@@ -141,6 +141,8 @@ Lower-confidence work matches should flow through suggestions and staff review i
 
 Application authorization uses `user_roles` for app-level roles. `user_profiles.role` is a public display label. Server code should use user-scoped Supabase clients for user-owned operations and service-role clients only for trusted operations that must bypass RLS, such as controlled notification writes or staff moderation workflows.
 
+Club membership transitions run through narrow transactional Postgres functions. Ordinary clients cannot insert memberships, rewrite invitations/applications, or create notifications directly; the database independently re-checks the current reader, club policy, ownership, and pending state.
+
 ## Discussion Access
 
 Title discussions are visible in read-only mode to guests and readers who have not finished the title. Marking a title as read unlocks the composer. Posting is protected by both the server action and database row-level security, so hiding or changing the interface cannot bypass the read requirement.
@@ -152,3 +154,4 @@ Demo cover images are sourced from the [Open Library Covers API](https://openlib
 - [Development log](DEVELOPMENT_LOG.md): chronological product and architecture decisions.
 - [Critical journeys](docs/critical-journeys.md): tested access and authorization contract.
 - [Legacy and roadmap inventory](docs/legacy-and-roadmap-inventory.md): unreachable prototypes and compatibility code retained for an explicit product decision.
+- [Public-domain reader roadmap](docs/roadmap/public-domain-reader.md): requirements for the future canonical title reader.

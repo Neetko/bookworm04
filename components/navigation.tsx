@@ -18,6 +18,7 @@ import { AuthModal } from "@/components/auth-modal"
 import { ModeToggle } from "@/components/mode-toggle"
 import type { AppRole } from "@/lib/server/roles"
 import { sanitizeUsernameInput } from "@/lib/onboarding"
+import { NOTIFICATION_COUNTS_CHANGED_EVENT } from "@/lib/notifications"
 
 export function Navigation() {
   const { user, signOut } = useAuth()
@@ -91,8 +92,24 @@ export function Navigation() {
 
     loadCounts()
 
+    const refreshCounts = () => {
+      void loadCounts()
+    }
+    const refreshVisibleCounts = () => {
+      if (document.visibilityState === "visible") refreshCounts()
+    }
+    const refreshInterval = window.setInterval(refreshCounts, 30_000)
+
+    window.addEventListener(NOTIFICATION_COUNTS_CHANGED_EVENT, refreshCounts)
+    window.addEventListener("focus", refreshCounts)
+    document.addEventListener("visibilitychange", refreshVisibleCounts)
+
     return () => {
       isMounted = false
+      window.clearInterval(refreshInterval)
+      window.removeEventListener(NOTIFICATION_COUNTS_CHANGED_EVENT, refreshCounts)
+      window.removeEventListener("focus", refreshCounts)
+      document.removeEventListener("visibilitychange", refreshVisibleCounts)
     }
   }, [user])
 

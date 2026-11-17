@@ -560,15 +560,34 @@ insert into public.clubs (
   join_policy,
   categories
 )
-values (
-  '43000000-0000-4000-8000-000000000001',
-  'book',
-  'Gothic After Dark',
-  'A monthly reading club for haunted houses, unreliable narrators, and candlelit classics.',
-  '20000000-0000-4000-8000-000000000004',
-  'open',
-  array['HORROR']::text[]
-)
+values
+  (
+    '43000000-0000-4000-8000-000000000001',
+    'book',
+    'Gothic After Dark',
+    'A monthly reading club for haunted houses, unreliable narrators, and candlelit classics.',
+    '20000000-0000-4000-8000-000000000004',
+    'open',
+    array['HORROR']::text[]
+  ),
+  (
+    '43000000-0000-4000-8000-000000000002',
+    'book',
+    'Speculative Futures Circle',
+    'A moderated reading circle for science fiction, imagined societies, and ambitious world-building.',
+    '20000000-0000-4000-8000-000000000002',
+    'approval_required',
+    array['SCI-FI', 'FANTASY']::text[]
+  ),
+  (
+    '43000000-0000-4000-8000-000000000003',
+    'writer',
+    'Midnight Draft Society',
+    'An invitation-only workshop for eerie short fiction, mysteries, and constructive late-night critique.',
+    '20000000-0000-4000-8000-000000000001',
+    'invite_only',
+    array['MYSTERY', 'HORROR']::text[]
+  )
 on conflict (id) do update set
   name = excluded.name,
   description = excluded.description,
@@ -580,7 +599,9 @@ on conflict (id) do update set
 insert into public.club_members (id, club_id, user_id, created_at)
 values
   ('44000000-0000-4000-8000-000000000001', '43000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000004', now() - interval '3 days'),
-  ('44000000-0000-4000-8000-000000000002', '43000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000005', now() - interval '5 hours')
+  ('44000000-0000-4000-8000-000000000002', '43000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000005', now() - interval '5 hours'),
+  ('44000000-0000-4000-8000-000000000003', '43000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000003', now() - interval '2 days'),
+  ('44000000-0000-4000-8000-000000000004', '43000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000006', now() - interval '1 day')
 on conflict (user_id, club_id) do update set
   created_at = excluded.created_at;
 
