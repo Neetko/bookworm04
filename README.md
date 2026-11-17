@@ -2,157 +2,217 @@
 
 [![CI](https://github.com/Neetko/bookworm04/actions/workflows/ci.yml/badge.svg)](https://github.com/Neetko/bookworm04/actions/workflows/ci.yml)
 
-Bookworm is a Next.js + Supabase reading community app. The current product model is title-centric: canonical `titles` are the source of truth for reviews, discussions, reading progress, diary entries, lists, clubs, suggestions, and metadata approval.
+Bookworm is a full-stack reading community for discovering titles, keeping a useful reading record, and turning finished books into reviews, discussions, and club activity.
 
-## Stack
+**Hosted application:** [bookworm04.vercel.app](https://bookworm04.vercel.app)
 
-- Next.js 15 / React 19
-- Supabase Auth, Postgres, Storage, and RLS
-- Drizzle schema definitions in `db/schema.ts`
-- Tailwind CSS and shadcn/Radix UI components
-- TipTap for rich-text editing
+**Reproducible local showcase:** no Google OAuth credentials required
 
-## Current Data Model
+> Release note: the public endpoint exists, but the portfolio branch, database migrations, and hosted Google sign-in must be promoted and verified together before the URL is treated as evidence of the final showcase release. The local setup below is the current reproducible reference.
 
-The active catalog model is based on `titles`.
+![Bookworm catalog with title covers and genre filters](docs/images/bookworm-catalog.webp)
 
-Important current tables:
+## Try Bookworm in three minutes
 
-- `titles`: canonical title records.
-- `title_sources`: external source mappings such as Google volume ids.
-- `title_reference_works`: pooled Open Library work references for a title.
-- `reference_isbns`: normalized ISBN references used for suppression and matching.
-- `title_lists` and `title_list_items`: planned/current/finished/custom reading lists. Finished list membership drives read-gated reviews and discussions.
-- `title_user_progress` and `reading_diary_entries`: progress and diary state.
-- `suggestions` and `suggestion_work_matches`: user/staff metadata review workflow.
-- `clubs`, `club_members`, `club_applications`, `club_invitations`: club membership and moderation.
-- `club_writer_works` and `club_writer_work_likes`: writer-club manuscript workflow.
-- `notifications`, `messages`, `activity_events`, `user_follows`: social and inbox features.
+1. Open **Search Titles** and combine genre filters. Selecting more genres narrows the result to titles carrying every selected tag.
+2. Open a title. Reviews and discussion remain readable to guests; contribution controls explain why sign-in and finished-reading state are required.
+3. Sign in with the local fixture account, mark a title as read, and add a review or discussion post. Read state survives reloads.
+4. Visit **Home** to see a populated following feed, then **Community** to compare open, approval-required, and invitation-only clubs.
+5. Create a fresh account to exercise the real first-run path: every sign-up is sent through username, favorite-genre, and optional title-selection onboarding.
 
-Legacy concepts such as `books`, `book_contents`, `tracked_books`, `tracked_user_progress`, `library_user_progress`, and `title_reads` are historical migration context only. New runtime code should not depend on them.
+The local reviewer account is disposable fixture data:
 
-## Local Setup
+```text
+Email: demo@bookworm.test
+Password: BookwormDemo!2026
+```
 
-Prerequisites: Node.js 22, pnpm 10, Docker with its daemon running, and the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started). Local sign-up uses email/password; no Google Cloud project or OAuth credentials are needed.
+These credentials work only after the local database reset described below. They are not published to or accepted by the hosted environment.
 
-1. Install dependencies from the lockfile:
+## What the project demonstrates
 
-   ```bash
-   pnpm install --frozen-lockfile
-   ```
+- **Catalog and discovery:** canonical titles, locally cached showcase covers, title/author search, and multi-genre AND filtering.
+- **Reading record:** planned/current/finished lists, page or listening progress, and point-in-time diary entries.
+- **Read-gated engagement:** public review and discussion reading, with rating, review, post, and like mutations unlocked only after finishing a title.
+- **Community:** following activity, messages, notifications, reading clubs, writers' clubs, and open/approval/invite membership policies.
+- **Metadata stewardship:** Google Books and Open Library discovery flows into a reviewed canonical catalog instead of silently overwriting local records.
+- **Defense in depth:** capability-aware controls, authenticated and validated server actions, and independent Postgres row-level security.
+- **Reproducibility:** deterministic Supabase fixtures, optimized local cover assets, unit tests, browser journeys, direct database-policy tests, and CI.
 
-2. Start the local Supabase stack and apply the migrations and showcase fixtures:
+## Architecture
 
-   ```bash
-   supabase start
-   supabase db reset --local
-   ```
+```mermaid
+flowchart LR
+  Browser[Browser<br/>React client] --> Middleware[Next.js middleware]
+  Middleware --> App[App Router<br/>Server Components]
+  Browser --> Actions[Server actions and<br/>route handlers]
+  App --> Actions
 
-   `supabase/seed.sql` creates 30 tagged titles, five active community profiles, one login-ready local demo reader with a populated feed, and showcase clubs covering open, approval-required, and invite-only membership. The committed cover files are resized WebP assets, so the catalog does not make 30 live cover requests. `db reset --local` deletes **local** database data before replaying migrations and this seed; never pass a remote target for this workflow.
+  Actions --> Auth[Supabase Auth<br/>cookie-backed session]
+  Actions --> UserClient[User-scoped<br/>Supabase client]
+  UserClient --> Security[RLS + constraints +<br/>transactional functions]
+  Security --> Postgres[(Postgres)]
 
-3. Copy the environment template and fill in the local keys printed by `supabase status -o env`:
+  Actions --> Trusted[Narrow trusted<br/>server operations]
+  Trusted --> ServiceRole[Service-role client]
+  ServiceRole --> Postgres
 
-   ```bash
-   cp .env.example .env.local
-   supabase status -o env
-   ```
+  Google[Google Books] --> Discovery[External discovery and<br/>ingest preview]
+  OpenLibrary[Open Library] --> Discovery
+  Discovery --> Review[Suggestion and<br/>staff-review workflow]
+  Review --> Titles[Canonical titles]
+  Titles --> Postgres
 
-   Map `API_URL` to `NEXT_PUBLIC_SUPABASE_URL`, `ANON_KEY` to `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SERVICE_ROLE_KEY` to `SUPABASE_SERVICE_ROLE_KEY`. Keep the service-role key server-side and out of Git. The template selects `NEXT_PUBLIC_AUTH_MODE=email` for local development. `DATABASE_URL` is only needed for Drizzle commands. `GOOGLE_BOOKS_API_KEY` is optional; without it, local catalog browsing and sign-up still work, while external searches have a lower unauthenticated API quota.
+  Seed[Local seed] --> LocalDB[Local Supabase]
+  LocalDB --> Journeys[Playwright browser +<br/>RLS journeys]
+```
 
-4. Run the app and open `http://localhost:3000`:
+The important boundary is the database, not the visibility of a button. Normal user operations run with the reader's session and remain subject to RLS. Trusted credentials are limited to narrow server-only workflows such as controlled notification creation and staff metadata approval.
 
-   ```bash
-   pnpm dev
-   ```
+## Representative engineering decisions
 
-   For the populated reviewer experience, sign in with the local-only fixture account:
+### One canonical title model
 
-   ```text
-   Email: demo@bookworm.test
-   Password: BookwormDemo!2026
-   ```
+Reviews, discussions, lists, progress, diary entries, and clubs all reference canonical `titles`. External source IDs, ISBN references, and editions are separate records. That prevents a Google/Open Library result from becoming a second product identity for the same work.
 
-   You can also create a fresh account from Sign up. Local email confirmation is disabled in `supabase/config.toml`, so no email delivery service is needed; a successful sign-up goes directly to onboarding from any page. Onboarding requires a public username and at least one favorite genre before the optional reading-list and reader-suggestion steps. The local credentials above are disposable development fixtures and must never be used in a hosted environment.
+### Finished-list membership is the read signal
 
-   To rebuild the committed cover assets from their pinned Open Library cover records:
+Moving a title into the finished list is the durable source of truth for read-gated actions. The interface uses that capability to explain locked controls, server actions check it again, and database policies reject direct bypass attempts.
 
-   ```bash
-   pnpm demo:covers
-   ```
+### Club transitions are database transactions
 
-5. Validate before shipping:
+Joining, applying, approving, inviting, accepting, declining, leaving, and removing run through narrow Postgres functions. Each function derives the current reader, checks club policy and request state, and updates membership, activity, request status, and in-app notifications atomically.
 
-   ```bash
-   pnpm lint
-   pnpm typecheck
-   pnpm test
-   pnpm test:e2e:local
-   pnpm build
-   ```
+### The demo is data, not a second product
 
-   `test:e2e:local` resets only the local Supabase database before running the protected-journey browser and RLS suite. See [Critical journeys](docs/critical-journeys.md) for the behavior covered and the authorization layers involved.
+Runtime pages, actions, migrations, and authorization are shared with the maintained application. Demo-only differences are limited to deterministic local fixtures, optimized fixture cover files, and local email/password authentication. A fix that exists only in seed data is not considered complete.
 
-### Hosted Google sign-in
+## Local setup
 
-Hosted deployments use Google sign-in by default (`NEXT_PUBLIC_AUTH_MODE=google`, or leave it unset). Each self-hosted deployment needs its own Supabase project and Google OAuth client configured with the Supabase callback URL, plus the app URL in Supabase's allowed redirect URLs. Follow the [Supabase Google sign-in guide](https://supabase.com/docs/guides/auth/social-sign-in/auth-google) and [redirect URL guide](https://supabase.com/docs/guides/auth/redirect-urls). A Google consent screen left in testing mode or a missing redirect URL can prevent reviewers from signing in. Local email mode avoids those requirements for anyone cloning the repo; it does not alter the hosted Google flow.
+### Prerequisites
 
-For a hosted email/password demo, explicitly set `NEXT_PUBLIC_AUTH_MODE=email` at build time and enable email sign-up in that Supabase project's Auth settings. Configure email confirmation and delivery for that environment. Never publish a shared demo password or reuse the local service-role key.
+- Node.js 22
+- pnpm 10
+- Docker with its daemon running
+- [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started)
 
-## Migrations
+Docker is expected for the local showcase because Supabase runs Auth, Postgres, Storage, and its supporting services in containers. Reviewers do not need a hosted database or a Google Cloud project.
 
-Supabase migrations in `supabase/migrations` are the deployment source for database changes. Drizzle migrations are retained for schema history and local workflow compatibility, but avoid adding new runtime dependencies on removed legacy tables.
+### 1. Install dependencies
 
-When changing schema:
+```bash
+pnpm install --frozen-lockfile
+```
 
-- update `db/schema.ts`
-- add a Supabase migration
-- keep RLS policies aligned with the application access model
-- validate affected server actions under both user-scoped and service-role clients
+### 2. Start and seed local Supabase
 
-## Server Architecture
+```bash
+supabase start
+supabase db reset --local
+```
 
-Server actions should stay thin. Prefer this structure:
+The reset replays all migrations and `supabase/seed.sql`. It creates 30 tagged titles, optimized local WebP covers, five active community profiles, a populated demo reader, and clubs covering all three membership policies.
 
-- `app/actions/*`: auth/session entry, action argument validation, cache revalidation, and return shape.
-- `lib/server/*`: domain services for reusable business logic.
-- `lib/*`: shared parsing, metadata, sanitization, and integration helpers.
+`db reset --local` deletes **local** database data. Never run the reset or load the showcase seed against a remote project.
 
-Examples:
+### 3. Configure the application
 
-- `lib/server/auth.ts`: authenticated profile helpers.
-- `lib/server/title-lists.ts`: default reading-list creation and list item moves.
-- `lib/server/title-matching.ts`: canonical Google/source/ISBN/title matching for ingest.
+```bash
+cp .env.example .env.local
+supabase status -o env
+```
 
-This keeps Next.js framework plumbing separate from product rules and makes core logic easier to test.
+Copy the values as follows:
 
-## Ingest And Metadata Review
+| Supabase output | `.env.local` |
+| --- | --- |
+| `API_URL` | `NEXT_PUBLIC_SUPABASE_URL` |
+| `ANON_KEY` | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| `SERVICE_ROLE_KEY` | `SUPABASE_SERVICE_ROLE_KEY` |
 
-Google/Open Library ingest should prefer durable identifiers over fuzzy matching:
+Keep the service-role key server-side and out of Git. `DATABASE_URL` is required only for Drizzle commands. `GOOGLE_BOOKS_API_KEY` is optional; local catalog browsing remains available without it, while external discovery receives the provider's unauthenticated quota.
 
-1. `title_sources` external id mapping.
-2. `reference_isbns` pooled ISBN references.
-3. `titles.isbn`.
-4. `titles.isbn_list`.
-5. exact title/author fallback.
+The template selects `NEXT_PUBLIC_AUTH_MODE=email`. Local email confirmation is disabled, so both the fixture login and fresh sign-up/onboarding work without an email service.
 
-Lower-confidence work matches should flow through suggestions and staff review instead of directly mutating canonical title metadata.
+### 4. Run Bookworm
 
-## RLS And Access
+```bash
+pnpm dev
+```
 
-Application authorization uses `user_roles` for app-level roles. `user_profiles.role` is a public display label. Server code should use user-scoped Supabase clients for user-owned operations and service-role clients only for trusted operations that must bypass RLS, such as controlled notification writes or staff moderation workflows.
+Open [http://localhost:3000](http://localhost:3000).
 
-Club membership transitions run through narrow transactional Postgres functions. Ordinary clients cannot insert memberships, rewrite invitations/applications, or create notifications directly; the database independently re-checks the current reader, club policy, ownership, and pending state.
+To rebuild the committed showcase covers from their pinned Open Library records:
 
-## Discussion Access
+```bash
+pnpm demo:covers
+```
 
-Title discussions are visible in read-only mode to guests and readers who have not finished the title. Marking a title as read unlocks the composer. Posting is protected by both the server action and database row-level security, so hiding or changing the interface cannot bypass the read requirement.
+## Verification
 
-Demo cover images are sourced from the [Open Library Covers API](https://openlibrary.org/dev/docs/api/covers) and committed as optimized local WebP assets.
+Fast checks:
 
-## Engineering Documentation
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
 
-- [Development log](DEVELOPMENT_LOG.md): chronological product and architecture decisions.
-- [Critical journeys](docs/critical-journeys.md): tested access and authorization contract.
-- [Portfolio readiness roadmap](docs/portfolio-readiness-roadmap.md): shared-product rule, completed foundation, and showcase-release exit criteria.
-- [Legacy and roadmap inventory](docs/legacy-and-roadmap-inventory.md): unreachable prototypes and compatibility code retained for an explicit product decision.
-- [Public-domain reader roadmap](docs/roadmap/public-domain-reader.md): requirements for the future canonical title reader.
+Clean local browser and database-policy verification:
+
+```bash
+pnpm test:e2e:local
+```
+
+That command resets only the local database before running deterministic journeys with one worker. The suite covers guest access, sign-up/onboarding, sign-in/out, read gating, progress/diary behavior, club membership lifecycles, notification boundaries, and direct RLS bypass attempts.
+
+Hosted smoke tests are deliberately read-only and require an explicit URL:
+
+```bash
+PLAYWRIGHT_BASE_URL=https://your-deployment.example pnpm test:e2e:prod
+```
+
+The CI quality job builds the hosted Google-auth path. The local journey job uses disposable email/password fixtures.
+
+## Hosted Google sign-in
+
+Hosted builds use Google by default (`NEXT_PUBLIC_AUTH_MODE=google`, or leave the variable unset). Every deployment needs its own Supabase project and Google OAuth client, the Supabase callback URL in Google, and the application URL in Supabase's allowed redirect list.
+
+See the [Supabase Google sign-in guide](https://supabase.com/docs/guides/auth/social-sign-in/auth-google) and [redirect URL guide](https://supabase.com/docs/guides/auth/redirect-urls). A Google consent screen left in testing mode or a missing redirect URL can make a healthy application appear broken. This is why local reproduction intentionally does not depend on OAuth.
+
+## Project layout
+
+| Area | Responsibility |
+| --- | --- |
+| `app/` | App Router pages, route handlers, and thin server-action entry points |
+| `components/` | Reusable product and UI components |
+| `lib/server/` | Authenticated domain services and database clients |
+| `lib/` | Shared validation, parsing, matching, sanitization, and capabilities |
+| `supabase/migrations/` | Deployment source of truth for schema, functions, constraints, and RLS |
+| `supabase/seed.sql` | Local-only deterministic showcase data |
+| `tests/unit/` | Fast business-rule and integration-helper tests |
+| `tests/e2e/` | Browser journeys and direct local-Supabase policy tests |
+
+`db/schema.ts` is kept in sync for typed schema tooling, while Supabase migrations are the deployment record.
+
+## Honest limitations
+
+- The hosted endpoint exists, but the final portfolio branch, schema version, and Google OAuth journey must be verified together before the showcase release is tagged.
+- The 30-title catalog is a deterministic reviewer dataset, not a claim of production catalog scale.
+- Google Books and Open Library availability and quotas are external dependencies; the local catalog remains usable when they are unavailable.
+- Club ownership transfer, invitation auto-expiry, and a distinct ban/rejoin-cooldown model are not yet implemented.
+- In-app lifecycle notifications are transactional, but email or push delivery would need a durable outbox and retry worker.
+- Writer-club authoring has server/RLS coverage but still needs a dedicated browser journey.
+- The preserved reader prototype is not a public route. Reading verified public-domain text from a canonical title page is a documented follow-up.
+
+## Engineering documentation
+
+- [Development log](DEVELOPMENT_LOG.md) — the single maintained history of problems, decisions, implementations, checks, and trade-offs.
+- [Five-minute interview walkthrough](docs/interview-walkthrough.md) — product and code paths prepared for a technical conversation.
+- [Critical journeys](docs/critical-journeys.md) — persona-level behavior and authorization contract.
+- [Portfolio readiness roadmap](docs/portfolio-readiness-roadmap.md) — one-product delivery rule and release criteria.
+- [Legacy and roadmap inventory](docs/legacy-and-roadmap-inventory.md) — intentionally removed or preserved historical work.
+- [Public-domain reader roadmap](docs/roadmap/public-domain-reader.md) — planned reader requirements.
+
+Historical notes under `docs/archive/` are unmaintained source material. They are retained for provenance, not as current setup or product documentation.
