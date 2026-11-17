@@ -1,6 +1,7 @@
 import type React from "react"
 import Script from "next/script"
 import type { Metadata } from "next"
+import { headers } from "next/headers"
 import "@fontsource/im-fell-english-sc/400.css"
 import "@fontsource/raleway/400.css"
 import "@fontsource/raleway/500.css"
@@ -28,11 +29,14 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // A fresh CSP nonce requires request-time rendering for framework scripts.
+  const nonce = (await headers()).get("x-nonce") ?? undefined
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
@@ -41,6 +45,7 @@ export default function RootLayout({
             src="//unpkg.com/react-grab/dist/index.global.js"
             crossOrigin="anonymous"
             strategy="beforeInteractive"
+            nonce={nonce}
           />
         )}
         <ThemeProvider

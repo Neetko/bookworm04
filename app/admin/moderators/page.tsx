@@ -13,13 +13,12 @@ type StaffProfileRow = {
   id: string
   authUserId: string
   username: string | null
-  email: string | null
   publicRoleLabel: string | null
   appRole: AppRole
 }
 
 function escapeOrLikeValue(value: string) {
-  return value.replace(/[,]/g, " ").replace(/[()%]/g, "")
+  return value.replace(/[,%_()]/g, " ")
 }
 
 async function getRoleMap(admin: ReturnType<typeof createAdminClient>, authUserIds: string[]) {
@@ -63,7 +62,7 @@ async function getStaffProfiles(admin: ReturnType<typeof createAdminClient>) {
 
   const { data: profileRows, error: profileError } = await admin
     .from("user_profiles")
-    .select("id,auth_user_id,username,email,role")
+    .select("id,auth_user_id,username,role")
     .in("auth_user_id", authUserIds)
 
   if (profileError) {
@@ -84,7 +83,6 @@ async function getStaffProfiles(admin: ReturnType<typeof createAdminClient>) {
       id: row.id as string,
       authUserId: row.auth_user_id as string,
       username: row.username ?? null,
-      email: row.email ?? null,
       publicRoleLabel: row.role ?? null,
       appRole: roleMap.get(row.auth_user_id as string) ?? "user",
     }))
@@ -92,7 +90,7 @@ async function getStaffProfiles(admin: ReturnType<typeof createAdminClient>) {
       const roleOrder = { admin: 0, moderator: 1, user: 2 }
       const roleDiff = roleOrder[a.appRole] - roleOrder[b.appRole]
       if (roleDiff !== 0) return roleDiff
-      return (a.username ?? a.email ?? "").localeCompare(b.username ?? b.email ?? "")
+      return (a.username ?? "").localeCompare(b.username ?? "")
     })
 }
 
@@ -103,9 +101,9 @@ async function searchProfiles(admin: ReturnType<typeof createAdminClient>, query
 
   const { data: profileRows, error } = await admin
     .from("user_profiles")
-    .select("id,auth_user_id,username,email,role")
+    .select("id,auth_user_id,username,role")
     .not("auth_user_id", "is", null)
-    .or(`username.ilike.%${searchValue}%,email.ilike.%${searchValue}%`)
+    .ilike("username", `%${searchValue}%`)
     .order("username", { ascending: true })
     .limit(25)
 
@@ -123,7 +121,6 @@ async function searchProfiles(admin: ReturnType<typeof createAdminClient>, query
       id: row.id as string,
       authUserId: row.auth_user_id as string,
       username: row.username ?? null,
-      email: row.email ?? null,
       publicRoleLabel: row.role ?? null,
       appRole: roleMap.get(row.auth_user_id as string) ?? "user",
     }))
@@ -136,7 +133,7 @@ function roleBadgeVariant(role: AppRole): "default" | "secondary" | "outline" {
 }
 
 function displayName(row: StaffProfileRow) {
-  return row.username ?? row.email ?? "Unknown user"
+  return row.username ?? "Unknown user"
 }
 
 function buildRedirectPath(query: string) {
@@ -232,7 +229,7 @@ export default async function ModeratorsAdminPage({
           <CardHeader>
             <CardTitle>Search users</CardTitle>
             <CardDescription>
-              Find a profile by username or email, then grant or remove moderator access.
+              Find a profile by username, then grant or remove moderator access.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -262,7 +259,6 @@ export default async function ModeratorsAdminPage({
                         <TableRow key={row.id}>
                           <TableCell>
                             <div className="font-medium">{displayName(row)}</div>
-                            <div className="text-xs text-muted-foreground">{row.email ?? "No email saved"}</div>
                           </TableCell>
                           <TableCell>
                             <Badge variant={roleBadgeVariant(row.appRole)}>{row.appRole}</Badge>
@@ -306,7 +302,6 @@ export default async function ModeratorsAdminPage({
                     <TableRow key={row.id}>
                       <TableCell>
                         <div className="font-medium">{displayName(row)}</div>
-                        <div className="text-xs text-muted-foreground">{row.email ?? "No email saved"}</div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={roleBadgeVariant(row.appRole)}>{row.appRole}</Badge>

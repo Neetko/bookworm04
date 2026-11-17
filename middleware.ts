@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { getSupabasePublicEnv } from "@/lib/supabase-config"
+import { buildContentSecurityPolicy } from "@/lib/content-security-policy"
 
 const { url, anonKey: anon, isConfigured } = getSupabasePublicEnv()
 
@@ -11,6 +12,8 @@ function redirectWithRefreshedCookies(request: NextRequest, response: NextRespon
 
   const redirectResponse = NextResponse.redirect(redirectUrl)
   response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie))
+  const csp = response.headers.get("Content-Security-Policy")
+  if (csp) redirectResponse.headers.set("Content-Security-Policy", csp)
   return redirectResponse
 }
 
@@ -21,11 +24,23 @@ function isProtectedPage(pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+  const nonce = btoa(crypto.randomUUID())
+  const csp = buildContentSecurityPolicy({
+    nonce,
+    supabaseUrl: url,
+    isDevelopment: process.env.NODE_ENV === "development",
   })
+
+  function nextResponse() {
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set("x-nonce", nonce)
+    requestHeaders.set("Content-Security-Policy", csp)
+    const next = NextResponse.next({ request: { headers: requestHeaders } })
+    next.headers.set("Content-Security-Policy", csp)
+    return next
+  }
+
+  let response = nextResponse()
 
   const supabase = createServerClient(url, anon, {
     cookies: {
@@ -34,7 +49,7 @@ export async function middleware(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        response = NextResponse.next({ request })
+        response = nextResponse()
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options)
         })
