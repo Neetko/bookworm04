@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase-server"
+import { sanitizeMessageBody } from "@/lib/message-content"
 
 const getProfileId = async () => {
   const supabase = await createServerClient()
@@ -106,7 +107,7 @@ export async function GET(request: Request) {
     return {
       id: row.id as string,
       subject: row.subject as string,
-      body: row.body as string,
+      body: sanitizeMessageBody(row.body as string),
       date: row.created_at as string,
       read: Boolean(row.is_read),
       type: row.status === "draft" ? "draft" : folder === "sent" ? "sent" : "inbox",
@@ -133,7 +134,7 @@ export async function POST(request: Request) {
   const payload = await request.json()
   const title = (payload?.title ?? "").trim()
   const recipient = (payload?.recipient ?? "").trim()
-  const body = (payload?.body ?? "").trim()
+  const body = typeof payload?.body === "string" ? sanitizeMessageBody(payload.body.trim()) : ""
   const status = (payload?.status ?? "sent").toLowerCase()
   const replyTo = payload?.replyTo ?? null
 
