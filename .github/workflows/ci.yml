@@ -22,7 +22,9 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
       NEXT_PUBLIC_SUPABASE_ANON_KEY: local-ci-anon-key
       SUPABASE_SERVICE_ROLE_KEY: local-ci-service-role-key
-      NEXT_PUBLIC_AUTH_MODE: email
+      # Exercise the hosted authentication build path here. The local browser
+      # journey job below deliberately switches to email/password fixtures.
+      NEXT_PUBLIC_AUTH_MODE: google
 
     steps:
       - name: Check out repository

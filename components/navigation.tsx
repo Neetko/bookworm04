@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -11,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { BookOpen, Bell, LogOut, Mail, User } from "lucide-react"
+import { BookOpen, Bell, LogOut, Mail, Menu, User } from "lucide-react"
 import { useAuth } from "@/lib/auth-provider"
 import { supabase } from "@/lib/supabase-browser"
 import { AuthModal } from "@/components/auth-modal"
@@ -19,8 +20,10 @@ import { ModeToggle } from "@/components/mode-toggle"
 import type { AppRole } from "@/lib/server/roles"
 import { sanitizeUsernameInput } from "@/lib/onboarding"
 import { NOTIFICATION_COUNTS_CHANGED_EVENT } from "@/lib/notifications"
+import { cn } from "@/lib/utils"
 
 export function Navigation() {
+  const pathname = usePathname()
   const { user, signOut } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authView, setAuthView] = useState<"sign_in" | "sign_up">("sign_in")
@@ -136,118 +139,236 @@ export function Navigation() {
     setShowAuthModal(true)
   }
 
+  const navLinkClass = (href: string) => {
+    const active = href === "/" ? pathname === href : pathname.startsWith(href)
+    return cn(
+      "font-ui text-sm font-medium transition-colors hover:text-foreground focus-visible:rounded-sm",
+      active ? "text-foreground" : "text-muted-foreground"
+    )
+  }
+
+  const primaryLinks = [
+    { href: "/", label: "Home" },
+    { href: "/search-titles", label: "Search Titles" },
+    { href: "/community", label: "Community" },
+  ] as const
+
   return (
-    <nav className="border-b bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <BookOpen className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-bold text-foreground">BOOKWORM</span>
-            </Link>
-          </div>
+    <>
+      <a
+        href="#main-content"
+        className="fixed left-4 top-4 z-[60] -translate-y-24 rounded-md bg-primary px-4 py-2 font-ui text-sm font-semibold text-primary-foreground shadow-lg transition-transform focus:translate-y-0"
+      >
+        Skip to main content
+      </a>
+      <nav aria-label="Primary navigation" className="border-b bg-background">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center">
+              <Link href="/" className="flex min-w-0 items-center gap-2" aria-label="Bookworm home">
+                <BookOpen className="h-8 w-8 text-primary" />
+                <span className="truncate text-xl font-bold text-foreground sm:text-2xl">BOOKWORM</span>
+              </Link>
+            </div>
 
-          <div className="flex items-center space-x-4">
-            <ModeToggle />
-            <Link href="/" className="text-muted-foreground hover:text-foreground">
-              Home
-            </Link>
-            <Link href="/search-titles" className="text-muted-foreground hover:text-foreground">
-              Search Titles
-            </Link>
-            <Link href="/community" className="text-muted-foreground hover:text-foreground">
-              Community
-            </Link>
-
-            {user ? (
-              <>
-                <Link href="/diary" className="text-muted-foreground hover:text-foreground">
-                  Diary
+            <div className="hidden items-center gap-4 lg:flex">
+              <ModeToggle />
+              {primaryLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={navLinkClass(link.href)}
+                  aria-current={
+                    (link.href === "/" ? pathname === "/" : pathname.startsWith(link.href)) ? "page" : undefined
+                  }
+                >
+                  {link.label}
                 </Link>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex items-center gap-2 relative">
-                      <span className="relative">
-                        <Avatar className="h-7 w-7 border">
-                          <AvatarImage src={profile?.avatar_url ?? undefined} alt={displayName} />
-                          <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
-                        </Avatar>
-                        {unreadCounts.total > 0 ? (
-                          <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-                            {unreadCounts.total}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="max-w-[140px] truncate text-sm font-medium">
-                        {displayName}
-                      </span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52">
-                    <DropdownMenuItem asChild>
-                      <Link href="/profile" className="flex w-full items-center gap-2">
-                        <User className="h-4 w-4" />
-                        <span>View Profile</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/notifications" className="flex w-full items-center justify-between gap-2">
-                        <span className="flex items-center gap-2">
-                          <Bell className="h-4 w-4" />
-                          <span>Notifications</span>
+              ))}
+
+              {user ? (
+                <>
+                  <Link
+                    href="/diary"
+                    className={navLinkClass("/diary")}
+                    aria-current={pathname.startsWith("/diary") ? "page" : undefined}
+                  >
+                    Diary
+                  </Link>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="relative flex items-center gap-2">
+                        <span className="relative">
+                          <Avatar className="h-7 w-7 border">
+                            <AvatarImage src={profile?.avatar_url ?? undefined} alt={displayName} />
+                            <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
+                          </Avatar>
+                          {unreadCounts.total > 0 ? (
+                            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                              {unreadCounts.total}
+                            </span>
+                          ) : null}
                         </span>
-                        {unreadCounts.notifications > 0 ? (
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
-                            {unreadCounts.notifications}
-                          </span>
-                        ) : null}
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/messages" className="flex w-full items-center justify-between gap-2">
-                        <span className="flex items-center gap-2">
-                          <Mail className="h-4 w-4" />
-                          <span>Messages</span>
-                        </span>
-                        {unreadCounts.messages > 0 ? (
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
-                            {unreadCounts.messages}
-                          </span>
-                        ) : null}
-                      </Link>
-                    </DropdownMenuItem>
-                    {appRole === "admin" || appRole === "moderator" ? (
+                        <span className="max-w-[140px] truncate text-sm font-medium">{displayName}</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
                       <DropdownMenuItem asChild>
-                        <Link href="/admin/suggestions" className="flex w-full items-center gap-2">
-                          <span>Review suggestions</span>
+                        <Link href="/profile" className="flex w-full items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span>View Profile</span>
                         </Link>
                       </DropdownMenuItem>
-                    ) : null}
-                    {appRole === "admin" ? (
                       <DropdownMenuItem asChild>
-                        <Link href="/admin/moderators" className="flex w-full items-center gap-2">
-                          <span>Manage moderators</span>
+                        <Link href="/notifications" className="flex w-full items-center justify-between gap-2">
+                          <span className="flex items-center gap-2">
+                            <Bell className="h-4 w-4" />
+                            <span>Notifications</span>
+                          </span>
+                          {unreadCounts.notifications > 0 ? (
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
+                              {unreadCounts.notifications}
+                            </span>
+                          ) : null}
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/messages" className="flex w-full items-center justify-between gap-2">
+                          <span className="flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            <span>Messages</span>
+                          </span>
+                          {unreadCounts.messages > 0 ? (
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
+                              {unreadCounts.messages}
+                            </span>
+                          ) : null}
+                        </Link>
+                      </DropdownMenuItem>
+                      {appRole === "admin" || appRole === "moderator" ? (
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/suggestions" className="flex w-full items-center gap-2">
+                            <span>Review suggestions</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      ) : null}
+                      {appRole === "admin" ? (
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/moderators" className="flex w-full items-center gap-2">
+                            <span>Manage moderators</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      ) : null}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={signOut}>
+                        <LogOut className="h-4 w-4" />
+                        <span>Log Out</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={handleSignIn}>
+                    Sign in
+                  </Button>
+                  <Button onClick={handleSignUp}>Sign up</Button>
+                </>
+              )}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1 lg:hidden">
+              <ModeToggle />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative" aria-label="Open navigation menu">
+                    <Menu className="h-5 w-5" />
+                    {user && unreadCounts.total > 0 ? (
+                      <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-ui text-[9px] font-semibold text-primary-foreground">
+                        {unreadCounts.total}
+                      </span>
                     ) : null}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={signOut}>
-                      <LogOut className="h-4 w-4" />
-                      <span>Log Out</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  {primaryLinks.map((link) => (
+                    <DropdownMenuItem key={link.href} asChild>
+                      <Link
+                        href={link.href}
+                        aria-current={
+                          (link.href === "/" ? pathname === "/" : pathname.startsWith(link.href))
+                            ? "page"
+                            : undefined
+                        }
+                      >
+                        {link.label}
+                      </Link>
                     </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={handleSignIn}>Sign in</Button>
-                <Button onClick={handleSignUp}>Sign up</Button>
-              </>
-            )}
+                  ))}
+                  <DropdownMenuItem asChild>
+                    <Link href="/about">About Bookworm</Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+                  {user ? (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/diary">Diary</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/profile" className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span>{displayName}</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/notifications" className="flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-2">
+                            <Bell className="h-4 w-4" />
+                            Notifications
+                          </span>
+                          {unreadCounts.notifications > 0 ? <span>{unreadCounts.notifications}</span> : null}
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/messages" className="flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            Messages
+                          </span>
+                          {unreadCounts.messages > 0 ? <span>{unreadCounts.messages}</span> : null}
+                        </Link>
+                      </DropdownMenuItem>
+                      {appRole === "admin" || appRole === "moderator" ? (
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/suggestions">Review suggestions</Link>
+                        </DropdownMenuItem>
+                      ) : null}
+                      {appRole === "admin" ? (
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/moderators">Manage moderators</Link>
+                        </DropdownMenuItem>
+                      ) : null}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => void signOut()}>
+                        <LogOut className="h-4 w-4" />
+                        Log Out
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem onSelect={handleSignIn}>Sign in</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={handleSignUp}>Create an account</DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
-      </div>
-      <AuthModal open={showAuthModal} onOpenChange={setShowAuthModal} view={authView} />
-    </nav>
+        <AuthModal open={showAuthModal} onOpenChange={setShowAuthModal} view={authView} />
+      </nav>
+      <span id="main-content" tabIndex={-1} className="sr-only" />
+    </>
   )
 }

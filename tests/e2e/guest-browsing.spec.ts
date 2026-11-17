@@ -11,6 +11,20 @@ test("guests can browse local search titles without external ingest controls @pr
   await expect(page.getByRole("switch", { name: "Include external results" })).toBeDisabled()
 })
 
+test("a guest can move from the catalog into a title discussion", async ({ page }) => {
+  await page.goto("/search-titles")
+
+  const frankensteinCard = page
+    .getByRole("button")
+    .filter({ has: page.getByRole("heading", { name: DEMO_TITLES.frankenstein.title }) })
+  await frankensteinCard.click()
+  await expect(page).toHaveURL(new RegExp(`/titles/${DEMO_TITLES.frankenstein.id}$`))
+  await expect(page.getByRole("heading", { name: DEMO_TITLES.frankenstein.title })).toBeVisible()
+
+  await page.getByRole("tab", { name: "Discussion" }).click()
+  await expect(page.getByText("Read-only discussion")).toBeVisible()
+})
+
 test("selecting multiple genres narrows local titles to an all-tag match", async ({ page }) => {
   await page.goto("/search-titles?genres=HORROR%2CSCI-FI")
 
@@ -46,4 +60,41 @@ test("protected APIs reject anonymous requests", async ({ request }) => {
     const response = await request.get(path)
     expect(response.status(), path).toBe(401)
   }
+})
+
+test("the primary guest journey remains usable on a phone-sized screen", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/")
+
+  await expect(page.getByRole("heading", { name: "Keep your reading life in one place." })).toBeVisible()
+  await page.getByRole("button", { name: "Open navigation menu" }).click()
+  await expect(page.getByRole("menuitem", { name: "Search Titles" })).toBeVisible()
+  await page.getByRole("menuitem", { name: "Search Titles" }).click()
+
+  await expect(page).toHaveURL(/\/search-titles$/)
+  await expect(page.getByRole("heading", { name: "Search Titles" })).toBeVisible()
+  await expect(
+    page
+      .getByRole("button")
+      .filter({ has: page.getByRole("heading", { name: DEMO_TITLES.frankenstein.title }) })
+  ).toBeVisible()
+})
+
+test("the shell offers keyboard users a working content shortcut", async ({ page }) => {
+  await page.goto("/")
+
+  const skipLink = page.getByRole("link", { name: "Skip to main content" })
+  await skipLink.focus()
+  await expect(skipLink).toBeFocused()
+  await skipLink.click()
+  await expect(page.locator("#main-content")).toBeFocused()
+})
+
+test("unknown routes offer useful recovery links", async ({ page }) => {
+  const response = await page.goto("/this-page-does-not-exist")
+
+  expect(response?.status()).toBe(404)
+  await expect(page.getByRole("heading", { name: "This page is not on the shelf" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Search titles" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Return home" })).toBeVisible()
 })

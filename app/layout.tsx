@@ -12,8 +12,20 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { SiteFooter } from "@/components/site-footer"
 
 export const metadata: Metadata = {
-  title: "Bookworm - Your Digital Reading Companion",
-  description: "Discover, rate, and review books. Build your personal library and connect with fellow readers.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://bookworm04.vercel.app"),
+  title: {
+    default: "Bookworm — Reading progress, discussion, and clubs",
+    template: "%s | Bookworm",
+  },
+  description:
+    "Discover titles, track reading progress, keep a reading diary, exchange recommendations, and join book or writers’ clubs.",
+  openGraph: {
+    type: "website",
+    title: "Bookworm — Reading progress, discussion, and clubs",
+    description:
+      "Discover titles, track reading progress, exchange recommendations, and take part in reading communities.",
+    siteName: "Bookworm",
+  },
 }
 
 export default function RootLayout({

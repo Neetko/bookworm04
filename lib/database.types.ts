@@ -1708,6 +1708,7 @@ export type Database = {
           bio: string | null
           created_at: string | null
           email: string | null
+          favorite_genres: string[]
           id: string
           onboarding_completed_at: string | null
           role: string | null
@@ -1722,6 +1723,7 @@ export type Database = {
           bio?: string | null
           created_at?: string | null
           email?: string | null
+          favorite_genres?: string[]
           id?: string
           onboarding_completed_at?: string | null
           role?: string | null
@@ -1736,6 +1738,7 @@ export type Database = {
           bio?: string | null
           created_at?: string | null
           email?: string | null
+          favorite_genres?: string[]
           id?: string
           onboarding_completed_at?: string | null
           role?: string | null
@@ -1843,6 +1846,10 @@ export type Database = {
         Args: { target_profile_id: string }
         Returns: boolean
       }
+      club_notification_context: {
+        Args: { target_actor_profile_id: string; target_club_id: string }
+        Returns: Json
+      }
       current_profile_id: { Args: never; Returns: string }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       generate_placeholder_username: { Args: never; Returns: string }
@@ -1862,12 +1869,65 @@ export type Database = {
         Args: { target_title_id: string }
         Returns: boolean
       }
+      invite_club_member: {
+        Args: { target_club_id: string; target_invitee_profile_id: string }
+        Returns: string
+      }
       is_club_participant: {
         Args: { target_club_id: string }
         Returns: boolean
       }
       is_current_user_admin: { Args: never; Returns: boolean }
       is_current_user_staff: { Args: never; Returns: boolean }
+      join_open_club: { Args: { target_club_id: string }; Returns: string }
+      leave_club: { Args: { target_club_id: string }; Returns: string }
+      mark_notifications_read: {
+        Args: { mark_all?: boolean; target_notification_id?: string }
+        Returns: number
+      }
+      remove_club_member: {
+        Args: {
+          removal_reason?: string
+          target_club_id: string
+          target_member_profile_id: string
+        }
+        Returns: string
+      }
+      resolve_club_notification: {
+        Args: {
+          resolution_action: string
+          resolved_at: string
+          target_entity_id: string
+          target_entity_key: string
+          target_event_type: string
+          target_recipient_profile_id: string
+        }
+        Returns: number
+      }
+      respond_to_club_invitation: {
+        Args: { accept_invitation: boolean; target_invitation_id: string }
+        Returns: string
+      }
+      review_club_application: {
+        Args: {
+          approve_application: boolean
+          target_application_id: string
+          target_club_id: string
+        }
+        Returns: string
+      }
+      revoke_club_invitation: {
+        Args: { target_club_id: string; target_invitation_id: string }
+        Returns: string
+      }
+      submit_club_application: {
+        Args: { target_club_id: string }
+        Returns: string
+      }
+      withdraw_club_application: {
+        Args: { target_club_id: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "moderator"

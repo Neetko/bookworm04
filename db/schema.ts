@@ -405,6 +405,10 @@ export const clubApplications = pgTable(
   },
   (t: any) => ({
     uniqUserClub: uniqueIndex("club_applications_user_club_unique").on(t.userId, t.clubId),
+    validStatus: check(
+      "club_applications_status_check",
+      sql`${t.status} in ('pending', 'accepted', 'declined', 'withdrawn')`
+    ),
   })
 )
 
@@ -427,6 +431,10 @@ export const clubInvitations = pgTable(
   },
   (t: any) => ({
     uniqInviteeClub: uniqueIndex("club_invitations_invitee_club_unique").on(t.inviteeUserId, t.clubId),
+    validStatus: check(
+      "club_invitations_status_check",
+      sql`${t.status} in ('pending', 'accepted', 'declined', 'revoked', 'expired')`
+    ),
   })
 )
 
@@ -577,24 +585,41 @@ export const notifications = pgTable(
     recipientIdx: index("notifications_recipient_idx").on(t.recipientProfileId),
     readIdx: index("notifications_read_idx").on(t.isRead),
     createdIdx: index("notifications_created_idx").on(t.createdAt),
+    recipientCreatedIdIdx: index("notifications_recipient_created_id_idx").on(
+      t.recipientProfileId,
+      t.createdAt.desc(),
+      t.id.desc()
+    ),
+    recipientUnreadIdx: index("notifications_recipient_unread_idx")
+      .on(t.recipientProfileId)
+      .where(sql`${t.isRead} = false`),
   })
 )
 
-export const clubs = pgTable("clubs", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  type: varchar("type", { length: 20 }).notNull(), // "book" | "writer"
-  joinPolicy: varchar("join_policy", { length: 20 }).default("approval_required").notNull(),
-  name: varchar("name", { length: 200 }).notNull(),
-  description: text("description"),
-  avatarUrl: text("avatar_url"),
-  categories: text("categories").array(),
-  currentTitleId: uuid("current_title_id").references(() => titles.id, { onDelete: "set null" }),
-  ownerUserId: uuid("owner_user_id")
-    .references(() => userProfiles.id, { onDelete: "cascade" })
-    .notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
-})
+export const clubs = pgTable(
+  "clubs",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    type: varchar("type", { length: 20 }).notNull(), // "book" | "writer"
+    joinPolicy: varchar("join_policy", { length: 20 }).default("approval_required").notNull(),
+    name: varchar("name", { length: 200 }).notNull(),
+    description: text("description"),
+    avatarUrl: text("avatar_url"),
+    categories: text("categories").array(),
+    currentTitleId: uuid("current_title_id").references(() => titles.id, { onDelete: "set null" }),
+    ownerUserId: uuid("owner_user_id")
+      .references(() => userProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+  },
+  (t: any) => ({
+    validJoinPolicy: check(
+      "clubs_join_policy_check",
+      sql`${t.joinPolicy} in ('open', 'approval_required', 'invite_only')`
+    ),
+  })
+)
 
 export const clubWriterWorks = pgTable(
   "club_writer_works",
