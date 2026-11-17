@@ -209,7 +209,6 @@ See the [Supabase Google sign-in guide](https://supabase.com/docs/guides/auth/so
 ## Engineering documentation
 
 - [Development log](DEVELOPMENT_LOG.md) — the single maintained history of problems, decisions, implementations, checks, and trade-offs.
-- [Five-minute interview walkthrough](docs/interview-walkthrough.md) — product and code paths prepared for a technical conversation.
 - [Critical journeys](docs/critical-journeys.md) — persona-level behavior and authorization contract.
 - [Portfolio readiness roadmap](docs/portfolio-readiness-roadmap.md) — one-product delivery rule and release criteria.
 - [Legacy and roadmap inventory](docs/legacy-and-roadmap-inventory.md) — intentionally removed or preserved historical work.

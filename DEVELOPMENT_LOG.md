@@ -328,7 +328,7 @@ Treat presentation as a release discipline rather than a separate demo. Correct 
 - Enabled intentional Next.js cover optimization for supported remote sources while keeping local WebP fixtures.
 - Updated generated Supabase types and the maintained Drizzle schema for current club/notification changes.
 - Rewrote the README around a three-minute walkthrough, architecture, setup, checks, decisions, and limitations.
-- Consolidated the obsolete changelog into this log and prepared a five-minute interview walkthrough.
+- Consolidated the obsolete changelog into this single maintained engineering log.
 - Captured four optimized WebP screenshots from the real application: the desktop catalog, guest read-only
   discussion, populated signed-in feed, and mobile catalog. A reproducible Playwright capture script keeps them
   tied to product behavior rather than a design mockup.
