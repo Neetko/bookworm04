@@ -153,5 +153,6 @@ Demo cover images are sourced from the [Open Library Covers API](https://openlib
 
 - [Development log](DEVELOPMENT_LOG.md): chronological product and architecture decisions.
 - [Critical journeys](docs/critical-journeys.md): tested access and authorization contract.
+- [Portfolio readiness roadmap](docs/portfolio-readiness-roadmap.md): shared-product rule, completed foundation, and showcase-release exit criteria.
 - [Legacy and roadmap inventory](docs/legacy-and-roadmap-inventory.md): unreachable prototypes and compatibility code retained for an explicit product decision.
 - [Public-domain reader roadmap](docs/roadmap/public-domain-reader.md): requirements for the future canonical title reader.
