@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js"
 import { revalidatePath } from "next/cache"
 import { randomUUID } from "crypto"
 import { resizeAvatarImage } from "@/lib/avatar-image"
+import { getOwnedAvatarObjectPath } from "@/lib/avatar-storage"
 import { normalizeUsernameLookup, sanitizeUsernameInput, validateUsernameInput } from "@/lib/onboarding"
 import { GENRES, type Genre } from "@/lib/types"
 import { summarizeGenrePoints } from "@/app/actions/rewards"
@@ -373,7 +374,11 @@ export async function uploadUserAvatar(token: string, formData: FormData) {
   const user = await getUser(token)
   if (!user) return { error: "Unauthorized" as const }
 
-  await ensureUserProfile({ id: user.id, email: user.email }, token)
+  const supabase = await createServerClient()
+  const { data: { user: sessionUser } } = await supabase.auth.getUser()
+  if (sessionUser?.id !== user.id) return { error: "Unauthorized" as const }
+
+  const profile = await ensureUserProfile({ id: user.id, email: user.email }, token)
 
   const file = formData.get("file")
   if (!(file instanceof File) || file.size === 0) return { error: "No file selected" as const }
@@ -381,6 +386,16 @@ export async function uploadUserAvatar(token: string, formData: FormData) {
 
   const MAX_BYTES = 2 * 1024 * 1024
   if (file.size > MAX_BYTES) return { error: "Avatar too large (max 2MB)" as const }
+
+  const admin = createAdminClient()
+  const { data: withinQuota, error: quotaError } = await admin.rpc("consume_avatar_upload_quota", {
+    p_profile_id: profile.id,
+  })
+  if (quotaError) {
+    console.error(quotaError)
+    return { error: "Failed to check avatar upload limit" as const }
+  }
+  if (!withinQuota) return { error: "Avatar upload limit reached for today" as const }
 
   let resized
   try {
@@ -390,31 +405,19 @@ export async function uploadUserAvatar(token: string, formData: FormData) {
     return { error: "Unsupported image type" as const }
   }
 
-  // Use the user's JWT so Storage RLS can enforce auth.uid() folder rules.
-  const authed = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-
   const path = `${user.id}/${randomUUID()}.${resized.ext}`
 
-  const { error: uploadError } = await authed.storage
+  const { error: uploadError } = await admin.storage
     .from("user-avatars")
-    .upload(path, resized.buffer, { upsert: true, contentType: resized.contentType })
+    .upload(path, resized.buffer, { upsert: false, contentType: resized.contentType })
 
   if (uploadError) {
     console.error(uploadError)
     return { error: "Failed to upload avatar" as const }
   }
 
-  const { data: publicUrlData } = authed.storage.from("user-avatars").getPublicUrl(path)
+  const { data: publicUrlData } = admin.storage.from("user-avatars").getPublicUrl(path)
   const publicUrl = publicUrlData.publicUrl
-
-  const supabase = await createServerClient()
 
   const { error: updateError } = await supabase
     .from("user_profiles")
@@ -423,7 +426,15 @@ export async function uploadUserAvatar(token: string, formData: FormData) {
 
   if (updateError) {
     console.error(updateError)
+    const { error: cleanupError } = await admin.storage.from("user-avatars").remove([path])
+    if (cleanupError) console.error("Failed to remove unsaved avatar", cleanupError)
     return { error: "Failed to save avatar" as const }
+  }
+
+  const oldPath = getOwnedAvatarObjectPath(profile.avatar_url, "user-avatars", user.id)
+  if (oldPath && oldPath !== path) {
+    const { error: cleanupError } = await admin.storage.from("user-avatars").remove([oldPath])
+    if (cleanupError) console.error("Failed to remove replaced avatar", cleanupError)
   }
 
   revalidatePath("/profile")

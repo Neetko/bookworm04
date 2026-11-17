@@ -1,4 +1,5 @@
 import { fetchOpenLibraryWorkCoverCandidatesByWorkId } from "@/lib/open-library"
+import { fetchRemoteCoverImage, isAllowedOpenLibraryCoverUrl } from "@/lib/remote-cover-image"
 import { normalizeWorkIdList, normalizeWorkSnapshots, type CoverChoice, type WorkSnapshot } from "@/lib/suggestions"
 
 const BOOK_COVERS_BUCKET = "book-covers"
@@ -68,23 +69,21 @@ async function cacheOpenLibraryCover(
     remoteUrl: string
   }
 ): Promise<CoverChoice | null> {
-  const path = `openlibrary/${sanitizePathSegment(input.workId)}/${sanitizePathSegment(input.sourceCoverKey)}.jpg`
+  if (!isAllowedOpenLibraryCoverUrl(input.remoteUrl)) return null
+
+  const path = `openlibrary/${sanitizePathSegment(input.workId)}/${sanitizePathSegment(input.sourceCoverKey)}.webp`
   let cachedPublicUrl: string | null = null
 
   try {
-    const response = await fetch(input.remoteUrl, { cache: "no-store" })
-    if (response.ok) {
-      const contentType = response.headers.get("content-type") || "image/jpeg"
-      const body = Buffer.from(await response.arrayBuffer())
-      const { error: uploadError } = await admin.storage
-        .from(BOOK_COVERS_BUCKET)
-        .upload(path, body, { upsert: true, contentType })
+    const body = await fetchRemoteCoverImage(input.remoteUrl)
+    const { error: uploadError } = await admin.storage
+      .from(BOOK_COVERS_BUCKET)
+      .upload(path, body, { upsert: true, contentType: "image/webp" })
 
-      if (uploadError) {
-        console.warn("Failed to upload cached Open Library cover", uploadError)
-      } else {
-        cachedPublicUrl = admin.storage.from(BOOK_COVERS_BUCKET).getPublicUrl(path).data.publicUrl
-      }
+    if (uploadError) {
+      console.warn("Failed to upload cached Open Library cover", uploadError)
+    } else {
+      cachedPublicUrl = admin.storage.from(BOOK_COVERS_BUCKET).getPublicUrl(path).data.publicUrl
     }
   } catch (error) {
     console.warn("Failed to cache Open Library cover", error)
