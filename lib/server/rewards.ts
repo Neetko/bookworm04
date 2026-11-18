@@ -1,5 +1,6 @@
-"use server"
+import "server-only"
 
+import { createAdminClient } from "@/lib/supabase-server"
 import { enforceGenreRulesFromList } from "@/lib/book-tagging"
 import { type Genre, isGenre, normalizeGenres } from "@/lib/types"
 
@@ -143,7 +144,7 @@ export async function awardPointsForTitleAction(params: {
   const rows = [...baseRows, ...bonusRows]
   if (rows.length === 0) return
 
-  const { error } = await supabase.from("user_genre_points").upsert(rows, {
+  const { error } = await createAdminClient().from("user_genre_points").upsert(rows, {
     onConflict: "user_profile_id,source_type,source_id,genre,reason",
     ignoreDuplicates: true,
   })

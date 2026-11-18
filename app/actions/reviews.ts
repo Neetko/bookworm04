@@ -5,7 +5,7 @@ import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
 import { requireAuthedProfileId } from "@/lib/server/auth"
 import { ensureFinishedReadingListForProfile } from "@/lib/server/title-lists"
 import { revalidatePath } from "next/cache"
-import { awardPointsForTitleAction } from "@/app/actions/rewards"
+import { awardPointsForTitleAction } from "@/lib/server/rewards"
 import { parseActionInput } from "@/lib/validation/action"
 import { submitReviewSchema } from "@/lib/validation/reviews"
 

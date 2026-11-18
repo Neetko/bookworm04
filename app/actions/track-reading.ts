@@ -22,7 +22,7 @@ import {
 import { findExistingTitleForGoogleVolume } from "@/lib/server/title-matching"
 import { revalidatePath } from "next/cache"
 import { extractPlainTextFromHtml } from "@/lib/sanitize"
-import { awardPointsForTitleAction } from "@/app/actions/rewards"
+import { awardPointsForTitleAction } from "@/lib/server/rewards"
 import { parseActionInput } from "@/lib/validation/action"
 import {
   claimAndTrackGoogleBookSchema,

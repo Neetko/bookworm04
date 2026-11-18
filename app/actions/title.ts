@@ -14,7 +14,7 @@ import {
   removeTitleFromDefaultList,
 } from "@/lib/server/title-lists"
 import { revalidatePath } from "next/cache"
-import { awardPointsForTitleAction } from "@/app/actions/rewards"
+import { awardPointsForTitleAction } from "@/lib/server/rewards"
 
 async function requireTitleRead(
   supabase: Awaited<ReturnType<typeof createServerClient>>,

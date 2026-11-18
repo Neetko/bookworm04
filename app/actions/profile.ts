@@ -9,7 +9,7 @@ import { resizeAvatarImage } from "@/lib/avatar-image"
 import { getOwnedAvatarObjectPath } from "@/lib/avatar-storage"
 import { normalizeUsernameLookup, sanitizeUsernameInput, validateUsernameInput } from "@/lib/onboarding"
 import { GENRES, type Genre } from "@/lib/types"
-import { summarizeGenrePoints } from "@/app/actions/rewards"
+import { summarizeGenrePoints } from "@/lib/server/rewards"
 import { getSupabasePublicEnv, getSupabaseServiceRoleEnv } from "@/lib/supabase-config"
 import { isPostgresUniqueViolation } from "@/lib/server/postgres-errors"
 
