@@ -62,6 +62,6 @@ The paths with `:id`, `:workId`, and `:username` must return the same status for
 
 ## Local commands
 
-From `apps/start`: `pnpm install`, `pnpm build`, `pnpm typecheck`, and `pnpm dev`. The preview is at `http://localhost:3101`.
+From `apps/start`: `pnpm install`, `pnpm build`, `pnpm typecheck`, and `pnpm dev`. The preview is at `http://localhost:3101`. To check the production output, run `PORT=3101 HOST=127.0.0.1 pnpm start` and, in another terminal, `pnpm smoke:security`. The smoke script compares two actual HTTP responses and checks private cache headers, a fresh CSP nonce, and every rendered script's nonce.
 
 References: [TanStack's Next.js migration guide](https://tanstack.com/start/latest/docs/framework/react/migrate-from-next-js), [build from scratch](https://tanstack.com/start/latest/docs/framework/react/build-from-scratch), [hosting guide](https://tanstack.com/start/latest/docs/framework/react/guide/hosting).
