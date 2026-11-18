@@ -224,10 +224,33 @@ test("private data and role writes stay outside even an admin browser session", 
     expect(quotaAttempts.some(({ data }) => data === true)).toBe(true)
     expect(quotaAttempts.some(({ data }) => data === false)).toBe(true)
 
-    await staff.client
+    const { error: spoofProfileError } = await sender.client
+      .from("user_profiles")
+      .update({ role: "admin", email: "spoofed@bookworm.test" })
+      .eq("id", sender.profileId)
+    expect(spoofProfileError).not.toBeNull()
+
+    const { error: directProfileEditError } = await sender.client
+      .from("user_profiles")
+      .update({ bio: "Bypassed profile action" })
+      .eq("id", sender.profileId)
+    expect(directProfileEditError).not.toBeNull()
+
+    const { data: ownProfileAfter, error: ownProfileAfterError } = await admin
+      .from("user_profiles")
+      .select("role,email,bio")
+      .eq("id", sender.profileId)
+      .single()
+    expect(ownProfileAfterError).toBeNull()
+    expect(ownProfileAfter?.role?.toLowerCase()).not.toBe("admin")
+    expect(ownProfileAfter?.email).not.toBe("spoofed@bookworm.test")
+    expect(ownProfileAfter?.bio).not.toBe("Bypassed profile action")
+
+    const { error: staffProfileEditError } = await staff.client
       .from("user_profiles")
       .update({ bio: "Changed by admin browser" })
       .eq("id", recipient.profileId)
+    expect(staffProfileEditError).not.toBeNull()
 
     const { data: recipientProfileAfter, error: recipientProfileAfterError } = await admin
       .from("user_profiles")

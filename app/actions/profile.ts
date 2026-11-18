@@ -328,7 +328,6 @@ export async function updateUserProfile(token: string, formData: FormData) {
 
   const username = sanitizeUsernameInput(formData.get("username") as string)
   const bio = formData.get("bio") as string
-  const avatarUrl = formData.get("avatarUrl") as string
 
   const supabase = await createServerClient()
 
@@ -343,12 +342,11 @@ export async function updateUserProfile(token: string, formData: FormData) {
       return { error: "That username is already taken" }
     }
 
-    const { error } = await supabase
+    const { error } = await createAdminClient()
       .from("user_profiles")
       .update({ 
         username, 
         bio, 
-        avatar_url: avatarUrl, 
         updated_at: new Date().toISOString() 
       })
       .eq("auth_user_id", user.id)
@@ -419,7 +417,7 @@ export async function uploadUserAvatar(token: string, formData: FormData) {
   const { data: publicUrlData } = admin.storage.from("user-avatars").getPublicUrl(path)
   const publicUrl = publicUrlData.publicUrl
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await admin
     .from("user_profiles")
     .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
     .eq("auth_user_id", user.id)
