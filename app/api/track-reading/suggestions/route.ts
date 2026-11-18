@@ -1,35 +1,66 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase-server"
-import { isGenre } from "@/lib/types"
+import { normalizeSuggestionSearchParams } from "@/lib/validation/title-search"
+
+type SuggestionRow = {
+  id: string
+  title: string
+  author: string
+  created_at: string
+}
+
+function presentSuggestion(row: SuggestionRow) {
+  return { id: row.id, title: row.title, author: row.author }
+}
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const title = (searchParams.get("title") ?? "").trim()
-  const author = (searchParams.get("author") ?? "").trim()
-  const q = (searchParams.get("q") ?? "").trim()
-  const genresParam = searchParams.get("genres") ?? ""
-  const genres = genresParam
-    ? genresParam
-        .split(",")
-        .map((value) => value.trim())
-        .filter(isGenre)
-    : []
+  let search: ReturnType<typeof normalizeSuggestionSearchParams>
+  try {
+    search = normalizeSuggestionSearchParams(new URL(request.url).searchParams)
+  } catch {
+    return NextResponse.json({ results: [], error: "Invalid search input" }, { status: 400 })
+  }
+  const { title, author, raw, genres } = search
 
   const hasStructured = Boolean(title || author)
-  if (!hasStructured && !q) {
+  if (!hasStructured && !raw) {
     return NextResponse.json({ results: [] as Array<{ id: string; title: string; author: string }> })
   }
 
   const supabase = await createServerClient()
 
-  let query = supabase.from("titles").select("id,title,author")
+  if (!hasStructured) {
+    const makeQuery = (field: "title" | "author") => {
+      let query = supabase.from("titles").select("id,title,author,created_at")
+        .ilike(field, `%${raw}%`)
+      if (genres.length > 0) query = query.contains("genre", genres)
+      return query.order("created_at", { ascending: false }).limit(8)
+    }
 
-  if (hasStructured) {
-    if (title) query = query.ilike("title", `%${title}%`)
-    if (author) query = query.ilike("author", `%${author}%`)
-  } else {
-    query = query.or(`title.ilike.%${q}%,author.ilike.%${q}%`)
+    const [titleMatches, authorMatches] = await Promise.all([
+      makeQuery("title"),
+      makeQuery("author"),
+    ])
+    if (titleMatches.error || authorMatches.error) {
+      console.error("Suggestions query failed", titleMatches.error ?? authorMatches.error)
+      return NextResponse.json({ results: [] }, { status: 200 })
+    }
+
+    const uniqueRows = new Map<string, SuggestionRow>()
+    for (const row of [...(titleMatches.data ?? []), ...(authorMatches.data ?? [])]) {
+      if (!uniqueRows.has(row.id)) uniqueRows.set(row.id, row)
+    }
+    const results = Array.from(uniqueRows.values())
+      .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id))
+      .slice(0, 8)
+      .map(presentSuggestion)
+    return NextResponse.json({ results })
   }
+
+  let query = supabase.from("titles").select("id,title,author,created_at")
+
+  if (title) query = query.ilike("title", `%${title}%`)
+  if (author) query = query.ilike("author", `%${author}%`)
 
   if (genres.length > 0) {
     query = query.contains("genre", genres)
@@ -42,5 +73,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ results: [] }, { status: 200 })
   }
 
-  return NextResponse.json({ results: data ?? [] })
+  return NextResponse.json({ results: (data ?? []).map(presentSuggestion) })
 }

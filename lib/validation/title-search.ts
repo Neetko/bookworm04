@@ -52,3 +52,17 @@ export function normalizeSearchInput(input: unknown): NormalizedSearch {
     includeExternal: values.includeExternal === true,
   }
 }
+
+export function normalizeSuggestionSearchParams(params: URLSearchParams): NormalizedSearch {
+  const genreText = params.get("genres") ?? ""
+  if (genreText.length > MAX_TITLE_SEARCH_TEXT_LENGTH) {
+    throw new Error("Invalid title search genres")
+  }
+
+  return normalizeSearchInput({
+    title: params.get("title"),
+    author: params.get("author"),
+    raw: params.get("q"),
+    genres: genreText ? genreText.split(",").map((genre) => genre.trim()) : [],
+  })
+}
