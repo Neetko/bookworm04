@@ -20,6 +20,7 @@ import { supabase } from "@/lib/supabase-browser"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { MAX_PROFILE_BIO_LENGTH } from "@/lib/validation/profile-bio"
 
 interface EditProfileDialogProps {
   user: {
@@ -105,6 +106,7 @@ export function EditProfileDialog({ user }: EditProfileDialogProps) {
                 id="bio"
                 name="bio"
                 defaultValue={user.bio || ""}
+                maxLength={MAX_PROFILE_BIO_LENGTH}
                 className="col-span-3"
               />
             </div>

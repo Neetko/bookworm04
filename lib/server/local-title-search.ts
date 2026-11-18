@@ -205,29 +205,54 @@ async function getFallbackLocalTitleRows(
   const { title, author, raw } = query
   const hasStructured = Boolean(title || author)
   if (!hasStructured && !raw) return []
+  const excluded = new Set(excludeTitleIds)
+  const resultLimit = 20 + Math.min(excludeTitleIds.length, 180)
+
+  if (!hasStructured) {
+    // Separate parameterized filters keep punctuation in the query as data.
+    // A combined PostgREST `.or()` string would parse client text as syntax.
+    const [titleMatch, authorMatch] = await Promise.all([
+      supabase.from("titles").select(LOCAL_TITLE_SELECT)
+        .ilike("title", `%${raw}%`)
+        .order("title", { ascending: true })
+        .order("author", { ascending: true })
+        .limit(resultLimit),
+      supabase.from("titles").select(LOCAL_TITLE_SELECT)
+        .ilike("author", `%${raw}%`)
+        .order("title", { ascending: true })
+        .order("author", { ascending: true })
+        .limit(resultLimit),
+    ])
+
+    if (titleMatch.error) console.error("Error fetching local title matches", titleMatch.error)
+    if (authorMatch.error) console.error("Error fetching local author matches", authorMatch.error)
+
+    return uniqueLocalTitleRows([
+      ...((titleMatch.data ?? []) as LocalTitleRow[]),
+      ...((authorMatch.data ?? []) as LocalTitleRow[]),
+    ])
+      .filter((row) => !excluded.has(row.id))
+      .sort((a, b) => a.title.localeCompare(b.title) || a.author.localeCompare(b.author))
+      .slice(0, 20)
+  }
 
   let builder = supabase
     .from("titles")
     .select(LOCAL_TITLE_SELECT)
 
-  if (hasStructured) {
-    if (title) builder = builder.ilike("title", `%${title}%`)
-    if (author) builder = builder.ilike("author", `%${author}%`)
-  } else {
-    builder = builder.or(`title.ilike.%${raw}%,author.ilike.%${raw}%`)
-  }
+  if (title) builder = builder.ilike("title", `%${title}%`)
+  if (author) builder = builder.ilike("author", `%${author}%`)
 
   const { data, error } = await builder
     .order("title", { ascending: true })
     .order("author", { ascending: true })
-    .limit(20 + excludeTitleIds.length)
+    .limit(resultLimit)
 
   if (error) {
     console.error("Error fetching local titles", error)
     return []
   }
 
-  const excluded = new Set(excludeTitleIds)
   return ((data ?? []) as LocalTitleRow[]).filter((row) => !excluded.has(row.id)).slice(0, 20)
 }
 

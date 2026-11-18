@@ -7,6 +7,7 @@ import { isGenre, type Genre, type SearchTitleResult } from "@/lib/types"
 import { getTitleSearchCapabilities } from "@/lib/title-capabilities"
 import { mergeSearchTitleResults } from "@/lib/title-search-results"
 import { hasEverySelectedGenre } from "@/lib/genre-filter"
+import { normalizeSearchInput, type SearchTitlesInput } from "@/lib/validation/title-search"
 import {
   getBestEffortCanonicalExternalMatchReport,
   type CanonicalExternalMatchReport,
@@ -19,41 +20,8 @@ import {
   type LocalTitleRow,
 } from "@/lib/server/local-title-search"
 
-type SearchTitlesInput =
-  | {
-      title?: string
-      author?: string
-      raw?: string
-      genres?: Genre[]
-      includeExternal?: boolean
-    }
-  | string
-
-type NormalizedSearch = {
-  title: string
-  author: string
-  raw: string
-  genres: Genre[]
-  includeExternal: boolean
-}
-
 function getExternalAuthor(book: Pick<MergedWork, "authors">) {
   return book.authors[0] ?? "Unknown author"
-}
-
-function normalizeSearchInput(input: SearchTitlesInput): NormalizedSearch {
-  if (typeof input === "string") {
-    const raw = input.trim()
-    return { title: "", author: "", raw, genres: [], includeExternal: false }
-  }
-
-  return {
-    title: (input.title ?? "").trim(),
-    author: (input.author ?? "").trim(),
-    raw: (input.raw ?? "").trim(),
-    genres: (input.genres ?? []).filter(isGenre),
-    includeExternal: Boolean(input.includeExternal),
-  }
 }
 
 function uniqueGenres(genres: Genre[]): Genre[] {
@@ -131,12 +99,12 @@ async function buildLocalResults(
 }
 
 export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitleResult[]> {
+  const { title, author, raw, includeExternal, genres } = normalizeSearchInput(input)
   const supabase = await createServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { title, author, raw, includeExternal, genres } = normalizeSearchInput(input)
   const searchCapabilities = getTitleSearchCapabilities({ isSignedIn: Boolean(user) })
   const shouldIncludeExternal = includeExternal && searchCapabilities.canSearchExternalSources
   const hasStructured = Boolean(title || author)
@@ -203,12 +171,13 @@ export async function searchTitles(input: SearchTitlesInput): Promise<SearchTitl
 }
 
 export async function getInitialTitles(genres: Genre[] = []): Promise<SearchTitleResult[]> {
+  const selectedGenres = normalizeSearchInput({ genres }).genres
   const supabase = await createServerClient()
 
   const localBooks = await getLocalTitleRowsAlphabetical(supabase, 50)
   const localResults = await buildLocalResults(supabase, localBooks)
 
-  if (genres.length === 0) return localResults
+  if (selectedGenres.length === 0) return localResults
 
-  return localResults.filter((result) => hasEverySelectedGenre(result.genres, genres))
+  return localResults.filter((result) => hasEverySelectedGenre(result.genres, selectedGenres))
 }

@@ -12,6 +12,7 @@ import { GENRES, type Genre } from "@/lib/types"
 import { summarizeGenrePoints } from "@/lib/server/rewards"
 import { getSupabasePublicEnv, getSupabaseServiceRoleEnv } from "@/lib/supabase-config"
 import { isPostgresUniqueViolation } from "@/lib/server/postgres-errors"
+import { parseProfileBio } from "@/lib/validation/profile-bio"
 
 const { url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabasePublicEnv()
 const { isConfigured: hasServiceRoleKey } = getSupabaseServiceRoleEnv()
@@ -326,8 +327,15 @@ export async function updateUserProfile(token: string, formData: FormData) {
 
   await ensureUserProfile({ id: user.id, email: user.email }, token)
 
-  const username = sanitizeUsernameInput(formData.get("username") as string)
-  const bio = formData.get("bio") as string
+  const usernameValue = formData.get("username")
+  if (typeof usernameValue !== "string") return { error: "Username must be text" }
+  const username = sanitizeUsernameInput(usernameValue)
+  let bio: string
+  try {
+    bio = parseProfileBio(formData.get("bio"))
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Invalid bio" }
+  }
 
   const supabase = await createServerClient()
 

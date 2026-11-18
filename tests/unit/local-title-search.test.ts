@@ -105,4 +105,37 @@ describe("local title search", () => {
       },
     ])
   })
+
+  it("treats punctuation in raw search as data and combines title and author matches", async () => {
+    const fake = createFakeSupabase({
+      tables: {
+        titles: [
+          title({ id: "title-match", title: "Dune,author.ilike.%", author: "Writer" }),
+          title({ id: "author-match", title: "The Desert", author: "Dune,author.ilike.%" }),
+          title({ id: "unrelated", title: "Unrelated", author: "Someone Else" }),
+        ],
+      },
+    })
+    let orCalls = 0
+    const supabase = {
+      ...fake,
+      from(table: string) {
+        const query = fake.from(table)
+        query.or = () => {
+          orCalls += 1
+          throw new Error("Raw search used a combined filter")
+        }
+        return query
+      },
+    }
+
+    const rows = await searchLocalTitleRows(supabase as any, {
+      title: "",
+      author: "",
+      raw: "Dune,author.ilike.%",
+    })
+
+    expect(rows.map((row) => row.id)).toEqual(["title-match", "author-match"])
+    expect(orCalls).toBe(0)
+  })
 })
