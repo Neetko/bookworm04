@@ -16,4 +16,17 @@ describe("message content", () => {
     expect(cleaned).toContain(">this</a> instead.</p>")
     expect(cleaned).not.toMatch(/javascript:|onclick|onerror|<script|<img/i)
   })
+
+  it("keeps known sanitizer bypass markup out of rich text", () => {
+    const payloads = [
+      '<textarea></textarea/><img src=x onerror="alert(1)">',
+      '<div><noscript></div><img src=x onerror="alert(1)"></noscript>',
+      '<svg><a><animate attributeName="href" values="#safe;javascript:alert(1)"></animate></a></svg>',
+      '<meta http-equiv="refresh" content="0;url=javascript:alert(1)">',
+    ]
+
+    for (const payload of payloads) {
+      expect(sanitizeMessageBody(payload)).not.toMatch(/<(?:img|svg|animate|script|textarea|meta)\b|onerror|javascript:/i)
+    }
+  })
 })
