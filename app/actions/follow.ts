@@ -1,6 +1,8 @@
 "use server"
 
 import { createAdminClient, createServerClient } from "@/lib/supabase-server"
+import { parseActionInput } from "@/lib/validation/action"
+import { uuidSchema } from "@/lib/validation/primitives"
 import { revalidatePath } from "next/cache"
 
 async function requireAuthedProfileId() {
@@ -72,54 +74,52 @@ export async function getFollowState(targetProfileId: string) {
 
 export async function followUser(targetProfileId: string) {
   const { supabase, profileId } = await requireAuthedProfileId()
+  const targetId = parseActionInput(uuidSchema, targetProfileId)
   const admin = createAdminClient()
 
-  if (profileId === targetProfileId) {
+  if (profileId === targetId) {
     throw new Error("Cannot follow yourself")
   }
 
-  const { data: insertedFollow, error: upsertError } = await supabase
-    .from("user_follows")
-    .upsert(
-      {
-        follower_profile_id: profileId,
-        followed_profile_id: targetProfileId,
-        is_private: true,
-        is_friend: false,
-      },
-      { onConflict: "follower_profile_id,followed_profile_id", ignoreDuplicates: true }
-    )
-    .select("id")
-    .maybeSingle()
+  const { data: transition, error: followError } = await admin.rpc("insert_follow_with_quota", {
+    p_follower_profile_id: profileId,
+    p_followed_profile_id: targetId,
+  })
 
-  if (upsertError) {
-    console.error("Failed to follow user", upsertError)
+  if (followError) {
+    if (followError.message.includes("follow_quota_exceeded")) {
+      throw new Error("Too many follows. Try again later")
+    }
+    console.error("Failed to follow user", followError)
     throw new Error("Failed to follow user")
   }
 
-  // A repeated action must not create another notification or reset a
-  // reciprocal friendship on an existing follow row.
-  if (!insertedFollow?.id) {
+  if (!transition || typeof transition !== "object" || Array.isArray(transition)
+    || typeof transition.inserted !== "boolean" || typeof transition.notify !== "boolean") {
+    throw new Error("Failed to follow user")
+  }
+
+  if (!transition.inserted) {
     revalidatePath("/")
     return { success: true }
   }
 
-  const actorMap = await getActorMetadata(supabase, [profileId])
-  const actorMeta = actorMap.get(profileId) ?? null
+  if (transition.notify) {
+    const actorMap = await getActorMetadata(supabase, [profileId])
+    const actorMeta = actorMap.get(profileId) ?? null
 
-  await admin.from("notifications").insert({
-    recipient_profile_id: targetProfileId,
-    actor_profile_id: profileId,
-    event_type: "followed",
-    metadata: {
-      actor: actorMeta,
-    },
-  })
+    await admin.from("notifications").insert({
+      recipient_profile_id: targetId,
+      actor_profile_id: profileId,
+      event_type: "followed",
+      metadata: { actor: actorMeta },
+    })
+  }
 
   const { data: reciprocal, error: reciprocalError } = await supabase
     .from("user_follows")
     .select("id")
-    .eq("follower_profile_id", targetProfileId)
+    .eq("follower_profile_id", targetId)
     .eq("followed_profile_id", profileId)
     .maybeSingle()
 
@@ -133,7 +133,7 @@ export async function followUser(targetProfileId: string) {
       .from("user_follows")
       .select("is_friend")
       .or(
-        `and(follower_profile_id.eq.${profileId},followed_profile_id.eq.${targetProfileId}),and(follower_profile_id.eq.${targetProfileId},followed_profile_id.eq.${profileId})`
+        `and(follower_profile_id.eq.${profileId},followed_profile_id.eq.${targetId}),and(follower_profile_id.eq.${targetId},followed_profile_id.eq.${profileId})`
       )
 
     const wasFriend = (friendRows ?? []).some((row: any) => row?.is_friend)
@@ -142,7 +142,7 @@ export async function followUser(targetProfileId: string) {
       .from("user_follows")
       .update({ is_friend: true })
       .or(
-        `and(follower_profile_id.eq.${profileId},followed_profile_id.eq.${targetProfileId}),and(follower_profile_id.eq.${targetProfileId},followed_profile_id.eq.${profileId})`
+        `and(follower_profile_id.eq.${profileId},followed_profile_id.eq.${targetId}),and(follower_profile_id.eq.${targetId},followed_profile_id.eq.${profileId})`
       )
 
     if (updateError) {
@@ -150,21 +150,21 @@ export async function followUser(targetProfileId: string) {
       throw new Error("Failed to follow user")
     }
 
-    if (!wasFriend) {
-      const metaMap = await getActorMetadata(supabase, [profileId, targetProfileId])
+    if (!wasFriend && transition.notify) {
+      const metaMap = await getActorMetadata(supabase, [profileId, targetId])
       const forTarget = metaMap.get(profileId) ?? null
-      const forActor = metaMap.get(targetProfileId) ?? null
+      const forActor = metaMap.get(targetId) ?? null
 
       await admin.from("notifications").insert([
         {
-          recipient_profile_id: targetProfileId,
+          recipient_profile_id: targetId,
           actor_profile_id: profileId,
           event_type: "friendship",
           metadata: { actor: forTarget },
         },
         {
           recipient_profile_id: profileId,
-          actor_profile_id: targetProfileId,
+          actor_profile_id: targetId,
           event_type: "friendship",
           metadata: { actor: forActor },
         },
@@ -177,18 +177,19 @@ export async function followUser(targetProfileId: string) {
 }
 
 export async function unfollowUser(targetProfileId: string) {
-  const { supabase, profileId } = await requireAuthedProfileId()
+  const { profileId } = await requireAuthedProfileId()
+  const targetId = parseActionInput(uuidSchema, targetProfileId)
   const admin = createAdminClient()
 
-  if (profileId === targetProfileId) {
+  if (profileId === targetId) {
     throw new Error("Cannot unfollow yourself")
   }
 
-  const { error: deleteError } = await supabase
+  const { error: deleteError } = await admin
     .from("user_follows")
     .delete()
     .eq("follower_profile_id", profileId)
-    .eq("followed_profile_id", targetProfileId)
+    .eq("followed_profile_id", targetId)
 
   if (deleteError) {
     console.error("Failed to unfollow user", deleteError)
@@ -198,7 +199,7 @@ export async function unfollowUser(targetProfileId: string) {
   const { error: updateError } = await admin
     .from("user_follows")
     .update({ is_friend: false })
-    .eq("follower_profile_id", targetProfileId)
+    .eq("follower_profile_id", targetId)
     .eq("followed_profile_id", profileId)
 
   if (updateError) {
