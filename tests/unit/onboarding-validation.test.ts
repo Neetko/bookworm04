@@ -17,6 +17,10 @@ function validInput() {
 describe("onboarding selection validation", () => {
   it("accepts bounded selections and rejects invalid or repeated title ids", () => {
     expect(parseOnboardingSelections(validInput())).toMatchObject({ ok: true })
+    expect(parseOnboardingSelections({ ...validInput(), favoriteGenres: [] })).toEqual({
+      ok: false,
+      error: "Select at least one genre",
+    })
     expect(parseOnboardingSelections({ ...validInput(), currentTitleIds: [id(1)] })).toMatchObject({ ok: false })
     expect(parseOnboardingSelections({ ...validInput(), followProfileIds: ["not-a-uuid"] })).toMatchObject({ ok: false })
   })
