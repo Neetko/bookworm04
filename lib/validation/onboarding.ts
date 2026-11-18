@@ -1,6 +1,6 @@
-import { GENRES, type Genre } from "@/lib/types"
+import { type Genre } from "@/lib/types"
 import { genreListSchema, uuidSchema } from "@/lib/validation/primitives"
-import { MAX_ONBOARDING_FOLLOWS, MAX_ONBOARDING_TITLES } from "@/lib/onboarding-limits"
+import { MAX_ONBOARDING_FOLLOWS, MAX_ONBOARDING_GENRES, MAX_ONBOARDING_TITLES } from "@/lib/onboarding-limits"
 import { z } from "zod"
 
 const titleIdsSchema = z.array(uuidSchema).max(MAX_ONBOARDING_TITLES)
@@ -35,8 +35,8 @@ export function parseOnboardingSelections(input: unknown): ParseResult {
   const followProfileIds = values.followProfileIds
 
   // Reject oversized collections before Zod visits each element.
-  if (!isBoundedArray(favoriteGenres, GENRES.length)) {
-    return { ok: false, error: `Choose no more than ${GENRES.length} favorite genres` }
+  if (!isBoundedArray(favoriteGenres, MAX_ONBOARDING_GENRES)) {
+    return { ok: false, error: `Choose no more than ${MAX_ONBOARDING_GENRES} favorite genres` }
   }
   if (
     !isBoundedArray(finishedTitleIds, MAX_ONBOARDING_TITLES) ||

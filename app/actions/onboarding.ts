@@ -333,13 +333,12 @@ export async function getOnboardingFollowSuggestions(selectedTitleIds: string[])
 }
 
 export async function saveOnboardingSelections(input: OnboardingSelections) {
-  const parsed = parseOnboardingSelections(input)
-  if (!parsed.ok) return { error: parsed.error }
-
   const { supabase, profile } = await ensureAuthedProfile()
   if (profile.onboarding_completed_at) {
     return { error: "Setup is already complete" }
   }
+  const parsed = parseOnboardingSelections(input)
+  if (!parsed.ok) return { error: parsed.error }
 
   const { finishedTitleIds, currentTitleIds, plannedTitleIds, favoriteGenres } = parsed.value
   const followProfileIds = parsed.value.followProfileIds.filter((profileId) => profileId !== profile.id)
