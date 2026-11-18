@@ -8,6 +8,7 @@ import { getLinkedTitlesByWorkId, getTitleReferenceWorkIds, type LinkedTitleSumm
 import { isExactTitleAuthorMatch, normalizeWorkIdList, normalizeWorkSnapshots, type WorkSnapshot } from "@/lib/suggestions"
 import { finalizeSuggestionApproval } from "@/lib/server/suggestion-approval"
 import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
+import { hasVerifiedStaffSession } from "@/lib/server/staff-mfa"
 import { getAuthedProfileId, requireAuthedProfileId } from "@/lib/server/auth"
 import {
   ensureFinishedReadingListForProfile,
@@ -807,7 +808,7 @@ export async function submitTitleDedupeSuggestionAction(input: {
     }
   }
 
-  const autoApproved = canReviewSuggestions(access.role) && Boolean(access.profileId)
+  const autoApproved = canReviewSuggestions(access.role) && Boolean(access.profileId) && await hasVerifiedStaffSession()
   if (autoApproved) {
     const admin = createAdminClient()
     await finalizeSuggestionApproval({

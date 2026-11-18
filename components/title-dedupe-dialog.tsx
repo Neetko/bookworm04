@@ -69,11 +69,11 @@ export function TitleDedupeDialog({
     setError(null)
     try {
       const selectedWorks = candidates.filter((candidate) => selected.includes(candidate.workId))
-      await submitTitleDedupeSuggestionAction({
+      const result = await submitTitleDedupeSuggestionAction({
         titleId,
         selectedWorks,
       })
-      toast.success(canAutoApprove ? "Dedupe changes verified" : "Dedupe suggestion sent for review")
+      toast.success(result.autoApproved ? "Dedupe changes verified" : "Dedupe suggestion sent for review")
       setOpen(false)
     } catch (error: unknown) {
       setError(getErrorMessage(error, "Failed to submit dedupe suggestion"))

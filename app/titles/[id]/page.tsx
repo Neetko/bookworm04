@@ -20,6 +20,7 @@ import { GENRE_BG_CLASS, isGenre, normalizeGenres } from "@/lib/types"
 import { enforceGenreRulesFromList } from "@/lib/book-tagging"
 import { getTitleReferenceWorkIds } from "@/lib/reference-data"
 import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
+import { hasVerifiedStaffSession } from "@/lib/server/staff-mfa"
 import { cn } from "@/lib/utils"
 import { buildAmazonProductUrl, buildAmazonSearchUrl } from "@/lib/amazon"
 import { getTitleEngagementCapabilities } from "@/lib/title-capabilities"
@@ -306,7 +307,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
                     <TitleDedupeDialog
                       titleId={title.id}
                       isSignedIn={engagementCapabilities.canSuggestTitleMetadata}
-                      canAutoApprove={canReviewSuggestions(access.role)}
+                      canAutoApprove={canReviewSuggestions(access.role) && await hasVerifiedStaffSession()}
                     />
                   </div>
 

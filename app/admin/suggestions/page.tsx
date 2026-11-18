@@ -4,6 +4,8 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { SuggestionReviewCard } from "@/components/suggestion-review-card"
 import { canManageRoles, canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
+import { hasVerifiedStaffSession } from "@/lib/server/staff-mfa"
+import { AdminMfaGate } from "@/components/admin-mfa-gate"
 import { isExactWorkSnapshotMatch, normalizeCoverChoice, normalizeSuggestionWorkMatches, normalizeWorkIdList, normalizeWorkSnapshots } from "@/lib/suggestions"
 import { normalizeGenres } from "@/lib/types"
 
@@ -32,6 +34,17 @@ export default async function SuggestionsAdminPage() {
           <p className="text-sm text-muted-foreground">Moderator or admin access required.</p>
           <p className="text-xs text-muted-foreground">Signed in as {user.email ?? "unknown user"}.</p>
           <p className="text-xs text-muted-foreground">Suggestion review access is checked against your application role.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!(await hasVerifiedStaffSession())) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="font-ui max-w-4xl mx-auto p-8">
+          <AdminMfaGate />
         </div>
       </div>
     )

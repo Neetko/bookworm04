@@ -14,10 +14,7 @@ test("guests can browse local search titles without external ingest controls @pr
 test("a guest can move from the catalog into a title discussion", async ({ page }) => {
   await page.goto("/search-titles")
 
-  const frankensteinCard = page
-    .getByRole("button")
-    .filter({ has: page.getByRole("heading", { name: DEMO_TITLES.frankenstein.title }) })
-  await frankensteinCard.click()
+  await page.getByRole("link", { name: `Open ${DEMO_TITLES.frankenstein.title}` }).click()
   await expect(page).toHaveURL(new RegExp(`/titles/${DEMO_TITLES.frankenstein.id}$`))
   await expect(page.getByRole("heading", { name: DEMO_TITLES.frankenstein.title })).toBeVisible()
 
@@ -74,9 +71,7 @@ test("the primary guest journey remains usable on a phone-sized screen", async (
   await expect(page).toHaveURL(/\/search-titles$/)
   await expect(page.getByRole("heading", { name: "Search Titles" })).toBeVisible()
   await expect(
-    page
-      .getByRole("button")
-      .filter({ has: page.getByRole("heading", { name: DEMO_TITLES.frankenstein.title }) })
+    page.getByRole("link", { name: `Open ${DEMO_TITLES.frankenstein.title}` })
   ).toBeVisible()
 })
 

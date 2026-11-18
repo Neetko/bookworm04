@@ -8,6 +8,7 @@ import { buildSuggestionReviewUpdate, isExactTitleAuthorMatch, normalizeWorkIdLi
 import { type Genre } from "@/lib/types"
 import { finalizeSuggestionApproval } from "@/lib/server/suggestion-approval"
 import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
+import { requireVerifiedStaffSession } from "@/lib/server/staff-mfa"
 import { revalidatePath } from "next/cache"
 
 async function requireSuggestionReviewerAccess() {
@@ -22,6 +23,8 @@ async function requireSuggestionReviewerAccess() {
   if (!access.profileId) {
     throw new Error("Reviewer profile not found")
   }
+
+  await requireVerifiedStaffSession()
 
   return {
     admin: createAdminClient(),

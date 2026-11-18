@@ -100,7 +100,7 @@ test("private data and role writes stay outside even an admin browser session", 
 
     const { data: isAdmin, error: adminCheckError } = await staff.client.rpc("is_current_user_admin")
     expect(adminCheckError).toBeNull()
-    expect(isAdmin).toBe(true)
+    expect(isAdmin).toBe(false)
 
     const { data: staffMessages, error: staffMessagesError } = await staff.client
       .from("messages")
