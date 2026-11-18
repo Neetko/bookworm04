@@ -68,7 +68,12 @@ export function TitleDedupeDialog({
     setSaving(true)
     setError(null)
     try {
-      const selectedWorks = candidates.filter((candidate) => selected.includes(candidate.workId))
+      const selectedWorks = candidates
+        .filter((candidate) => selected.includes(candidate.workId))
+        .map((candidate) => ({
+          ...candidate,
+          subjects: candidate.subjects.slice(0, 30).map((subject) => subject.slice(0, 200)),
+        }))
       const result = await submitTitleDedupeSuggestionAction({
         titleId,
         selectedWorks,

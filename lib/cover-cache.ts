@@ -4,6 +4,7 @@ import { normalizeWorkIdList, normalizeWorkSnapshots, type CoverChoice, type Wor
 
 const BOOK_COVERS_BUCKET = "book-covers"
 const MAX_OPEN_LIBRARY_COVER_CHOICES_PER_WORK = 8
+const MAX_WORKS_PER_COVER_REQUEST = 15
 
 type SupabaseClientLike = {
   from: (table: string) => any
@@ -171,10 +172,11 @@ export async function getCoverChoicesForSelectedWorks(
     workSnapshots?: WorkSnapshot[]
   }
 ): Promise<CoverChoice[]> {
-  const workIds = normalizeWorkIdList(input.workIds)
+  const workIds = normalizeWorkIdList(input.workIds.slice(0, MAX_WORKS_PER_COVER_REQUEST))
+    .filter((workId) => /^OL[1-9][0-9]{0,11}W$/.test(workId))
   if (workIds.length === 0) return []
 
-  const snapshots = normalizeWorkSnapshots(input.workSnapshots ?? [])
+  const snapshots = normalizeWorkSnapshots((input.workSnapshots ?? []).slice(0, MAX_WORKS_PER_COVER_REQUEST))
   const snapshotByWorkId = new Map(snapshots.map((snapshot) => [snapshot.workId, snapshot]))
 
   const { data: existingRows, error: existingError } = await admin

@@ -78,7 +78,7 @@ export async function followUser(targetProfileId: string) {
     throw new Error("Cannot follow yourself")
   }
 
-  const { error: upsertError } = await supabase
+  const { data: insertedFollow, error: upsertError } = await supabase
     .from("user_follows")
     .upsert(
       {
@@ -87,12 +87,21 @@ export async function followUser(targetProfileId: string) {
         is_private: true,
         is_friend: false,
       },
-      { onConflict: "follower_profile_id,followed_profile_id" }
+      { onConflict: "follower_profile_id,followed_profile_id", ignoreDuplicates: true }
     )
+    .select("id")
+    .maybeSingle()
 
   if (upsertError) {
     console.error("Failed to follow user", upsertError)
     throw new Error("Failed to follow user")
+  }
+
+  // A repeated action must not create another notification or reset a
+  // reciprocal friendship on an existing follow row.
+  if (!insertedFollow?.id) {
+    revalidatePath("/")
+    return { success: true }
   }
 
   const actorMap = await getActorMetadata(supabase, [profileId])
