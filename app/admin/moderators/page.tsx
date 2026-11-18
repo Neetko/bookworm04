@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { createAdminClient } from "@/lib/supabase-server"
 import { canManageRoles, normalizeAppRole, type AppRole, getCurrentUserAccess } from "@/lib/server/roles"
+import { hasVerifiedStaffSession } from "@/lib/server/staff-mfa"
+import { AdminMfaGate } from "@/components/admin-mfa-gate"
 
 type StaffProfileRow = {
   id: string
@@ -197,6 +199,17 @@ export default async function ModeratorsAdminPage({
           <h1 className="text-2xl font-semibold">Moderator access</h1>
           <p className="text-sm text-muted-foreground">Administrator access required.</p>
           <p className="text-xs text-muted-foreground">Signed in as {user.email ?? "unknown user"}.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!(await hasVerifiedStaffSession())) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="font-ui max-w-4xl mx-auto p-8">
+          <AdminMfaGate />
         </div>
       </div>
     )

@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase-server"
 import { canManageRoles, getCurrentUserAccess } from "@/lib/server/roles"
+import { requireVerifiedStaffSession } from "@/lib/server/staff-mfa"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -39,6 +40,8 @@ async function requireAdminRoleManagementAccess() {
   if (!access.profileId) {
     throw new Error("Admin profile not found")
   }
+
+  await requireVerifiedStaffSession()
 
   return {
     access,

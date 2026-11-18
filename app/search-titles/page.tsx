@@ -1,5 +1,6 @@
 import { Navigation } from "@/components/navigation"
 import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
+import { hasVerifiedStaffSession } from "@/lib/server/staff-mfa"
 import { getInitialTitles, searchTitles } from "@/app/actions/search-titles"
 import { isGenre } from "@/lib/types"
 import { SearchTitlesClient } from "@/app/search-titles/search-titles-client"
@@ -55,7 +56,7 @@ export default async function SearchTitlesPage({
           selectedGenres={selectedGenres}
           hasGoogleBooksKey={hasGoogleBooksKey}
           hasActiveSearch={hasActiveSearch}
-          canAutoApproveSuggestions={canReviewSuggestions(access.role)}
+          canAutoApproveSuggestions={canReviewSuggestions(access.role) && await hasVerifiedStaffSession()}
           canSearchExternalSources={searchCapabilities.canSearchExternalSources}
           canIngestExternalTitles={searchCapabilities.canIngestExternalTitles}
         />

@@ -3,6 +3,7 @@
 import { createServerClient } from "@/lib/supabase-server"
 import { requireAuthedProfileId } from "@/lib/server/auth"
 import { canReviewSuggestions, getCurrentUserAccess } from "@/lib/server/roles"
+import { hasVerifiedStaffSession } from "@/lib/server/staff-mfa"
 import { ensureGoogleBookIngested } from "@/lib/server/google-title-ingest"
 import {
   confirmGoogleBookIngestForProfile,
@@ -30,7 +31,7 @@ export async function confirmGoogleBookIngest(input: ConfirmGoogleBookIngestInpu
   const access = await getCurrentUserAccess()
   if (!access.user || !access.profileId) throw new Error("Unauthorized")
 
-  const autoApproved = canReviewSuggestions(access.role)
+  const autoApproved = canReviewSuggestions(access.role) && await hasVerifiedStaffSession()
   const result = await confirmGoogleBookIngestForProfile({
     supabase,
     profileId: access.profileId,
