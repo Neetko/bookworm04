@@ -12,9 +12,9 @@ import {
 } from "@/lib/server/google-ingest-suggestions"
 import { parseActionInput } from "@/lib/validation/action"
 import {
-  confirmGoogleBookIngestSchema,
   ensureGoogleBookSchema,
   googleVolumeIdSchema,
+  parseConfirmGoogleBookIngestInput,
   type ConfirmGoogleBookIngestInput,
 } from "@/lib/validation/track-reading"
 import { revalidatePath } from "next/cache"
@@ -26,7 +26,7 @@ export async function getGoogleIngestSuggestion(volumeIdInput: string): Promise<
   return getGoogleBookIngestSuggestionForProfile({ supabase, profileId, volumeId })
 }
 export async function confirmGoogleBookIngest(input: ConfirmGoogleBookIngestInput) {
-  const validatedInput = parseActionInput(confirmGoogleBookIngestSchema, input)
+  const validatedInput = parseConfirmGoogleBookIngestInput(input)
   const supabase = await createServerClient()
   const access = await getCurrentUserAccess()
   if (!access.user || !access.profileId) throw new Error("Unauthorized")

@@ -4,6 +4,7 @@ import {
   claimAndTrackGoogleBookSchema,
   confirmGoogleBookIngestSchema,
   googleVolumeIdSchema,
+  parseConfirmGoogleBookIngestInput,
   trackTitleProgressSchema,
   updateDiaryEntrySchema,
 } from "@/lib/validation/track-reading"
@@ -134,6 +135,25 @@ describe("track-reading validation", () => {
       selectedGenres: ["HORROR", "MYSTERY"],
       selectedWorkIds: ["OL1W", "OL2W"],
     })
+  })
+
+  it("rejects oversized ingest arrays before visiting their elements", () => {
+    const candidates = new Array(17).fill(null)
+    Object.defineProperty(candidates, 0, {
+      get() { throw new Error("Visited an oversized candidate") },
+    })
+
+    expect(() => parseConfirmGoogleBookIngestInput({
+      volumeId: "abc123",
+      selectedGenres: ["HORROR"],
+      workCandidates: candidates,
+    })).toThrow("Too many Open Library work candidates")
+
+    expect(() => parseConfirmGoogleBookIngestInput({
+      volumeId: "abc123",
+      selectedGenres: ["HORROR"],
+      selectedWorkIds: new Array(17).fill("OL1W"),
+    })).toThrow("Too many selected Open Library works")
   })
 
   it("throws a validation error for blank Google volume IDs", () => {

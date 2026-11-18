@@ -1,7 +1,6 @@
 "use server"
 
 import { createAdminClient, createServerClient } from "@/lib/supabase-server"
-import { getCoverChoicesForSelectedWorks } from "@/lib/cover-cache"
 import { extractPlainTextFromHtml, sanitizeRichTextHtml } from "@/lib/sanitize"
 import { fetchOpenLibraryWorkCandidatesByTitleAuthor, type OpenLibraryWorkCandidate } from "@/lib/open-library"
 import { getLinkedTitlesByWorkId, getTitleReferenceWorkIds, type LinkedTitleSummary } from "@/lib/reference-data"
@@ -16,6 +15,7 @@ import {
 } from "@/lib/server/title-lists"
 import { revalidatePath } from "next/cache"
 import { awardPointsForTitleAction } from "@/lib/server/rewards"
+import { parseTitleDedupeSubmissionInput } from "@/lib/validation/title-dedupe"
 
 async function requireTitleRead(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
@@ -730,8 +730,9 @@ export async function submitTitleDedupeSuggestionAction(input: {
   const supabase = await createServerClient()
   const profileId = await requireAuthedProfileId(supabase)
   const access = await getCurrentUserAccess()
+  const submission = parseTitleDedupeSubmissionInput(input)
 
-  const titleId = input.titleId.trim()
+  const titleId = submission.titleId
 
   const core = await getTitleCore(titleId)
   if (!core) throw new Error("Title not found")
@@ -740,8 +741,8 @@ export async function submitTitleDedupeSuggestionAction(input: {
   const existingWorkIdSet = new Set(existingWorkIds)
   const pendingReviewWorkIds = await getPendingSuggestedWorkIdsForTitle(supabase, titleId)
   const pendingReviewWorkIdSet = new Set(pendingReviewWorkIds)
-  const selectedWorkIds = normalizeWorkIdList(input.selectedWorks.map((work) => work.workId))
-  const selectedWorkSnapshots = normalizeWorkSnapshots(input.selectedWorks)
+  const selectedWorkIds = normalizeWorkIdList(submission.selectedWorks.map((work) => work.workId))
+  const selectedWorkSnapshots = normalizeWorkSnapshots(submission.selectedWorks)
     .filter((snapshot) => selectedWorkIds.includes(snapshot.workId))
     .filter((snapshot) => !existingWorkIdSet.has(snapshot.workId))
     .filter((snapshot) => !pendingReviewWorkIdSet.has(snapshot.workId))
@@ -794,18 +795,6 @@ export async function submitTitleDedupeSuggestionAction(input: {
   if (suggestionError || !insertedSuggestion?.id) {
     console.error("Failed to submit title dedupe suggestion", suggestionError)
     throw new Error("Failed to submit dedupe suggestion")
-  }
-
-  if (normalizedSelectedWorkIds.length > 0) {
-    const admin = createAdminClient()
-    try {
-      await getCoverChoicesForSelectedWorks(admin as any, {
-        workIds: normalizedSelectedWorkIds,
-        workSnapshots: finalSnapshots,
-      })
-    } catch (error) {
-      console.warn("Failed to warm work cover cache during title dedupe suggestion creation", error)
-    }
   }
 
   const autoApproved = canReviewSuggestions(access.role) && Boolean(access.profileId) && await hasVerifiedStaffSession()
