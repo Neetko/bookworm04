@@ -196,7 +196,7 @@ export async function getSuggestionCoverChoicesAction(input: {
   const { admin } = await requireSuggestionReviewerAccess()
 
   return getCoverChoicesForSelectedWorks(admin as any, {
-    workIds: normalizeWorkIdList(input.selectedWorkIds),
+    workIds: input.selectedWorkIds,
     workSnapshots: input.selectedWorkSnapshots ?? [],
   })
 }
