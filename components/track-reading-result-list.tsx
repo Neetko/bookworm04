@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import Image from "next/image"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -232,17 +233,6 @@ export function TrackReadingResultList({
     } finally {
       setSubmittingIngest(false)
     }
-  }
-
-  const handleCardClick = (
-    event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>,
-    href: string
-  ) => {
-    if ("target" in event) {
-      const target = event.target as HTMLElement
-      if (target.closest("button, a")) return
-    }
-    router.push(href)
   }
 
   const closeDialog = () => {
@@ -569,27 +559,17 @@ export function TrackReadingResultList({
         return (
           <Card
             key={`${result.source}:${result.id}`}
-            className={`flex flex-col sm:flex-row hover:shadow-lg transition-all duration-200 overflow-hidden min-h-[200px] ${
+            className={`relative flex flex-col sm:flex-row hover:shadow-lg transition-all duration-200 overflow-hidden min-h-[200px] ${
               isClickable ? "cursor-pointer" : ""
             } ${showOpenReady ? "ring-2 ring-primary/30 dark:ring-primary/60 ring-inset" : ""}`}
-            role={isClickable ? "button" : undefined}
-            tabIndex={isClickable ? 0 : undefined}
-            onClick={
-              isClickable
-                ? (event) => handleCardClick(event, `/titles/${resolvedTitleId}`)
-                : undefined
-            }
-            onKeyDown={
-              isClickable
-                ? (event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault()
-                      handleCardClick(event, `/titles/${resolvedTitleId}`)
-                    }
-                  }
-                : undefined
-            }
           >
+            {resolvedTitleId ? (
+              <Link
+                href={`/titles/${resolvedTitleId}`}
+                aria-label={`Open ${result.title}`}
+                className="absolute inset-0 z-10 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              />
+            ) : null}
             <Cover
               src={result.coverImageUrl}
               alt={result.title}
@@ -629,7 +609,7 @@ export function TrackReadingResultList({
               </CardContent>
 
               {showIngest || canTakeAction ? (
-                <CardFooter className="p-6 pt-0 flex justify-end gap-2">
+                <CardFooter className="relative z-20 p-6 pt-0 flex justify-end gap-2">
                   {showIngest ? (
                     <Button variant="outline" onClick={() => openIngestDialog(result)}>
                       Ingest
