@@ -9,13 +9,22 @@ const config = [
 	{
 		ignores: [
 			"**/.next/**",
+			"**/.output/**",
+			"**/.tanstack/**",
 			"**/node_modules/**",
 			"**/dist/**",
+			"**/routeTree.gen.ts",
 			"**/drizzle/**",
 			"**/supabase/**",
 		],
 	},
 	...compat.extends("next/core-web-vitals"),
+	{
+		files: ["apps/start/**/*.{ts,tsx}"],
+		rules: {
+			"@next/next/no-head-element": "off",
+		},
+	},
 ]
 
 export default config
