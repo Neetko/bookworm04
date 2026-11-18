@@ -29,6 +29,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { sanitizeUsernameInput } from "@/lib/onboarding"
+import { MAX_ONBOARDING_TITLES } from "@/lib/onboarding-limits"
 import type { Genre, SearchTitleResult } from "@/lib/types"
 import { Check, Loader2, UserPlus, Users } from "lucide-react"
 import { toast } from "sonner"
@@ -212,6 +213,10 @@ export function OnboardingClient({ initialUsername, initialFavoriteGenres, initi
   }
 
   const addTitle = (shelf: OnboardingShelf, title: SearchTitleResult) => {
+    if (allSelectedTitleIds.length >= MAX_ONBOARDING_TITLES) {
+      toast.error(`Choose no more than ${MAX_ONBOARDING_TITLES} titles during setup`)
+      return
+    }
     setSelections((prev) => {
       const alreadySelected = Object.values(prev).some((items) => items.some((item) => item.id === title.id))
       if (alreadySelected) return prev

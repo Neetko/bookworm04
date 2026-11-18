@@ -1,6 +1,7 @@
 "use client"
 
 import { CoverImage } from "@/components/cover-image"
+import { MAX_ONBOARDING_SEARCH_LENGTH } from "@/lib/onboarding-limits"
 import { TitleGenreDots } from "@/components/title-genre-dots"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -88,6 +89,7 @@ export function OnboardingBookStep({
             <Input
               id={`search-${shelf}`}
               value={query}
+              maxLength={MAX_ONBOARDING_SEARCH_LENGTH}
               onChange={(event) => onQueryChange(event.target.value)}
               placeholder="Search by title or author"
               className="pl-10"

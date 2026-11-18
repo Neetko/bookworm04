@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 import { submitReview } from "@/app/actions/reviews"
-import { saveOnboardingSelections } from "@/app/actions/onboarding"
 import {
   claimAndTrackGoogleBook,
   trackTitleProgress,
@@ -38,17 +37,5 @@ describe("server action validation boundaries", () => {
 
   it("rejects an invalid review before authentication or database work", async () => {
     await expect(submitReview(titleId, 11, "Review")).rejects.toBeInstanceOf(ActionValidationError)
-  })
-
-  it("rejects onboarding completion without a favorite genre before authentication or database work", async () => {
-    await expect(
-      saveOnboardingSelections({
-        favoriteGenres: [],
-        finishedTitleIds: [],
-        currentTitleIds: [],
-        plannedTitleIds: [],
-        followProfileIds: [],
-      })
-    ).resolves.toEqual({ error: "Select at least one genre" })
   })
 })

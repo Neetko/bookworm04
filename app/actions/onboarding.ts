@@ -20,6 +20,8 @@ import type { SearchTitleResult } from "@/lib/types"
 import { getSupabaseServiceRoleEnv } from "@/lib/supabase-config"
 import { isPostgresUniqueViolation } from "@/lib/server/postgres-errors"
 import { genreListSchema } from "@/lib/validation/primitives"
+import { MAX_ONBOARDING_SEARCH_LENGTH } from "@/lib/onboarding-limits"
+import { parseOnboardingSelections, parseOnboardingTitleIds, type OnboardingSelections } from "@/lib/validation/onboarding"
 
 type ProfileRow = {
   id: string
@@ -215,8 +217,15 @@ export async function completeOnboardingUsername(username: string) {
 }
 
 export async function searchOnboardingTitles(query: string, excludedTitleIds: string[] = []) {
+  if (typeof query !== "string" || query.length > MAX_ONBOARDING_SEARCH_LENGTH) {
+    throw new Error("Search is too long")
+  }
+  const validatedExcludedIds = parseOnboardingTitleIds(excludedTitleIds)
+  if (!validatedExcludedIds) {
+    throw new Error("Invalid excluded titles")
+  }
   const sanitizedQuery = query.trim()
-  const excluded = new Set(uniqueIds(excludedTitleIds))
+  const excluded = new Set(validatedExcludedIds)
 
   const results = sanitizedQuery ? await searchTitles({ raw: sanitizedQuery, includeExternal: false }) : await getInitialTitles()
 
@@ -224,7 +233,8 @@ export async function searchOnboardingTitles(query: string, excludedTitleIds: st
 }
 
 export async function getOnboardingFollowSuggestions(selectedTitleIds: string[]) {
-  const uniqueTitleIds = uniqueIds(selectedTitleIds)
+  const uniqueTitleIds = parseOnboardingTitleIds(selectedTitleIds)
+  if (!uniqueTitleIds) return [] as OnboardingFollowSuggestion[]
   if (uniqueTitleIds.length === 0) return [] as OnboardingFollowSuggestion[]
 
   const { supabase, profile } = await ensureAuthedProfile()
@@ -322,30 +332,17 @@ export async function getOnboardingFollowSuggestions(selectedTitleIds: string[])
     .slice(0, 8)
 }
 
-export async function saveOnboardingSelections(input: {
-  favoriteGenres: string[]
-  finishedTitleIds: string[]
-  currentTitleIds: string[]
-  plannedTitleIds: string[]
-  followProfileIds: string[]
-}) {
-  const parsedGenres = genreListSchema.safeParse(input.favoriteGenres)
-  if (!parsedGenres.success) {
-    return { error: parsedGenres.error.issues[0]?.message ?? "Select at least one genre" }
-  }
-
+export async function saveOnboardingSelections(input: OnboardingSelections) {
   const { supabase, profile } = await ensureAuthedProfile()
-
-  const finishedTitleIds = uniqueIds(input.finishedTitleIds)
-  const currentTitleIds = uniqueIds(input.currentTitleIds)
-  const plannedTitleIds = uniqueIds(input.plannedTitleIds)
-  const followProfileIds = uniqueIds(input.followProfileIds).filter((profileId) => profileId !== profile.id)
-  const favoriteGenres = parsedGenres.data
-
-  const combined = [...finishedTitleIds, ...currentTitleIds, ...plannedTitleIds]
-  if (new Set(combined).size !== combined.length) {
-    return { error: "A title can only be added to one onboarding list" }
+  if (profile.onboarding_completed_at) {
+    return { error: "Setup is already complete" }
   }
+  const parsed = parseOnboardingSelections(input)
+  if (!parsed.ok) return { error: parsed.error }
+
+  const { finishedTitleIds, currentTitleIds, plannedTitleIds, favoriteGenres } = parsed.value
+  const followProfileIds = parsed.value.followProfileIds.filter((profileId) => profileId !== profile.id)
+  const combined = [...finishedTitleIds, ...currentTitleIds, ...plannedTitleIds]
 
   const [finishedListId, currentListId, plannedListId] = await Promise.all([
     ensureFinishedReadingList(profile.id),
@@ -384,7 +381,9 @@ export async function saveOnboardingSelections(input: {
     }
   }
 
-  await Promise.allSettled(followProfileIds.map((profileId) => followUser(profileId)))
+  for (let index = 0; index < followProfileIds.length; index += 2) {
+    await Promise.allSettled(followProfileIds.slice(index, index + 2).map((profileId) => followUser(profileId)))
+  }
 
   const { error: completeError } = await createAdminClient()
     .from("user_profiles")
