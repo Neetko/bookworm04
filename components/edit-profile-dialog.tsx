@@ -47,7 +47,7 @@ export function EditProfileDialog({ user }: EditProfileDialogProps) {
       return
     }
 
-    // If an avatar file was selected, upload to Storage first and then persist the resulting URL.
+    // The upload action validates the image and saves its URL to the profile.
     const avatarFile = formData.get("avatarFile")
     if (avatarFile instanceof File && avatarFile.size > 0) {
       const fd = new FormData()
@@ -58,7 +58,6 @@ export function EditProfileDialog({ user }: EditProfileDialogProps) {
         setLoading(false)
         return
       }
-      formData.set("avatarUrl", res.url)
     }
 
     const result = await updateUserProfile(session.access_token, formData)
@@ -123,8 +122,6 @@ export function EditProfileDialog({ user }: EditProfileDialogProps) {
 
                 <Input id="avatarFile" name="avatarFile" type="file" accept="image/png,image/jpeg,image/webp" />
 
-                {/* Keep existing updateUserProfile contract (avatarUrl string) */}
-                <input type="hidden" name="avatarUrl" defaultValue={user.avatarUrl || ""} />
               </div>
             </div>
           </div>

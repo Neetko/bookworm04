@@ -386,7 +386,7 @@ export async function saveOnboardingSelections(input: {
 
   await Promise.allSettled(followProfileIds.map((profileId) => followUser(profileId)))
 
-  const { error: completeError } = await supabase
+  const { error: completeError } = await createAdminClient()
     .from("user_profiles")
     .update({
       favorite_genres: favoriteGenres,
