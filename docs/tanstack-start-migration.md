@@ -1,6 +1,6 @@
 # TanStack Start migration contract
 
-The working Start preview is in `apps/start`. It has its own dependency lockfile and runs on port 3101, while the current Next app continues on port 3000. The preview deliberately contains no production data access or authentication. Its page is marked `noindex`; it is a build and routing probe, not a replacement site.
+The working Start preview is in `apps/start`. It has its own dependency lockfile and runs on port 3101, while the current Next app continues on port 3000. The preview deliberately contains no production data access or authentication. Its page is marked `noindex`; it is a build and routing probe, not a replacement site. A side-effect-free `/api/security-check` route lets the smoke test verify that the same-origin check and private headers also cover API writes. CI builds and tests this isolated package separately from the Next app.
 
 ## Route inventory
 
@@ -62,6 +62,6 @@ The paths with `:id`, `:workId`, and `:username` must return the same status for
 
 ## Local commands
 
-From `apps/start`: `pnpm install`, `pnpm build`, `pnpm typecheck`, and `pnpm dev`. The preview is at `http://localhost:3101`. To check the production output, run `PORT=3101 HOST=127.0.0.1 pnpm start` and, in another terminal, `pnpm smoke:security`. The smoke script compares two actual HTTP responses and checks private cache headers, a fresh CSP nonce, and every rendered script's nonce.
+From `apps/start`: `pnpm install`, `pnpm build`, `pnpm typecheck`, and `pnpm dev`. The preview is at `http://localhost:3101`. To check the production output, run `PORT=3101 HOST=127.0.0.1 pnpm start` and, in another terminal, `pnpm smoke:security`. The smoke script compares two actual HTTP responses, checks private cache headers and a fresh CSP nonce, and rejects cross-origin and originless API writes.
 
 References: [TanStack's Next.js migration guide](https://tanstack.com/start/latest/docs/framework/react/migrate-from-next-js), [build from scratch](https://tanstack.com/start/latest/docs/framework/react/build-from-scratch), [hosting guide](https://tanstack.com/start/latest/docs/framework/react/guide/hosting).

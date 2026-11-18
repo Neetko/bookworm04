@@ -30,4 +30,21 @@ const first = await inspectResponse()
 const second = await inspectResponse()
 await inspectResponse("/__missing_route__", 404)
 assert.notEqual(first.nonce, second.nonce, "CSP nonce was reused across requests")
-console.log(`Security headers passed on 200 and 404; ${first.scriptCount} scripts use each fresh nonce.`)
+
+async function inspectMutation(headers, expectedStatus) {
+  const response = await fetch(new URL("/api/security-check", url), {
+    method: "POST",
+    headers,
+  })
+
+  assert.equal(response.status, expectedStatus)
+  assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0")
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff")
+  assert.equal(response.headers.get("referrer-policy"), "strict-origin-when-cross-origin")
+}
+
+await inspectMutation({ Origin: new URL(url).origin }, 204)
+await inspectMutation({ Origin: "https://cross-origin.invalid" }, 403)
+await inspectMutation({ "Sec-Fetch-Site": "cross-site", Origin: new URL(url).origin }, 403)
+await inspectMutation({}, 403)
+console.log(`Security headers passed on 200, 404, and mutation responses; ${first.scriptCount} scripts use each fresh nonce.`)

@@ -12,11 +12,15 @@ const privateResponse = createMiddleware().server(({ next }) => {
   return next()
 })
 
-// A custom Start instance replaces the framework's automatic server-function
-// CSRF middleware, so keep its same-origin check explicitly installed.
+// A custom Start instance replaces the framework's automatic CSRF middleware.
+// Cover both server functions and unsafe API route requests.
 export const startInstance = createStart(() => ({
   requestMiddleware: [
-    createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === "serverFn" }),
     privateResponse,
+    createCsrfMiddleware({
+      filter: ({ handlerType, request }) =>
+        handlerType === "serverFn" ||
+        !["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase()),
+    }),
   ],
 }))

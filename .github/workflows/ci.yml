@@ -13,6 +13,46 @@ permissions:
   contents: read
 
 jobs:
+  start-foundation:
+    name: TanStack Start foundation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Start dependencies
+        run: pnpm --dir apps/start install --frozen-lockfile
+
+      - name: Build Start preview
+        run: pnpm --dir apps/start build
+
+      - name: Check Start types
+        run: pnpm --dir apps/start typecheck
+
+      - name: Check Start response security
+        shell: bash
+        run: |
+          PORT=3101 HOST=127.0.0.1 node apps/start/.output/server/index.mjs &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:3101/ >/dev/null; then break; fi
+            sleep 1
+          done
+          pnpm --dir apps/start smoke:security
+
   quality:
     name: Lint, types, tests, and build
     runs-on: ubuntu-latest
