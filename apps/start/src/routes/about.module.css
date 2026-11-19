@@ -1,0 +1,51 @@
+.page {
+  --background: oklch(0.1952 0.0165 53.5019);
+  --foreground: oklch(0.9109 0.0257 78.9106);
+  --card: oklch(0.2684 0.0214 47.9030);
+  --primary: oklch(0.7182 0.0713 64.1284);
+  --muted: oklch(0.6643 0.0250 56.7694);
+  --border: oklch(0.3935 0.0259 48.0417);
+  min-height: 100vh;
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "IM Fell English SC", Georgia, serif;
+}
+
+.page *, .page *::before, .page *::after { box-sizing: border-box; }
+.page h1, .page h2, .page p { margin-top: 0; }
+.page a { color: inherit; }
+.page a:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+.skip { position: absolute; left: 1rem; top: -5rem; z-index: 10; padding: .6rem .9rem; background: var(--primary); color: var(--background) !important; }
+.skip:focus { top: 1rem; }
+
+.header { border-bottom: 1px solid var(--border); }
+.nav { max-width: 80rem; height: 4rem; margin: auto; padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.brand { color: var(--foreground); font-size: 1.5rem; font-weight: 700; letter-spacing: .04em; text-decoration: none; }
+.links { display: flex; gap: 1.5rem; font: 600 .875rem/1.4 Raleway, Arial, sans-serif; }
+.links a { text-decoration: none; }
+.links a:hover { color: var(--primary); }
+
+.main { max-width: 64rem; margin: auto; padding: 4rem 1.5rem; }
+.intro { max-width: 42rem; margin: 0 auto 3rem; text-align: center; }
+.eyebrow { margin-bottom: .75rem; color: var(--primary); font: 700 .75rem/1.4 Raleway, Arial, sans-serif; letter-spacing: .2em; text-transform: uppercase; }
+.intro h1 { margin-bottom: 1.25rem; font-size: clamp(2.5rem, 6vw, 3.25rem); line-height: 1.1; }
+.lead { color: var(--muted); font: 400 1.125rem/1.75 Raleway, Arial, sans-serif; }
+
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; }
+.card, .closing { border: 2px solid var(--border); border-radius: .3rem; background: var(--card); }
+.card { padding: 1.5rem; }
+.number { display: block; margin-bottom: 1rem; color: var(--primary); font: 700 1rem/1.2 Raleway, Arial, sans-serif; }
+.card h2 { margin-bottom: .75rem; font-size: 1.35rem; line-height: 1.25; }
+.card p { margin-bottom: 0; color: var(--muted); font: 400 1rem/1.75 Raleway, Arial, sans-serif; }
+.closing { margin-top: 3rem; padding: 2rem; text-align: center; }
+.closing h2 { margin-bottom: 1rem; font-size: 1.75rem; }
+.closing p { max-width: 45rem; margin: 0 auto; color: var(--muted); font: 400 1.125rem/1.75 Raleway, Arial, sans-serif; }
+.footer { max-width: 80rem; margin: auto; padding: 1.5rem; display: flex; justify-content: space-between; color: var(--muted); font: 400 .875rem/1.4 Raleway, Arial, sans-serif; }
+
+@media (max-width: 640px) {
+  .brand { font-size: 1.125rem; }
+  .main { padding: 3rem 1rem; }
+  .grid { grid-template-columns: 1fr; gap: 1rem; }
+  .closing { margin-top: 2rem; }
+}
