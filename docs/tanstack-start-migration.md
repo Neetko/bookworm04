@@ -60,6 +60,14 @@ The paths with `:id`, `:workId`, and `:username` must return the same status for
 5. Deploy Start to a separate staging host using a documented Node/Nitro adapter. Keep the same Supabase schema compatible with both versions. Verify session behavior with a staging callback URL, host headers, CDN caching, image URLs, and actual response headers.
 6. Choose the production host, route traffic to Start, monitor login/error/write rates, and keep a rehearsed route-back path. Retire Next and Vercel only after parity and rollback checks pass. The hosting decision is separate from the framework decision.
 
+## Authentication adapter in progress
+
+The Start preview now has a request-scoped `@supabase/ssr` client and Google-only sign-in, callback, and sign-out endpoints. It uses the same Supabase cookie format as the current Next app. The server adapter writes refreshed cookies to the response and keeps all auth responses private and uncached. Protected future server handlers must call `requireUser` or `requireStaff` inside the handler; a page redirect alone is not an authorization boundary. Staff access checks both the `user_roles` record and AAL2 authenticator assurance.
+
+Set `PUBLIC_APP_ORIGIN` to the exact public origin for this deployment. Production requires HTTPS. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` to the same Supabase project used by the existing app (the adapter also accepts the existing `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` names). Register `${PUBLIC_APP_ORIGIN}/auth/callback` in Supabase's allowed redirect URLs before testing Google sign-in on a separate host. No service-role key is used by the preview auth routes.
+
+The local preview has verified a same-origin PKCE redirect and cookie, safe handling of missing and invalid callback codes, and rejection of cross-origin sign-in writes. A complete Google sign-in and account switching test still requires a registered staging callback URL. The preview continues to be `noindex` and does not serve any migrated private pages yet.
+
 ## Local commands
 
 From `apps/start`: `pnpm install`, `pnpm build`, `pnpm typecheck`, and `pnpm dev`. The preview is at `http://localhost:3101`. To check the production output, run `PORT=3101 HOST=127.0.0.1 pnpm start` and, in another terminal, `pnpm smoke:security`. The smoke script compares two actual HTTP responses, checks private cache headers and a fresh CSP nonce, and rejects cross-origin and originless API writes.
