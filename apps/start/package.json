@@ -1,0 +1,32 @@
+{
+  "name": "bookworm-start-preview",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=22.12.0 <23"
+  },
+  "scripts": {
+    "dev": "vite dev --port 3101",
+    "build": "vite build",
+    "start": "node .output/server/index.mjs",
+    "smoke:security": "node scripts/check-security-response.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-router": "1.170.46",
+    "@tanstack/react-start": "1.169.5",
+    "nitro": "3.0.261103-rc",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "^5.0.0",
+    "vite": "^8.0.0"
+  }
+}
