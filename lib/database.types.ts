@@ -1837,6 +1837,10 @@ export type Database = {
       }
     }
     Functions: {
+      insert_follow_with_quota: {
+        Args: { p_follower_profile_id: string; p_followed_profile_id: string }
+        Returns: Json
+      }
       can_manage_club: { Args: { target_club_id: string }; Returns: boolean }
       can_manage_club_avatar_object: {
         Args: { object_name: string }
