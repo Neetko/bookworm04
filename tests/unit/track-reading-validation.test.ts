@@ -121,7 +121,7 @@ describe("track-reading validation", () => {
         volumeId: "abc123",
         selectedGenres: ["COZY"],
       })
-    ).toThrow("Invalid enum value")
+    ).toThrow("Genre must be one of Bookworm's canonical genres")
   })
 
   it("normalizes duplicate selected genres and selected work IDs", () => {

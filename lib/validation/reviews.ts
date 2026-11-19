@@ -7,8 +7,7 @@ export const submitReviewSchema = z.object({
   titleId: uuidSchema,
   rating: z
     .number({
-      required_error: "Rating is required",
-      invalid_type_error: "Rating must be a number",
+      error: (issue) => issue.input === undefined ? "Rating is required" : "Rating must be a number",
     })
     .finite("Rating must be a valid number")
     .int("Rating must be a whole number")
@@ -16,8 +15,7 @@ export const submitReviewSchema = z.object({
     .max(10, "Rating cannot be greater than 10"),
   reviewText: z
     .string({
-      required_error: "Review is required",
-      invalid_type_error: "Review must be text",
+      error: (issue) => issue.input === undefined ? "Review is required" : "Review must be text",
     })
     .trim()
     .max(MAX_REVIEW_HTML_LENGTH, "Review is too long"),

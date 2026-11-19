@@ -29,6 +29,14 @@ describe("review submission validation", () => {
     ).toThrow()
   })
 
+  it("keeps missing and wrong-type field errors distinct", () => {
+    expect(() => parseActionInput(submitReviewSchema, { titleId, reviewText: "" }))
+      .toThrow("Rating is required")
+
+    expect(() => parseActionInput(submitReviewSchema, { titleId, rating: "7", reviewText: "" }))
+      .toThrow("Rating must be a number")
+  })
+
   it("rejects invalid title ids and oversized review HTML", () => {
     expect(() =>
       parseActionInput(submitReviewSchema, {
