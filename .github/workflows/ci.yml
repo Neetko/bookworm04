@@ -35,8 +35,8 @@ jobs:
       - name: Install Start dependencies
         run: pnpm --dir apps/start install --frozen-lockfile
 
-      - name: Audit Start production dependencies
-        run: pnpm --dir apps/start audit --prod --audit-level moderate
+      - name: Audit all Start dependencies
+        run: pnpm --dir apps/start audit --audit-level moderate
 
       - name: Build Start preview
         run: pnpm --dir apps/start build
@@ -87,8 +87,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Audit production dependencies
-        run: pnpm audit --prod --audit-level moderate
+      - name: Audit all dependencies
+        run: pnpm audit --audit-level moderate
 
       - name: Lint
         run: pnpm lint

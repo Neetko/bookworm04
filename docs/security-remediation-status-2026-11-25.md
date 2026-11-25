@@ -16,12 +16,12 @@ Private message and profile reads are scoped by RLS. Message and other account m
 - Anonymous Supabase reads returned zero rows from `messages` and `user_profiles`. Requesting `email` from `public_profiles` returned an unknown-column error. Public profile usernames remain intentionally discoverable.
 - Signed-out requests to `/messages` and `/admin/moderators` redirected to `/auth`. Their responses carried a nonce CSP and private, no-store caching. An unrelated Supabase image URL was rejected with HTTP 400.
 - Both the Next app and Start preview returned **zero production dependency advisories** from `pnpm audit --prod`.
-- The full root dependency audit still reports 27 high, 21 moderate, and 2 low advisory records in development and build tooling. These are outside the production dependency tree. They need a separate toolchain refresh; some are tied to the Next/Tailwind build chain that the migration will retire.
+- The full root dependency audit initially reported 27 high, 21 moderate, and 2 low advisory records in development and build tooling. A subsequent isolated toolchain refresh cleared them all; the full audit of both apps now reports zero known advisories. That refresh passed lint, types, 104 unit tests, the Next build, and Drizzle migration checks. CI now audits all dependencies in both apps.
 
 The prior clean browser and RLS CI journeys passed on [PR #45](https://github.com/Neetko/bookworm04/pull/45), after the security releases in [PR #43](https://github.com/Neetko/bookworm04/pull/43) and [PR #44](https://github.com/Neetko/bookworm04/pull/44). This verification does not prove that no undiscovered flaw exists.
 
 ## Remaining decisions and work
 
 1. **Open messaging and directory.** An authenticated reader can still look up public usernames and send to any username, with a quota of ten sent messages per minute per account. The public profile view includes role labels but excludes email. Restricting first contact to mutual follows would change product behavior; this is a product policy choice, not a route to private mail under the current RLS and sanitization boundaries.
-2. **Development toolchain.** Refresh or replace vulnerable lint, test, and build dependencies in a separate PR. Keep the two production audits green. This release adds a CI check for new moderate-or-higher production advisories in either app.
+2. **Dependency maintenance.** Keep the full dependency audit green in both apps. Several transitive build-tool fixes use newer major versions; check lint, CSS output, schema tooling, and browser journeys after future changes to those packages.
 3. **Start migration.** Port data routes and mutations with their server checks, test Google login on a staging callback URL, then plan host cutover and rollback. Keep Next in service until route parity, private response caching, image delivery, and live session switching are verified.
