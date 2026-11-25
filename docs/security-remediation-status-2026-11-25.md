@@ -12,13 +12,13 @@ Private message and profile reads are scoped by RLS. Message and other account m
 
 ## Verification on 25 November
 
-- Production deployment for main commit `883a8ab` completed successfully; the public home page returned HTTP 200.
+- Production deployment for main commit `4bebf7d` completed successfully; the public home page returned HTTP 200. The merged main CI checks passed.
 - Anonymous Supabase reads returned zero rows from `messages` and `user_profiles`. Requesting `email` from `public_profiles` returned an unknown-column error. Public profile usernames remain intentionally discoverable.
 - Signed-out requests to `/messages` and `/admin/moderators` redirected to `/auth`. Their responses carried a nonce CSP and private, no-store caching. An unrelated Supabase image URL was rejected with HTTP 400.
 - Both the Next app and Start preview returned **zero production dependency advisories** from `pnpm audit --prod`.
 - The full root dependency audit initially reported 27 high, 21 moderate, and 2 low advisory records in development and build tooling. A subsequent isolated toolchain refresh cleared them all; the full audit of both apps now reports zero known advisories. That refresh passed lint, types, 104 unit tests, the Next build, and Drizzle migration checks. CI now audits all dependencies in both apps.
 
-The prior clean browser and RLS CI journeys passed on [PR #45](https://github.com/Neetko/bookworm04/pull/45), after the security releases in [PR #43](https://github.com/Neetko/bookworm04/pull/43) and [PR #44](https://github.com/Neetko/bookworm04/pull/44). This verification does not prove that no undiscovered flaw exists.
+The clean browser and RLS CI journeys passed on [PR #47](https://github.com/Neetko/bookworm04/pull/47), after the security releases in [PR #43](https://github.com/Neetko/bookworm04/pull/43) and [PR #44](https://github.com/Neetko/bookworm04/pull/44). This verification does not prove that no undiscovered flaw exists.
 
 ## Remaining decisions and work
 

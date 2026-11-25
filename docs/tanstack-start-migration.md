@@ -1,5 +1,7 @@
 # TanStack Start migration contract
 
+For the current port order, staging setup, and release gates, see [TanStack Start cutover readiness — 25 November 2026](tanstack-start-cutover-readiness-2026-11-25.md).
+
 The working Start preview is in `apps/start`. It has its own dependency lockfile and runs on port 3101, while the current Next app continues on port 3000. It has a Google sign-in adapter and one static public route (`/about`), but no private pages or content-database reads. The preview is marked `noindex`; it is a build and routing probe, not a replacement site. A side-effect-free `/api/security-check` route lets the smoke test verify that the same-origin check and private headers also cover API writes. CI builds and tests this isolated package separately from the Next app.
 
 ## Route inventory
