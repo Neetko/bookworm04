@@ -10,6 +10,7 @@ const config = [
 		ignores: [
 			"**/.next/**",
 			"**/.output/**",
+			"**/.vercel/**",
 			"**/.tanstack/**",
 			"**/node_modules/**",
 			"**/dist/**",
@@ -23,6 +24,7 @@ const config = [
 		files: ["apps/start/**/*.{ts,tsx}"],
 		rules: {
 			"@next/next/no-head-element": "off",
+			"@next/next/no-img-element": "off",
 		},
 	},
 ]

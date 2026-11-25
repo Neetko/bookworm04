@@ -17,6 +17,10 @@ jobs:
     name: TanStack Start foundation
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: local-ci-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: local-ci-service-role-key
 
     steps:
       - name: Check out repository
@@ -55,6 +59,18 @@ jobs:
             sleep 1
           done
           pnpm --dir apps/start smoke:security
+
+      - name: Build Vercel deployment output
+        env:
+          NITRO_PRESET: vercel
+        run: pnpm --dir apps/start build
+
+      - name: Verify Vercel Build Output API bundle
+        shell: bash
+        run: |
+          test -f apps/start/.vercel/output/config.json
+          test -f apps/start/.vercel/output/functions/__server.func/.vc-config.json
+          grep -q '"runtime": "nodejs22.x"' apps/start/.vercel/output/functions/__server.func/.vc-config.json
 
   quality:
     name: Lint, types, tests, and build

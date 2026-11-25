@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js"
+import { setResponseStatus } from "@tanstack/react-start/server"
 import {
   createRequestSupabaseClient,
   type RequestSupabaseClient,
@@ -7,7 +8,8 @@ import {
 export async function requireUser(supabase: RequestSupabaseClient): Promise<User> {
   const { data, error } = await supabase.auth.getUser()
   if (error || !data.user) {
-    throw new Response("Unauthorized", { status: 401 })
+    setResponseStatus(401)
+    throw new Error("Unauthorized")
   }
   return data.user
 }
@@ -21,10 +23,12 @@ export async function requireStaff(supabase: RequestSupabaseClient) {
     ])
 
   if (assuranceError || assurance?.currentLevel !== "aal2") {
-    throw new Response("Authenticator verification required", { status: 403 })
+    setResponseStatus(403)
+    throw new Error("Authenticator verification required")
   }
   if (roleError || !["admin", "moderator"].includes(role?.role ?? "")) {
-    throw new Response("Forbidden", { status: 403 })
+    setResponseStatus(403)
+    throw new Error("Forbidden")
   }
 
   return { user, role: role!.role as "admin" | "moderator" }

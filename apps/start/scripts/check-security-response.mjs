@@ -30,6 +30,7 @@ const first = await inspectResponse()
 const second = await inspectResponse()
 const about = await inspectResponse("/about")
 await inspectResponse("/__missing_route__", 404)
+await inspectResponse("/messages/not-a-uuid?folder=inbox&page=1", 404)
 assert.notEqual(first.nonce, second.nonce, "CSP nonce was reused across requests")
 assert.notEqual(first.nonce, about.nonce, "CSP nonce was reused on the public route")
 assert.match(about.html, /About Bookworm \| Bookworm/)
@@ -51,4 +52,33 @@ await inspectMutation({ Origin: new URL(url).origin }, 204)
 await inspectMutation({ Origin: "https://cross-origin.invalid" }, 403)
 await inspectMutation({ "Sec-Fetch-Site": "cross-site", Origin: new URL(url).origin }, 403)
 await inspectMutation({}, 403)
+
+for (const path of [
+  "/messages?folder=inbox&page=1",
+  "/messages/00000000-0000-0000-0000-000000000000?folder=inbox&page=1",
+]) {
+  const messagesRedirect = await fetch(new URL(path, url), {
+    cache: "no-store",
+    redirect: "manual",
+  })
+  assert.equal(messagesRedirect.status, 307)
+  assert.equal(messagesRedirect.headers.get("location"), "/auth")
+  assert.equal(messagesRedirect.headers.get("cache-control"), "private, no-store, max-age=0")
+}
+
+async function inspectMessageWrite(payload, expectedStatus) {
+  const response = await fetch(new URL("/api/messages", url), {
+    method: "POST",
+    headers: {
+      Origin: new URL(url).origin,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+  assert.equal(response.status, expectedStatus)
+  assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0")
+}
+
+await inspectMessageWrite({ title: "Hello", recipient: "reader", body: "Hello" }, 401)
+await inspectMessageWrite({ title: "Hello", recipient: "reader", body: "x".repeat(100_001) }, 413)
 console.log(`Security headers passed on public, 404, and mutation responses; ${first.scriptCount} scripts use each fresh nonce.`)

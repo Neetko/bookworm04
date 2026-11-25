@@ -26,6 +26,12 @@ export function createRequestSupabaseClient() {
   ))
 
   return createServerClient(url, key, {
+    cookieOptions: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    },
     cookies: {
       getAll() {
         return Array.from(jar, ([name, value]) => ({ name, value }))
