@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import "../styles/global.css"
 import {
   createRootRoute,
   HeadContent,

@@ -1,6 +1,6 @@
 # TanStack Start migration contract
 
-The working Start preview is in `apps/start`. It has its own dependency lockfile and runs on port 3101, while the current Next app continues on port 3000. The preview deliberately contains no production data access or authentication. Its page is marked `noindex`; it is a build and routing probe, not a replacement site. A side-effect-free `/api/security-check` route lets the smoke test verify that the same-origin check and private headers also cover API writes. CI builds and tests this isolated package separately from the Next app.
+The working Start preview is in `apps/start`. It has its own dependency lockfile and runs on port 3101, while the current Next app continues on port 3000. It has a Google sign-in adapter and one static public route (`/about`), but no private pages or content-database reads. The preview is marked `noindex`; it is a build and routing probe, not a replacement site. A side-effect-free `/api/security-check` route lets the smoke test verify that the same-origin check and private headers also cover API writes. CI builds and tests this isolated package separately from the Next app.
 
 ## Route inventory
 
@@ -66,7 +66,7 @@ The Start preview now has a request-scoped `@supabase/ssr` client and Google-onl
 
 Set `PUBLIC_APP_ORIGIN` to the exact public origin for this deployment. Production requires HTTPS. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` to the same Supabase project used by the existing app (the adapter also accepts the existing `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` names). Register `${PUBLIC_APP_ORIGIN}/auth/callback` in Supabase's allowed redirect URLs before testing Google sign-in on a separate host. No service-role key is used by the preview auth routes.
 
-The local preview has verified a same-origin PKCE redirect and cookie, safe handling of missing and invalid callback codes, and rejection of cross-origin sign-in writes. A complete Google sign-in and account switching test still requires a registered staging callback URL. The preview continues to be `noindex` and does not serve any migrated private pages yet.
+The local preview has verified a same-origin PKCE redirect and cookie, safe handling of missing and invalid callback codes, and rejection of cross-origin sign-in writes. A complete Google sign-in and account switching test still requires a registered staging callback URL. The static `/about` route verifies route-specific metadata, stylesheet loading, responsive rendering, and the existing private cache/CSP headers. Its navigation contains only routes available in the preview; catalog and community links return when those routes are ported. The preview continues to be `noindex` and does not serve any migrated private pages yet.
 
 ## Local commands
 

@@ -23,13 +23,17 @@ async function inspectResponse(path = "/", expectedStatus = 200) {
   }
   assert.match(html, /<meta name="robots" content="noindex, nofollow"/)
 
-  return { nonce, scriptCount: scripts.length }
+  return { nonce, scriptCount: scripts.length, html }
 }
 
 const first = await inspectResponse()
 const second = await inspectResponse()
+const about = await inspectResponse("/about")
 await inspectResponse("/__missing_route__", 404)
 assert.notEqual(first.nonce, second.nonce, "CSP nonce was reused across requests")
+assert.notEqual(first.nonce, about.nonce, "CSP nonce was reused on the public route")
+assert.match(about.html, /About Bookworm \| Bookworm/)
+assert.match(about.html, /about-[A-Za-z0-9_-]+\.css/)
 
 async function inspectMutation(headers, expectedStatus) {
   const response = await fetch(new URL("/api/security-check", url), {
@@ -47,4 +51,4 @@ await inspectMutation({ Origin: new URL(url).origin }, 204)
 await inspectMutation({ Origin: "https://cross-origin.invalid" }, 403)
 await inspectMutation({ "Sec-Fetch-Site": "cross-site", Origin: new URL(url).origin }, 403)
 await inspectMutation({}, 403)
-console.log(`Security headers passed on 200, 404, and mutation responses; ${first.scriptCount} scripts use each fresh nonce.`)
+console.log(`Security headers passed on public, 404, and mutation responses; ${first.scriptCount} scripts use each fresh nonce.`)
