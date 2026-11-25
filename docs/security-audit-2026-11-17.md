@@ -1,5 +1,7 @@
 # Bookworm security review — 17 November 2026
 
+> Historical snapshot. The release status below reflects the initial review, not the current production state. See [Security remediation status — 25 November 2026](security-remediation-status-2026-11-25.md) for verified fixes and remaining work.
+
 ## Scope and limits
 
 Static review of the Next.js application, message API, exposed HTML sinks, selected service-role call sites, Supabase migrations, and production dependency advisories. The previously prepared message XSS patch passed local checks. This review did not inspect production logs, deployed database policy state, or the malicious message payload beyond the supplied report. Source findings do not establish that private data was exfiltrated.
