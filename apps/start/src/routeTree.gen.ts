@@ -42,7 +42,11 @@ import { Route as ApiProfileAvatarRouteImport } from './routes/api.profile.avata
 import { Route as ApiProfileListsRouteImport } from './routes/api.profile.lists'
 import { Route as CommunityClubsIdRouteImport } from './routes/community_.clubs.$id'
 import { Route as ApiClubsIdAvatarRouteImport } from './routes/api.clubs.$id.avatar'
+import { Route as ApiClubsIdWorksRouteImport } from './routes/api.clubs.$id.works'
 import { Route as CommunityClubsIdManageRouteImport } from './routes/community_.clubs.$id_.manage'
+import { Route as CommunityClubsIdWriteRouteImport } from './routes/community_.clubs.$id_.write'
+import { Route as CommunityClubsIdWorksWorkIdRouteImport } from './routes/community_.clubs.$id_.works.$workId'
+import { Route as ApiClubsIdWorksWorkIdLikeRouteImport } from './routes/api.clubs.$id.works.$workId.like'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -210,11 +214,33 @@ const ApiClubsIdAvatarRoute = ApiClubsIdAvatarRouteImport.update({
   path: '/avatar',
   getParentRoute: () => ApiClubsIdRoute,
 } as any)
+const ApiClubsIdWorksRoute = ApiClubsIdWorksRouteImport.update({
+  id: '/works',
+  path: '/works',
+  getParentRoute: () => ApiClubsIdRoute,
+} as any)
 const CommunityClubsIdManageRoute = CommunityClubsIdManageRouteImport.update({
   id: '/community_/clubs/$id_/manage',
   path: '/community/clubs/$id/manage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommunityClubsIdWriteRoute = CommunityClubsIdWriteRouteImport.update({
+  id: '/community_/clubs/$id_/write',
+  path: '/community/clubs/$id/write',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityClubsIdWorksWorkIdRoute =
+  CommunityClubsIdWorksWorkIdRouteImport.update({
+    id: '/community_/clubs/$id_/works/$workId',
+    path: '/community/clubs/$id/works/$workId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiClubsIdWorksWorkIdLikeRoute =
+  ApiClubsIdWorksWorkIdLikeRouteImport.update({
+    id: '/$workId/like',
+    path: '/$workId/like',
+    getParentRoute: () => ApiClubsIdWorksRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -250,7 +276,11 @@ export interface FileRoutesByFullPath {
   '/api/profile/lists': typeof ApiProfileListsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
+  '/api/clubs/$id/works': typeof ApiClubsIdWorksRouteWithChildren
   '/community/clubs/$id/manage': typeof CommunityClubsIdManageRoute
+  '/community/clubs/$id/write': typeof CommunityClubsIdWriteRoute
+  '/community/clubs/$id/works/$workId': typeof CommunityClubsIdWorksWorkIdRoute
+  '/api/clubs/$id/works/$workId/like': typeof ApiClubsIdWorksWorkIdLikeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -286,7 +316,11 @@ export interface FileRoutesByTo {
   '/api/profile/lists': typeof ApiProfileListsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
+  '/api/clubs/$id/works': typeof ApiClubsIdWorksRouteWithChildren
   '/community/clubs/$id/manage': typeof CommunityClubsIdManageRoute
+  '/community/clubs/$id/write': typeof CommunityClubsIdWriteRoute
+  '/community/clubs/$id/works/$workId': typeof CommunityClubsIdWorksWorkIdRoute
+  '/api/clubs/$id/works/$workId/like': typeof ApiClubsIdWorksWorkIdLikeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -323,7 +357,11 @@ export interface FileRoutesById {
   '/api/profile/lists': typeof ApiProfileListsRoute
   '/community_/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
+  '/api/clubs/$id/works': typeof ApiClubsIdWorksRouteWithChildren
   '/community_/clubs/$id_/manage': typeof CommunityClubsIdManageRoute
+  '/community_/clubs/$id_/write': typeof CommunityClubsIdWriteRoute
+  '/community_/clubs/$id_/works/$workId': typeof CommunityClubsIdWorksWorkIdRoute
+  '/api/clubs/$id/works/$workId/like': typeof ApiClubsIdWorksWorkIdLikeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -361,7 +399,11 @@ export interface FileRouteTypes {
     | '/api/profile/lists'
     | '/community/clubs/$id'
     | '/api/clubs/$id/avatar'
+    | '/api/clubs/$id/works'
     | '/community/clubs/$id/manage'
+    | '/community/clubs/$id/write'
+    | '/community/clubs/$id/works/$workId'
+    | '/api/clubs/$id/works/$workId/like'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -397,7 +439,11 @@ export interface FileRouteTypes {
     | '/api/profile/lists'
     | '/community/clubs/$id'
     | '/api/clubs/$id/avatar'
+    | '/api/clubs/$id/works'
     | '/community/clubs/$id/manage'
+    | '/community/clubs/$id/write'
+    | '/community/clubs/$id/works/$workId'
+    | '/api/clubs/$id/works/$workId/like'
   id:
     | '__root__'
     | '/'
@@ -433,7 +479,11 @@ export interface FileRouteTypes {
     | '/api/profile/lists'
     | '/community_/clubs/$id'
     | '/api/clubs/$id/avatar'
+    | '/api/clubs/$id/works'
     | '/community_/clubs/$id_/manage'
+    | '/community_/clubs/$id_/write'
+    | '/community_/clubs/$id_/works/$workId'
+    | '/api/clubs/$id/works/$workId/like'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -462,6 +512,8 @@ export interface RootRouteChildren {
   ApiOnboardingCompleteRoute: typeof ApiOnboardingCompleteRoute
   CommunityClubsIdRoute: typeof CommunityClubsIdRoute
   CommunityClubsIdManageRoute: typeof CommunityClubsIdManageRoute
+  CommunityClubsIdWriteRoute: typeof CommunityClubsIdWriteRoute
+  CommunityClubsIdWorksWorkIdRoute: typeof CommunityClubsIdWorksWorkIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -697,12 +749,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiClubsIdAvatarRouteImport
       parentRoute: typeof ApiClubsIdRoute
     }
+    '/api/clubs/$id/works': {
+      id: '/api/clubs/$id/works'
+      path: '/works'
+      fullPath: '/api/clubs/$id/works'
+      preLoaderRoute: typeof ApiClubsIdWorksRouteImport
+      parentRoute: typeof ApiClubsIdRoute
+    }
     '/community_/clubs/$id_/manage': {
       id: '/community_/clubs/$id_/manage'
       path: '/community/clubs/$id/manage'
       fullPath: '/community/clubs/$id/manage'
       preLoaderRoute: typeof CommunityClubsIdManageRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/community_/clubs/$id_/write': {
+      id: '/community_/clubs/$id_/write'
+      path: '/community/clubs/$id/write'
+      fullPath: '/community/clubs/$id/write'
+      preLoaderRoute: typeof CommunityClubsIdWriteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community_/clubs/$id_/works/$workId': {
+      id: '/community_/clubs/$id_/works/$workId'
+      path: '/community/clubs/$id/works/$workId'
+      fullPath: '/community/clubs/$id/works/$workId'
+      preLoaderRoute: typeof CommunityClubsIdWorksWorkIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/clubs/$id/works/$workId/like': {
+      id: '/api/clubs/$id/works/$workId/like'
+      path: '/$workId/like'
+      fullPath: '/api/clubs/$id/works/$workId/like'
+      preLoaderRoute: typeof ApiClubsIdWorksWorkIdLikeRouteImport
+      parentRoute: typeof ApiClubsIdWorksRoute
     }
   }
 }
@@ -738,12 +818,26 @@ const ProfileRouteChildren: ProfileRouteChildren = {
 const ProfileRouteWithChildren =
   ProfileRoute._addFileChildren(ProfileRouteChildren)
 
+interface ApiClubsIdWorksRouteChildren {
+  ApiClubsIdWorksWorkIdLikeRoute: typeof ApiClubsIdWorksWorkIdLikeRoute
+}
+
+const ApiClubsIdWorksRouteChildren: ApiClubsIdWorksRouteChildren = {
+  ApiClubsIdWorksWorkIdLikeRoute: ApiClubsIdWorksWorkIdLikeRoute,
+}
+
+const ApiClubsIdWorksRouteWithChildren = ApiClubsIdWorksRoute._addFileChildren(
+  ApiClubsIdWorksRouteChildren,
+)
+
 interface ApiClubsIdRouteChildren {
   ApiClubsIdAvatarRoute: typeof ApiClubsIdAvatarRoute
+  ApiClubsIdWorksRoute: typeof ApiClubsIdWorksRouteWithChildren
 }
 
 const ApiClubsIdRouteChildren: ApiClubsIdRouteChildren = {
   ApiClubsIdAvatarRoute: ApiClubsIdAvatarRoute,
+  ApiClubsIdWorksRoute: ApiClubsIdWorksRouteWithChildren,
 }
 
 const ApiClubsIdRouteWithChildren = ApiClubsIdRoute._addFileChildren(
@@ -815,6 +909,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOnboardingCompleteRoute: ApiOnboardingCompleteRoute,
   CommunityClubsIdRoute: CommunityClubsIdRoute,
   CommunityClubsIdManageRoute: CommunityClubsIdManageRoute,
+  CommunityClubsIdWriteRoute: CommunityClubsIdWriteRoute,
+  CommunityClubsIdWorksWorkIdRoute: CommunityClubsIdWorksWorkIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
