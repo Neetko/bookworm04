@@ -42,5 +42,9 @@
 .inlineForm .input, .inlineForm .select { min-width: 12rem; }
 .smallButton { border: 1px solid #655348; background: #241a14; color: #eee4da; padding: .4rem .6rem; cursor: pointer; }
 .feedback { color: #d6b58f; margin: .8rem 0; }
+.writerForm { display: grid; gap: 1rem; }
+.writerForm label { display: grid; gap: .4rem; color: #cfc2b5; }
+.writerForm textarea { width: 100%; box-sizing: border-box; border: 1px solid #655348; background: #100d0b; color: #f4eee7; padding: .9rem; font: inherit; line-height: 1.6; resize: vertical; }
+.writerText { white-space: pre-wrap; font-family: Georgia, serif; font-size: 1.08rem; line-height: 1.85; }
 summary { cursor: pointer; }
 @media (max-width: 700px) { .header { align-items: flex-start; flex-direction: column; } .main { padding-top: 2rem; } .columns { grid-template-columns: 1fr; } }

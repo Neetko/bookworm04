@@ -100,6 +100,23 @@ export const getPublicClub = createServerFn({ method: "GET" })
       const title = row.title_id ? titleMap.get(row.title_id) : null
       return { id: row.id, titleId: title?.id ?? row.title_id, title: title?.title ?? row.title ?? "Untitled", author: title?.author ?? row.author, coverUrl: safePublicImageUrl(title?.cover_image_url) }
     })
+    const isParticipant = viewerId === club.owner_user_id || Boolean(viewerMember)
+    const { data: writerRows } = club.type === "writer" && isParticipant
+      ? await supabase.from("club_writer_works").select("id,author_user_id,title,content_text,is_completed,updated_at").eq("club_id", club.id).eq("is_public", true).order("updated_at", { ascending: false }).limit(50)
+      : { data: [] as Array<{ id: string; author_user_id: string; title: string; content_text: string | null; is_completed: boolean; updated_at: string }> }
+    const writerAuthorIds = [...new Set((writerRows ?? []).map((work) => work.author_user_id))]
+    const { data: writerAuthors } = writerAuthorIds.length
+      ? await supabase.from("public_profiles").select("id,username").in("id", writerAuthorIds)
+      : { data: [] as Array<{ id: string; username: string | null }> }
+    const writerAuthorMap = new Map((writerAuthors ?? []).map((author) => [author.id as string, author.username]))
+    const writerWorks = (writerRows ?? []).map((work) => ({
+      id: work.id,
+      title: work.title,
+      authorName: writerAuthorMap.get(work.author_user_id) ?? "Unknown author",
+      excerpt: (work.content_text ?? "").length > 220 ? `${(work.content_text ?? "").slice(0, 217).trimEnd()}…` : (work.content_text ?? ""),
+      isCompleted: Boolean(work.is_completed),
+      updatedAt: work.updated_at,
+    }))
     return {
       id: club.id, name: club.name, description: club.description, type: club.type,
       categories: club.categories ?? [], joinPolicy: club.join_policy, avatarUrl: safePublicImageUrl(club.avatar_url),
@@ -107,10 +124,11 @@ export const getPublicClub = createServerFn({ method: "GET" })
       memberCount: memberResult.count ?? (members ?? []).length,
       members: (members ?? []).map((member) => ({ id: member.id, username: member.username, avatarUrl: safePublicImageUrl(member.avatar_url) })),
       reading,
+      writerWorks,
       viewer: {
         signedIn: Boolean(viewerId),
         isOwner: viewerId === club.owner_user_id,
-        isMember: viewerId === club.owner_user_id || Boolean(viewerMember),
+        isMember: isParticipant,
         hasPendingApplication: Boolean(viewerApplication),
       },
     }
