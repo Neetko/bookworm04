@@ -56,6 +56,7 @@ await inspectMutation({}, 403)
 for (const path of [
   "/messages?folder=inbox&page=1",
   "/messages/00000000-0000-0000-0000-000000000000?folder=inbox&page=1",
+  "/onboarding",
 ]) {
   const messagesRedirect = await fetch(new URL(path, url), {
     cache: "no-store",
@@ -65,6 +66,14 @@ for (const path of [
   assert.equal(messagesRedirect.headers.get("location"), "/auth")
   assert.equal(messagesRedirect.headers.get("cache-control"), "private, no-store, max-age=0")
 }
+
+const trackReadingRedirect = await fetch(new URL("/track-reading?q=Dune", url), {
+  cache: "no-store",
+  redirect: "manual",
+})
+assert.equal(trackReadingRedirect.status, 307)
+assert.match(trackReadingRedirect.headers.get("location") ?? "", /^\/search-titles\?/)
+assert.equal(trackReadingRedirect.headers.get("cache-control"), "private, no-store, max-age=0")
 
 async function inspectMessageWrite(payload, expectedStatus) {
   const response = await fetch(new URL("/api/messages", url), {
@@ -81,4 +90,20 @@ async function inspectMessageWrite(payload, expectedStatus) {
 
 await inspectMessageWrite({ title: "Hello", recipient: "reader", body: "Hello" }, 401)
 await inspectMessageWrite({ title: "Hello", recipient: "reader", body: "x".repeat(100_001) }, 413)
+
+async function inspectOnboardingWrite(payload, expectedStatus) {
+  const response = await fetch(new URL("/api/onboarding/complete", url), {
+    method: "POST",
+    headers: {
+      Origin: new URL(url).origin,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+  assert.equal(response.status, expectedStatus)
+  assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0")
+}
+
+await inspectOnboardingWrite({ username: "Reader", favoriteGenres: ["FANTASY"] }, 401)
+await inspectOnboardingWrite({ username: "Reader", favoriteGenres: ["x".repeat(16_001)] }, 413)
 console.log(`Security headers passed on public, 404, and mutation responses; ${first.scriptCount} scripts use each fresh nonce.`)
