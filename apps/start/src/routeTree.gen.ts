@@ -35,16 +35,21 @@ import { Route as UsersUsernameRouteImport } from './routes/users.$username'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api.auth.google'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api.auth.logout'
 import { Route as ApiClubsIdRouteImport } from './routes/api.clubs.$id'
+import { Route as ApiMessagesIdRouteImport } from './routes/api.messages.$id'
+import { Route as ApiMessagesRecipientsRouteImport } from './routes/api.messages.recipients'
 import { Route as ApiNotificationsCountsRouteImport } from './routes/api.notifications.counts'
 import { Route as ApiNotificationsInvitationRouteImport } from './routes/api.notifications.invitation'
 import { Route as ApiOnboardingCompleteRouteImport } from './routes/api.onboarding.complete'
 import { Route as ApiProfileAvatarRouteImport } from './routes/api.profile.avatar'
 import { Route as ApiProfileListsRouteImport } from './routes/api.profile.lists'
+import { Route as ApiTrackReadingSuggestionsRouteImport } from './routes/api.track-reading.suggestions'
 import { Route as CommunityClubsIdRouteImport } from './routes/community_.clubs.$id'
 import { Route as ApiClubsIdAvatarRouteImport } from './routes/api.clubs.$id.avatar'
 import { Route as ApiClubsIdWorksRouteImport } from './routes/api.clubs.$id.works'
+import { Route as ApiUsersIdFollowRouteImport } from './routes/api.users.$id.follow'
 import { Route as CommunityClubsIdManageRouteImport } from './routes/community_.clubs.$id_.manage'
 import { Route as CommunityClubsIdWriteRouteImport } from './routes/community_.clubs.$id_.write'
+import { Route as ApiCommunityClubsIdInviteCandidatesRouteImport } from './routes/api.community.clubs.$id.invite-candidates'
 import { Route as CommunityClubsIdWorksWorkIdRouteImport } from './routes/community_.clubs.$id_.works.$workId'
 import { Route as ApiClubsIdWorksWorkIdLikeRouteImport } from './routes/api.clubs.$id.works.$workId.like'
 
@@ -178,6 +183,16 @@ const ApiClubsIdRoute = ApiClubsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiClubsRoute,
 } as any)
+const ApiMessagesIdRoute = ApiMessagesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiMessagesRoute,
+} as any)
+const ApiMessagesRecipientsRoute = ApiMessagesRecipientsRouteImport.update({
+  id: '/recipients',
+  path: '/recipients',
+  getParentRoute: () => ApiMessagesRoute,
+} as any)
 const ApiNotificationsCountsRoute = ApiNotificationsCountsRouteImport.update({
   id: '/counts',
   path: '/counts',
@@ -204,6 +219,12 @@ const ApiProfileListsRoute = ApiProfileListsRouteImport.update({
   path: '/lists',
   getParentRoute: () => ApiProfileRoute,
 } as any)
+const ApiTrackReadingSuggestionsRoute =
+  ApiTrackReadingSuggestionsRouteImport.update({
+    id: '/api/track-reading/suggestions',
+    path: '/api/track-reading/suggestions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const CommunityClubsIdRoute = CommunityClubsIdRouteImport.update({
   id: '/community_/clubs/$id',
   path: '/community/clubs/$id',
@@ -219,6 +240,11 @@ const ApiClubsIdWorksRoute = ApiClubsIdWorksRouteImport.update({
   path: '/works',
   getParentRoute: () => ApiClubsIdRoute,
 } as any)
+const ApiUsersIdFollowRoute = ApiUsersIdFollowRouteImport.update({
+  id: '/api/users/$id/follow',
+  path: '/api/users/$id/follow',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CommunityClubsIdManageRoute = CommunityClubsIdManageRouteImport.update({
   id: '/community_/clubs/$id_/manage',
   path: '/community/clubs/$id/manage',
@@ -229,6 +255,12 @@ const CommunityClubsIdWriteRoute = CommunityClubsIdWriteRouteImport.update({
   path: '/community/clubs/$id/write',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCommunityClubsIdInviteCandidatesRoute =
+  ApiCommunityClubsIdInviteCandidatesRouteImport.update({
+    id: '/api/community/clubs/$id/invite-candidates',
+    path: '/api/community/clubs/$id/invite-candidates',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const CommunityClubsIdWorksWorkIdRoute =
   CommunityClubsIdWorksWorkIdRouteImport.update({
     id: '/community_/clubs/$id_/works/$workId',
@@ -256,7 +288,7 @@ export interface FileRoutesByFullPath {
   '/track-reading': typeof TrackReadingRoute
   '/api/clubs': typeof ApiClubsRouteWithChildren
   '/api/diary': typeof ApiDiaryRoute
-  '/api/messages': typeof ApiMessagesRoute
+  '/api/messages': typeof ApiMessagesRouteWithChildren
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
   '/api/profile': typeof ApiProfileRouteWithChildren
   '/api/security-check': typeof ApiSecurityCheckRoute
@@ -269,16 +301,21 @@ export interface FileRoutesByFullPath {
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/clubs/$id': typeof ApiClubsIdRouteWithChildren
+  '/api/messages/$id': typeof ApiMessagesIdRoute
+  '/api/messages/recipients': typeof ApiMessagesRecipientsRoute
   '/api/notifications/counts': typeof ApiNotificationsCountsRoute
   '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
+  '/api/track-reading/suggestions': typeof ApiTrackReadingSuggestionsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
   '/api/clubs/$id/works': typeof ApiClubsIdWorksRouteWithChildren
+  '/api/users/$id/follow': typeof ApiUsersIdFollowRoute
   '/community/clubs/$id/manage': typeof CommunityClubsIdManageRoute
   '/community/clubs/$id/write': typeof CommunityClubsIdWriteRoute
+  '/api/community/clubs/$id/invite-candidates': typeof ApiCommunityClubsIdInviteCandidatesRoute
   '/community/clubs/$id/works/$workId': typeof CommunityClubsIdWorksWorkIdRoute
   '/api/clubs/$id/works/$workId/like': typeof ApiClubsIdWorksWorkIdLikeRoute
 }
@@ -296,7 +333,7 @@ export interface FileRoutesByTo {
   '/track-reading': typeof TrackReadingRoute
   '/api/clubs': typeof ApiClubsRouteWithChildren
   '/api/diary': typeof ApiDiaryRoute
-  '/api/messages': typeof ApiMessagesRoute
+  '/api/messages': typeof ApiMessagesRouteWithChildren
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
   '/api/profile': typeof ApiProfileRouteWithChildren
   '/api/security-check': typeof ApiSecurityCheckRoute
@@ -309,16 +346,21 @@ export interface FileRoutesByTo {
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/clubs/$id': typeof ApiClubsIdRouteWithChildren
+  '/api/messages/$id': typeof ApiMessagesIdRoute
+  '/api/messages/recipients': typeof ApiMessagesRecipientsRoute
   '/api/notifications/counts': typeof ApiNotificationsCountsRoute
   '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
+  '/api/track-reading/suggestions': typeof ApiTrackReadingSuggestionsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
   '/api/clubs/$id/works': typeof ApiClubsIdWorksRouteWithChildren
+  '/api/users/$id/follow': typeof ApiUsersIdFollowRoute
   '/community/clubs/$id/manage': typeof CommunityClubsIdManageRoute
   '/community/clubs/$id/write': typeof CommunityClubsIdWriteRoute
+  '/api/community/clubs/$id/invite-candidates': typeof ApiCommunityClubsIdInviteCandidatesRoute
   '/community/clubs/$id/works/$workId': typeof CommunityClubsIdWorksWorkIdRoute
   '/api/clubs/$id/works/$workId/like': typeof ApiClubsIdWorksWorkIdLikeRoute
 }
@@ -337,7 +379,7 @@ export interface FileRoutesById {
   '/track-reading': typeof TrackReadingRoute
   '/api/clubs': typeof ApiClubsRouteWithChildren
   '/api/diary': typeof ApiDiaryRoute
-  '/api/messages': typeof ApiMessagesRoute
+  '/api/messages': typeof ApiMessagesRouteWithChildren
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
   '/api/profile': typeof ApiProfileRouteWithChildren
   '/api/security-check': typeof ApiSecurityCheckRoute
@@ -350,16 +392,21 @@ export interface FileRoutesById {
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/clubs/$id': typeof ApiClubsIdRouteWithChildren
+  '/api/messages/$id': typeof ApiMessagesIdRoute
+  '/api/messages/recipients': typeof ApiMessagesRecipientsRoute
   '/api/notifications/counts': typeof ApiNotificationsCountsRoute
   '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
+  '/api/track-reading/suggestions': typeof ApiTrackReadingSuggestionsRoute
   '/community_/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
   '/api/clubs/$id/works': typeof ApiClubsIdWorksRouteWithChildren
+  '/api/users/$id/follow': typeof ApiUsersIdFollowRoute
   '/community_/clubs/$id_/manage': typeof CommunityClubsIdManageRoute
   '/community_/clubs/$id_/write': typeof CommunityClubsIdWriteRoute
+  '/api/community/clubs/$id/invite-candidates': typeof ApiCommunityClubsIdInviteCandidatesRoute
   '/community_/clubs/$id_/works/$workId': typeof CommunityClubsIdWorksWorkIdRoute
   '/api/clubs/$id/works/$workId/like': typeof ApiClubsIdWorksWorkIdLikeRoute
 }
@@ -392,16 +439,21 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/auth/logout'
     | '/api/clubs/$id'
+    | '/api/messages/$id'
+    | '/api/messages/recipients'
     | '/api/notifications/counts'
     | '/api/notifications/invitation'
     | '/api/onboarding/complete'
     | '/api/profile/avatar'
     | '/api/profile/lists'
+    | '/api/track-reading/suggestions'
     | '/community/clubs/$id'
     | '/api/clubs/$id/avatar'
     | '/api/clubs/$id/works'
+    | '/api/users/$id/follow'
     | '/community/clubs/$id/manage'
     | '/community/clubs/$id/write'
+    | '/api/community/clubs/$id/invite-candidates'
     | '/community/clubs/$id/works/$workId'
     | '/api/clubs/$id/works/$workId/like'
   fileRoutesByTo: FileRoutesByTo
@@ -432,16 +484,21 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/auth/logout'
     | '/api/clubs/$id'
+    | '/api/messages/$id'
+    | '/api/messages/recipients'
     | '/api/notifications/counts'
     | '/api/notifications/invitation'
     | '/api/onboarding/complete'
     | '/api/profile/avatar'
     | '/api/profile/lists'
+    | '/api/track-reading/suggestions'
     | '/community/clubs/$id'
     | '/api/clubs/$id/avatar'
     | '/api/clubs/$id/works'
+    | '/api/users/$id/follow'
     | '/community/clubs/$id/manage'
     | '/community/clubs/$id/write'
+    | '/api/community/clubs/$id/invite-candidates'
     | '/community/clubs/$id/works/$workId'
     | '/api/clubs/$id/works/$workId/like'
   id:
@@ -472,16 +529,21 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/auth/logout'
     | '/api/clubs/$id'
+    | '/api/messages/$id'
+    | '/api/messages/recipients'
     | '/api/notifications/counts'
     | '/api/notifications/invitation'
     | '/api/onboarding/complete'
     | '/api/profile/avatar'
     | '/api/profile/lists'
+    | '/api/track-reading/suggestions'
     | '/community_/clubs/$id'
     | '/api/clubs/$id/avatar'
     | '/api/clubs/$id/works'
+    | '/api/users/$id/follow'
     | '/community_/clubs/$id_/manage'
     | '/community_/clubs/$id_/write'
+    | '/api/community/clubs/$id/invite-candidates'
     | '/community_/clubs/$id_/works/$workId'
     | '/api/clubs/$id/works/$workId/like'
   fileRoutesById: FileRoutesById
@@ -500,7 +562,7 @@ export interface RootRouteChildren {
   TrackReadingRoute: typeof TrackReadingRoute
   ApiClubsRoute: typeof ApiClubsRouteWithChildren
   ApiDiaryRoute: typeof ApiDiaryRoute
-  ApiMessagesRoute: typeof ApiMessagesRoute
+  ApiMessagesRoute: typeof ApiMessagesRouteWithChildren
   ApiNotificationsRoute: typeof ApiNotificationsRouteWithChildren
   ApiProfileRoute: typeof ApiProfileRouteWithChildren
   ApiSecurityCheckRoute: typeof ApiSecurityCheckRoute
@@ -510,9 +572,12 @@ export interface RootRouteChildren {
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
   ApiOnboardingCompleteRoute: typeof ApiOnboardingCompleteRoute
+  ApiTrackReadingSuggestionsRoute: typeof ApiTrackReadingSuggestionsRoute
   CommunityClubsIdRoute: typeof CommunityClubsIdRoute
+  ApiUsersIdFollowRoute: typeof ApiUsersIdFollowRoute
   CommunityClubsIdManageRoute: typeof CommunityClubsIdManageRoute
   CommunityClubsIdWriteRoute: typeof CommunityClubsIdWriteRoute
+  ApiCommunityClubsIdInviteCandidatesRoute: typeof ApiCommunityClubsIdInviteCandidatesRoute
   CommunityClubsIdWorksWorkIdRoute: typeof CommunityClubsIdWorksWorkIdRoute
 }
 
@@ -700,6 +765,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiClubsIdRouteImport
       parentRoute: typeof ApiClubsRoute
     }
+    '/api/messages/$id': {
+      id: '/api/messages/$id'
+      path: '/$id'
+      fullPath: '/api/messages/$id'
+      preLoaderRoute: typeof ApiMessagesIdRouteImport
+      parentRoute: typeof ApiMessagesRoute
+    }
+    '/api/messages/recipients': {
+      id: '/api/messages/recipients'
+      path: '/recipients'
+      fullPath: '/api/messages/recipients'
+      preLoaderRoute: typeof ApiMessagesRecipientsRouteImport
+      parentRoute: typeof ApiMessagesRoute
+    }
     '/api/notifications/counts': {
       id: '/api/notifications/counts'
       path: '/counts'
@@ -735,6 +814,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProfileListsRouteImport
       parentRoute: typeof ApiProfileRoute
     }
+    '/api/track-reading/suggestions': {
+      id: '/api/track-reading/suggestions'
+      path: '/api/track-reading/suggestions'
+      fullPath: '/api/track-reading/suggestions'
+      preLoaderRoute: typeof ApiTrackReadingSuggestionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/community_/clubs/$id': {
       id: '/community_/clubs/$id'
       path: '/community/clubs/$id'
@@ -756,6 +842,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiClubsIdWorksRouteImport
       parentRoute: typeof ApiClubsIdRoute
     }
+    '/api/users/$id/follow': {
+      id: '/api/users/$id/follow'
+      path: '/api/users/$id/follow'
+      fullPath: '/api/users/$id/follow'
+      preLoaderRoute: typeof ApiUsersIdFollowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/community_/clubs/$id_/manage': {
       id: '/community_/clubs/$id_/manage'
       path: '/community/clubs/$id/manage'
@@ -768,6 +861,13 @@ declare module '@tanstack/react-router' {
       path: '/community/clubs/$id/write'
       fullPath: '/community/clubs/$id/write'
       preLoaderRoute: typeof CommunityClubsIdWriteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/community/clubs/$id/invite-candidates': {
+      id: '/api/community/clubs/$id/invite-candidates'
+      path: '/api/community/clubs/$id/invite-candidates'
+      fullPath: '/api/community/clubs/$id/invite-candidates'
+      preLoaderRoute: typeof ApiCommunityClubsIdInviteCandidatesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/community_/clubs/$id_/works/$workId': {
@@ -856,6 +956,20 @@ const ApiClubsRouteWithChildren = ApiClubsRoute._addFileChildren(
   ApiClubsRouteChildren,
 )
 
+interface ApiMessagesRouteChildren {
+  ApiMessagesIdRoute: typeof ApiMessagesIdRoute
+  ApiMessagesRecipientsRoute: typeof ApiMessagesRecipientsRoute
+}
+
+const ApiMessagesRouteChildren: ApiMessagesRouteChildren = {
+  ApiMessagesIdRoute: ApiMessagesIdRoute,
+  ApiMessagesRecipientsRoute: ApiMessagesRecipientsRoute,
+}
+
+const ApiMessagesRouteWithChildren = ApiMessagesRoute._addFileChildren(
+  ApiMessagesRouteChildren,
+)
+
 interface ApiNotificationsRouteChildren {
   ApiNotificationsCountsRoute: typeof ApiNotificationsCountsRoute
   ApiNotificationsInvitationRoute: typeof ApiNotificationsInvitationRoute
@@ -897,7 +1011,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrackReadingRoute: TrackReadingRoute,
   ApiClubsRoute: ApiClubsRouteWithChildren,
   ApiDiaryRoute: ApiDiaryRoute,
-  ApiMessagesRoute: ApiMessagesRoute,
+  ApiMessagesRoute: ApiMessagesRouteWithChildren,
   ApiNotificationsRoute: ApiNotificationsRouteWithChildren,
   ApiProfileRoute: ApiProfileRouteWithChildren,
   ApiSecurityCheckRoute: ApiSecurityCheckRoute,
@@ -907,9 +1021,13 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthGoogleRoute: ApiAuthGoogleRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
   ApiOnboardingCompleteRoute: ApiOnboardingCompleteRoute,
+  ApiTrackReadingSuggestionsRoute: ApiTrackReadingSuggestionsRoute,
   CommunityClubsIdRoute: CommunityClubsIdRoute,
+  ApiUsersIdFollowRoute: ApiUsersIdFollowRoute,
   CommunityClubsIdManageRoute: CommunityClubsIdManageRoute,
   CommunityClubsIdWriteRoute: CommunityClubsIdWriteRoute,
+  ApiCommunityClubsIdInviteCandidatesRoute:
+    ApiCommunityClubsIdInviteCandidatesRoute,
   CommunityClubsIdWorksWorkIdRoute: CommunityClubsIdWorksWorkIdRoute,
 }
 export const routeTree = rootRouteImport

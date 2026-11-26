@@ -14,6 +14,12 @@
 .compose textarea{resize:vertical}
 .compose button{justify-self:start}
 .compose button:disabled{cursor:wait;opacity:.6}
+.composeActions{display:flex;gap:10px}
+.detailActions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.detailActions button{border:1px solid #6d5e52;background:#241e1a;color:#f1ebe4;border-radius:3px;padding:9px 13px;font:inherit;cursor:pointer}
+.detailForm{display:grid;gap:14px;margin-top:28px;border-top:1px solid #403832;padding-top:24px}
+.detailForm label{display:grid;gap:7px;color:#b8ada4;font-size:13px}
+.detailForm input,.detailForm textarea{border:1px solid #51473f;background:#0d0b0a;color:#eee8df;padding:11px;font:inherit}
 .feedback{color:#c9b69f;font-size:14px}
 .folders{display:flex;gap:24px;border-bottom:1px solid #3a3430}
 .folders a{display:flex;gap:8px;padding:13px 0;color:#aaa099;border-bottom:2px solid transparent}

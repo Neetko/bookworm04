@@ -186,6 +186,15 @@ export const getPublicUser = createServerFn({ method: "GET" })
     if (error) throw new Error("Could not load public profile")
     if (!profile) return null
 
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: viewerProfile } = user
+      ? await supabase.from("user_profiles").select("id").eq("auth_user_id", user.id).maybeSingle()
+      : { data: null }
+    const viewerId = viewerProfile?.id as string | undefined
+    const { data: follow } = viewerId && viewerId !== profile.id
+      ? await supabase.from("user_follows").select("id,is_friend").eq("follower_profile_id", viewerId).eq("followed_profile_id", profile.id).maybeSingle()
+      : { data: null }
+
     const [{ data: list }, { data: points }] = await Promise.all([
       supabase.from("title_lists").select("id").eq("user_profile_id", profile.id).eq("list_type", "finished-reading").maybeSingle(),
       supabase.from("user_genre_points").select("genre,points").eq("user_profile_id", profile.id).order("points", { ascending: false }).limit(50),
@@ -200,6 +209,7 @@ export const getPublicUser = createServerFn({ method: "GET" })
     const titleMap = new Map((titles ?? []).map((title) => [title.id, title]))
     return {
       profile: { id: profile.id, username: profile.username, avatarUrl: safePublicImageUrl(profile.avatar_url), bio: profile.bio },
+      viewer: { signedIn: Boolean(viewerId), isSelf: viewerId === profile.id, isFollowing: Boolean(follow), isFriend: Boolean(follow?.is_friend) },
       points: (points ?? []).map((point) => ({ genre: point.genre, points: point.points })),
       readTitles: (readRows ?? []).flatMap((row) => {
         const title = titleMap.get(row.title_id)
