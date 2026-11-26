@@ -57,6 +57,7 @@ for (const path of [
   "/messages?folder=inbox&page=1",
   "/messages/00000000-0000-0000-0000-000000000000?folder=inbox&page=1",
   "/onboarding",
+  "/notifications",
 ]) {
   const messagesRedirect = await fetch(new URL(path, url), {
     cache: "no-store",
@@ -106,4 +107,31 @@ async function inspectOnboardingWrite(payload, expectedStatus) {
 
 await inspectOnboardingWrite({ username: "Reader", favoriteGenres: ["FANTASY"] }, 401)
 await inspectOnboardingWrite({ username: "Reader", favoriteGenres: ["x".repeat(16_001)] }, 413)
+
+for (const path of ["/api/notifications", "/api/notifications/counts"]) {
+  const response = await fetch(new URL(path, url), { cache: "no-store" })
+  assert.equal(response.status, 401)
+  assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0")
+}
+
+async function inspectNotificationWrite(path, method, payload, expectedStatus) {
+  const response = await fetch(new URL(path, url), {
+    method,
+    headers: {
+      Origin: new URL(url).origin,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+  assert.equal(response.status, expectedStatus)
+  assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0")
+}
+
+await inspectNotificationWrite("/api/notifications", "PATCH", { markAll: true }, 401)
+await inspectNotificationWrite("/api/notifications", "PATCH", { id: "x".repeat(4_097) }, 413)
+await inspectNotificationWrite("/api/notifications/invitation", "POST", {
+  invitationId: "00000000-0000-4000-8000-000000000001",
+  action: "accept",
+}, 401)
+await inspectNotificationWrite("/api/notifications/invitation", "POST", { action: "x".repeat(4_097) }, 413)
 console.log(`Security headers passed on public, 404, and mutation responses; ${first.scriptCount} scripts use each fresh nonce.`)
