@@ -1,0 +1,29 @@
+import { createFileRoute, Link, notFound } from "@tanstack/react-router"
+import { getPublicUser } from "../features/social/social.functions"
+import styles from "../features/social/social.module.css"
+
+export const Route = createFileRoute("/users/$username")({
+  loader: async ({ params }) => {
+    const user = await getPublicUser({ data: { id: params.username } })
+    if (!user) throw notFound()
+    return user
+  },
+  head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.profile.username ?? "Reader"} | Bookworm` }, { name: "description", content: loaderData?.profile.bio ?? "A Bookworm reader profile." }] }),
+  notFoundComponent: () => <p className={styles.empty}>User not found.</p>,
+  component: UserPage,
+})
+
+function UserPage() {
+  const { profile, points, readTitles } = Route.useLoaderData()
+  return <div className={styles.page}>
+    <header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/community" search={{ q: "", t: "", genres: "" }}>Community</Link><Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }}>Search titles</Link><Link to="/auth">Sign in</Link></nav></header>
+    <main className={styles.main}>
+      <p className={styles.eyebrow}>Reader profile</p>
+      <div className={styles.profile}>{profile.avatarUrl && <img className={styles.avatar} src={profile.avatarUrl} alt="" width="80" height="80" decoding="async" />}<div><h1 className={styles.title}>{profile.username ?? "Anonymous"}</h1>{profile.bio && <p className={styles.lead}>{profile.bio}</p>}</div></div>
+      <div className={styles.columns}>
+        <section className={styles.card}><h2 className={styles.sectionTitle}>Read titles</h2>{readTitles.length ? <ul className={styles.list}>{readTitles.map((title) => <li key={title.id}>{title.coverUrl && <img className={styles.cover} src={title.coverUrl} alt="" width="40" height="58" loading="lazy" decoding="async" />}<div><Link className={styles.link} to="/titles/$id" params={{ id: title.id }} preload="intent">{title.title}</Link><div className={styles.meta}>{title.author ?? "Unknown author"}</div></div></li>)}</ul> : <p className={styles.muted}>No titles marked as read yet.</p>}</section>
+        <section className={styles.card}><h2 className={styles.sectionTitle}>Points by genre</h2>{points.length ? <ul className={styles.list}>{points.map((point) => <li key={point.genre}><span>{point.genre}</span><strong>{point.points ?? 0}</strong></li>)}</ul> : <p className={styles.muted}>No points yet.</p>}</section>
+      </div>
+    </main>
+  </div>
+}

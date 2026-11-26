@@ -12,10 +12,18 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CommunityRouteImport } from './routes/community'
+import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as SearchTitlesRouteImport } from './routes/search-titles'
+import { Route as ApiMessagesRouteImport } from './routes/api.messages'
 import { Route as ApiSecurityCheckRouteImport } from './routes/api.security-check'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as MessagesIdRouteImport } from './routes/messages_.$id'
+import { Route as TitlesIdRouteImport } from './routes/titles.$id'
+import { Route as UsersUsernameRouteImport } from './routes/users.$username'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api.auth.google'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api.auth.logout'
+import { Route as CommunityClubsIdRouteImport } from './routes/community_.clubs.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -32,6 +40,26 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommunityRoute = CommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchTitlesRoute = SearchTitlesRouteImport.update({
+  id: '/search-titles',
+  path: '/search-titles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMessagesRoute = ApiMessagesRouteImport.update({
+  id: '/api/messages',
+  path: '/api/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSecurityCheckRoute = ApiSecurityCheckRouteImport.update({
   id: '/api/security-check',
   path: '/api/security-check',
@@ -41,6 +69,21 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
   getParentRoute: () => AuthRoute,
+} as any)
+const MessagesIdRoute = MessagesIdRouteImport.update({
+  id: '/messages_/$id',
+  path: '/messages/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TitlesIdRoute = TitlesIdRouteImport.update({
+  id: '/titles/$id',
+  path: '/titles/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsersUsernameRoute = UsersUsernameRouteImport.update({
+  id: '/users/$username',
+  path: '/users/$username',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthGoogleRoute = ApiAuthGoogleRouteImport.update({
   id: '/api/auth/google',
@@ -52,34 +95,63 @@ const ApiAuthLogoutRoute = ApiAuthLogoutRouteImport.update({
   path: '/api/auth/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommunityClubsIdRoute = CommunityClubsIdRouteImport.update({
+  id: '/community_/clubs/$id',
+  path: '/community/clubs/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/auth': typeof AuthRouteWithChildren
+  '/community': typeof CommunityRoute
+  '/messages': typeof MessagesRoute
+  '/search-titles': typeof SearchTitlesRoute
+  '/api/messages': typeof ApiMessagesRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/messages/$id': typeof MessagesIdRoute
+  '/titles/$id': typeof TitlesIdRoute
+  '/users/$username': typeof UsersUsernameRoute
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/community/clubs/$id': typeof CommunityClubsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/auth': typeof AuthRouteWithChildren
+  '/community': typeof CommunityRoute
+  '/messages': typeof MessagesRoute
+  '/search-titles': typeof SearchTitlesRoute
+  '/api/messages': typeof ApiMessagesRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/messages/$id': typeof MessagesIdRoute
+  '/titles/$id': typeof TitlesIdRoute
+  '/users/$username': typeof UsersUsernameRoute
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/community/clubs/$id': typeof CommunityClubsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/auth': typeof AuthRouteWithChildren
+  '/community': typeof CommunityRoute
+  '/messages': typeof MessagesRoute
+  '/search-titles': typeof SearchTitlesRoute
+  '/api/messages': typeof ApiMessagesRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/messages_/$id': typeof MessagesIdRoute
+  '/titles/$id': typeof TitlesIdRoute
+  '/users/$username': typeof UsersUsernameRoute
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/community_/clubs/$id': typeof CommunityClubsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,37 +159,69 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/auth'
+    | '/community'
+    | '/messages'
+    | '/search-titles'
+    | '/api/messages'
     | '/api/security-check'
     | '/auth/callback'
+    | '/messages/$id'
+    | '/titles/$id'
+    | '/users/$username'
     | '/api/auth/google'
     | '/api/auth/logout'
+    | '/community/clubs/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
     | '/auth'
+    | '/community'
+    | '/messages'
+    | '/search-titles'
+    | '/api/messages'
     | '/api/security-check'
     | '/auth/callback'
+    | '/messages/$id'
+    | '/titles/$id'
+    | '/users/$username'
     | '/api/auth/google'
     | '/api/auth/logout'
+    | '/community/clubs/$id'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/auth'
+    | '/community'
+    | '/messages'
+    | '/search-titles'
+    | '/api/messages'
     | '/api/security-check'
     | '/auth/callback'
+    | '/messages_/$id'
+    | '/titles/$id'
+    | '/users/$username'
     | '/api/auth/google'
     | '/api/auth/logout'
+    | '/community_/clubs/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AuthRoute: typeof AuthRouteWithChildren
+  CommunityRoute: typeof CommunityRoute
+  MessagesRoute: typeof MessagesRoute
+  SearchTitlesRoute: typeof SearchTitlesRoute
+  ApiMessagesRoute: typeof ApiMessagesRoute
   ApiSecurityCheckRoute: typeof ApiSecurityCheckRoute
+  MessagesIdRoute: typeof MessagesIdRoute
+  TitlesIdRoute: typeof TitlesIdRoute
+  UsersUsernameRoute: typeof UsersUsernameRoute
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
+  CommunityClubsIdRoute: typeof CommunityClubsIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -143,6 +247,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/community': {
+      id: '/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof CommunityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search-titles': {
+      id: '/search-titles'
+      path: '/search-titles'
+      fullPath: '/search-titles'
+      preLoaderRoute: typeof SearchTitlesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/messages': {
+      id: '/api/messages'
+      path: '/api/messages'
+      fullPath: '/api/messages'
+      preLoaderRoute: typeof ApiMessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/security-check': {
       id: '/api/security-check'
       path: '/api/security-check'
@@ -157,6 +289,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/messages_/$id': {
+      id: '/messages_/$id'
+      path: '/messages/$id'
+      fullPath: '/messages/$id'
+      preLoaderRoute: typeof MessagesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/titles/$id': {
+      id: '/titles/$id'
+      path: '/titles/$id'
+      fullPath: '/titles/$id'
+      preLoaderRoute: typeof TitlesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/users/$username': {
+      id: '/users/$username'
+      path: '/users/$username'
+      fullPath: '/users/$username'
+      preLoaderRoute: typeof UsersUsernameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/google': {
       id: '/api/auth/google'
       path: '/api/auth/google'
@@ -169,6 +322,13 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/logout'
       fullPath: '/api/auth/logout'
       preLoaderRoute: typeof ApiAuthLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community_/clubs/$id': {
+      id: '/community_/clubs/$id'
+      path: '/community/clubs/$id'
+      fullPath: '/community/clubs/$id'
+      preLoaderRoute: typeof CommunityClubsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -188,9 +348,17 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AuthRoute: AuthRouteWithChildren,
+  CommunityRoute: CommunityRoute,
+  MessagesRoute: MessagesRoute,
+  SearchTitlesRoute: SearchTitlesRoute,
+  ApiMessagesRoute: ApiMessagesRoute,
   ApiSecurityCheckRoute: ApiSecurityCheckRoute,
+  MessagesIdRoute: MessagesIdRoute,
+  TitlesIdRoute: TitlesIdRoute,
+  UsersUsernameRoute: UsersUsernameRoute,
   ApiAuthGoogleRoute: ApiAuthGoogleRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
+  CommunityClubsIdRoute: CommunityClubsIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

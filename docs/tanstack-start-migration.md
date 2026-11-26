@@ -2,7 +2,9 @@
 
 For the current port order, staging setup, and release gates, see [TanStack Start cutover readiness — 25 November 2026](tanstack-start-cutover-readiness-2026-11-25.md).
 
-The working Start preview is in `apps/start`. It has its own dependency lockfile and runs on port 3101, while the current Next app continues on port 3000. It has a Google sign-in adapter and one static public route (`/about`), but no private pages or content-database reads. The preview is marked `noindex`; it is a build and routing probe, not a replacement site. A side-effect-free `/api/security-check` route lets the smoke test verify that the same-origin check and private headers also cover API writes. CI builds and tests this isolated package separately from the Next app.
+The working Start preview is in `apps/start`. It has its own dependency lockfile and runs on port 3101, while the current Next app continues on port 3000. The preview now includes the public home, catalog search/detail, community/club views, public profiles, and a first authenticated messages read/send slice. Google-only sign-in/callback/logout, request-scoped Supabase auth, React Query SSR hydration, intent prefetch, CSP nonces, private cache headers, bounded message writes, and cross-origin write rejection are wired. The preview remains `noindex`; it is not yet a replacement site.
+
+Current blockers to staging acceptance are onboarding, the remaining private routes and mutations, prepared responsive image variants, and full signed-in browser/RLS journeys. In particular, a new Google user is redirected to `/onboarding`, which is not ported yet. Existing completed accounts can be used only after a fixed staging callback host is registered.
 
 ## Route inventory
 
@@ -19,17 +21,17 @@ Preserve these public URLs. File names below are proposed Start route names, not
 | `/titles/:id` | `app/titles/[id]/page.tsx` | `routes/titles.$id.tsx` |
 | `/track-reading` | `app/track-reading/page.tsx` | `routes/track-reading.tsx` |
 | `/community` | `app/community/page.tsx` | `routes/community.tsx` |
-| `/community/clubs/:id` | `app/community/clubs/[id]/page.tsx` | `routes/community.clubs.$id.tsx` |
-| `/community/clubs/:id/manage` | `app/community/clubs/[id]/manage/page.tsx` | `routes/community.clubs.$id.manage.tsx` |
-| `/community/clubs/:id/write` | `app/community/clubs/[id]/write/page.tsx` | `routes/community.clubs.$id.write.tsx` |
-| `/community/clubs/:id/works/:workId` | `app/community/clubs/[id]/works/[workId]/page.tsx` | `routes/community.clubs.$id.works.$workId.tsx` |
+| `/community/clubs/:id` | `app/community/clubs/[id]/page.tsx` | `routes/community_.clubs.$id.tsx` |
+| `/community/clubs/:id/manage` | `app/community/clubs/[id]/manage/page.tsx` | `routes/community_.clubs.$id_.manage.tsx` |
+| `/community/clubs/:id/write` | `app/community/clubs/[id]/write/page.tsx` | `routes/community_.clubs.$id_.write.tsx` |
+| `/community/clubs/:id/works/:workId` | `app/community/clubs/[id]/works/[workId]/page.tsx` | `routes/community_.clubs.$id_.works.$workId.tsx` |
 | `/diary` | `app/diary/page.tsx` | `routes/diary.tsx` |
-| `/diary/:id` | `app/diary/[id]/page.tsx` | `routes/diary.$id.tsx` |
+| `/diary/:id` | `app/diary/[id]/page.tsx` | `routes/diary_.$id.tsx` |
 | `/messages` | `app/messages/page.tsx` | `routes/messages.tsx` |
-| `/messages/:id` | `app/messages/[id]/page.tsx` | `routes/messages.$id.tsx` |
+| `/messages/:id` | `app/messages/[id]/page.tsx` | `routes/messages_.$id.tsx` |
 | `/notifications` | `app/notifications/page.tsx` | `routes/notifications.tsx` |
 | `/profile` | `app/profile/page.tsx` | `routes/profile.tsx` |
-| `/profile/edit-lists` | `app/profile/edit-lists/page.tsx` | `routes/profile.edit-lists.tsx` |
+| `/profile/edit-lists` | `app/profile/edit-lists/page.tsx` | `routes/profile_.edit-lists.tsx` |
 | `/users/:username` | `app/users/[username]/page.tsx` | `routes/users.$username.tsx` |
 | `/admin/moderators` | `app/admin/moderators/page.tsx` | `routes/admin.moderators.tsx` |
 | `/admin/suggestions` | `app/admin/suggestions/page.tsx` | `routes/admin.suggestions.tsx` |
@@ -59,8 +61,8 @@ The paths with `:id`, `:workId`, and `:username` must return the same status for
 2. Implement a request-scoped Supabase SSR adapter and security header middleware. Verify cookie refresh, private cache policy, nonce propagation, and cross-origin mutation rejection with local tests before moving private pages.
 3. Move public read-only routes and shared UI first. Compare server HTML, metadata, redirects, query state, images, and 404s against the Next app.
 4. Move authenticated routes and server mutations one group at a time. Run existing browser and database boundary journeys against both apps. Test that a signed-out client cannot replay a mutation.
-5. Deploy Start to a separate staging host using a documented Node/Nitro adapter. Keep the same Supabase schema compatible with both versions. Verify session behavior with a staging callback URL, host headers, CDN caching, image URLs, and actual response headers.
-6. Choose the production host, route traffic to Start, monitor login/error/write rates, and keep a rehearsed route-back path. Retire Next and Vercel only after parity and rollback checks pass. The hosting decision is separate from the framework decision.
+5. Deploy Start to a separate Vercel staging project rooted at `apps/start`. Nitro emits Vercel Build Output API v3 with a Node 22 function. Keep the same Supabase schema compatible with both versions and use a fixed staging hostname for OAuth.
+6. Change production traffic to the Start Vercel project only after parity checks, monitor login/error/write rates, and keep the current Next deployment as the rollback target. Retire Next after the rollback window; Vercel remains the host, while the Nitro build stays portable.
 
 ## Authentication adapter in progress
 
@@ -68,7 +70,7 @@ The Start preview now has a request-scoped `@supabase/ssr` client and Google-onl
 
 Set `PUBLIC_APP_ORIGIN` to the exact public origin for this deployment. Production requires HTTPS. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` to the same Supabase project used by the existing app (the adapter also accepts the existing `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` names). Register `${PUBLIC_APP_ORIGIN}/auth/callback` in Supabase's allowed redirect URLs before testing Google sign-in on a separate host. No service-role key is used by the preview auth routes.
 
-The local preview has verified a same-origin PKCE redirect and cookie, safe handling of missing and invalid callback codes, and rejection of cross-origin sign-in writes. A complete Google sign-in and account switching test still requires a registered staging callback URL. The static `/about` route verifies route-specific metadata, stylesheet loading, responsive rendering, and the existing private cache/CSP headers. Its navigation contains only routes available in the preview; catalog and community links return when those routes are ported. The preview continues to be `noindex` and does not serve any migrated private pages yet.
+The local preview has verified a same-origin PKCE redirect and hardened HTTP-only auth cookies, safe handling of missing and invalid callback codes, and rejection of cross-origin writes. The messages slice verifies signed-out redirects, ownership-filtered reads, sanitized rich-text rendering, bounded JSON writes, quotas, and real 401/404/413 responses. A complete Google sign-in and account-switching test still requires a registered fixed staging callback URL and the onboarding port.
 
 ## Local commands
 
