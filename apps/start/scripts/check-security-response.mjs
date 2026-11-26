@@ -59,6 +59,7 @@ for (const path of [
   "/onboarding",
   "/notifications",
   "/profile",
+  "/profile/edit-lists",
   "/diary?filterBy=none&genres=&author=&title=",
 ]) {
   const messagesRedirect = await fetch(new URL(path, url), {
@@ -152,6 +153,22 @@ async function inspectProfileWrite(payload, expectedStatus) {
 
 await inspectProfileWrite({ username: "Reader", bio: "Hello" }, 401)
 await inspectProfileWrite({ username: "Reader", bio: "x".repeat(8_193) }, 413)
+
+async function inspectListWrite(payload, expectedStatus) {
+  const response = await fetch(new URL("/api/profile/lists", url), {
+    method: "POST",
+    headers: {
+      Origin: new URL(url).origin,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+  assert.equal(response.status, expectedStatus)
+  assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0")
+}
+
+await inspectListWrite({ action: "create", name: "Favorites", isPublic: true }, 401)
+await inspectListWrite({ action: "create", name: "x".repeat(8_193), isPublic: true }, 413)
 
 async function inspectDiaryWrite(method, payload, expectedStatus) {
   const response = await fetch(new URL("/api/diary", url), {
