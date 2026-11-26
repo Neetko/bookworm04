@@ -36,6 +36,7 @@ import { Route as ApiAuthLogoutRouteImport } from './routes/api.auth.logout'
 import { Route as ApiNotificationsCountsRouteImport } from './routes/api.notifications.counts'
 import { Route as ApiNotificationsInvitationRouteImport } from './routes/api.notifications.invitation'
 import { Route as ApiOnboardingCompleteRouteImport } from './routes/api.onboarding.complete'
+import { Route as ApiProfileAvatarRouteImport } from './routes/api.profile.avatar'
 import { Route as ApiProfileListsRouteImport } from './routes/api.profile.lists'
 import { Route as CommunityClubsIdRouteImport } from './routes/community_.clubs.$id'
 
@@ -175,6 +176,11 @@ const ApiOnboardingCompleteRoute = ApiOnboardingCompleteRouteImport.update({
   path: '/api/onboarding/complete',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProfileAvatarRoute = ApiProfileAvatarRouteImport.update({
+  id: '/avatar',
+  path: '/avatar',
+  getParentRoute: () => ApiProfileRoute,
+} as any)
 const ApiProfileListsRoute = ApiProfileListsRouteImport.update({
   id: '/lists',
   path: '/lists',
@@ -214,6 +220,7 @@ export interface FileRoutesByFullPath {
   '/api/notifications/counts': typeof ApiNotificationsCountsRoute
   '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
+  '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
 }
@@ -245,6 +252,7 @@ export interface FileRoutesByTo {
   '/api/notifications/counts': typeof ApiNotificationsCountsRoute
   '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
+  '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
 }
@@ -277,6 +285,7 @@ export interface FileRoutesById {
   '/api/notifications/counts': typeof ApiNotificationsCountsRoute
   '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
+  '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
   '/community_/clubs/$id': typeof CommunityClubsIdRoute
 }
@@ -310,6 +319,7 @@ export interface FileRouteTypes {
     | '/api/notifications/counts'
     | '/api/notifications/invitation'
     | '/api/onboarding/complete'
+    | '/api/profile/avatar'
     | '/api/profile/lists'
     | '/community/clubs/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -341,6 +351,7 @@ export interface FileRouteTypes {
     | '/api/notifications/counts'
     | '/api/notifications/invitation'
     | '/api/onboarding/complete'
+    | '/api/profile/avatar'
     | '/api/profile/lists'
     | '/community/clubs/$id'
   id:
@@ -372,6 +383,7 @@ export interface FileRouteTypes {
     | '/api/notifications/counts'
     | '/api/notifications/invitation'
     | '/api/onboarding/complete'
+    | '/api/profile/avatar'
     | '/api/profile/lists'
     | '/community_/clubs/$id'
   fileRoutesById: FileRoutesById
@@ -593,6 +605,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOnboardingCompleteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/profile/avatar': {
+      id: '/api/profile/avatar'
+      path: '/avatar'
+      fullPath: '/api/profile/avatar'
+      preLoaderRoute: typeof ApiProfileAvatarRouteImport
+      parentRoute: typeof ApiProfileRoute
+    }
     '/api/profile/lists': {
       id: '/api/profile/lists'
       path: '/lists'
@@ -655,10 +674,12 @@ const ApiNotificationsRouteWithChildren =
   ApiNotificationsRoute._addFileChildren(ApiNotificationsRouteChildren)
 
 interface ApiProfileRouteChildren {
+  ApiProfileAvatarRoute: typeof ApiProfileAvatarRoute
   ApiProfileListsRoute: typeof ApiProfileListsRoute
 }
 
 const ApiProfileRouteChildren: ApiProfileRouteChildren = {
+  ApiProfileAvatarRoute: ApiProfileAvatarRoute,
   ApiProfileListsRoute: ApiProfileListsRoute,
 }
 
