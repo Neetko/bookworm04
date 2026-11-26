@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { formatDate } from "../features/date-format"
 import { getTitleDetail } from "../features/titles/catalog.functions"
 import styles from "../features/titles/catalog.module.css"
+import { BookCover } from "../components/book-cover"
 
 export const Route = createFileRoute("/titles/$id")({
   loader: ({ params }) => getTitleDetail({ data: { id: params.id } }),
@@ -34,7 +35,7 @@ function TitleDetailPage() {
         <Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }} className={styles.back}>← Back to catalog</Link>
         <div className={styles.detail}>
           <div className={styles.detailCover}>
-            {title.coverUrl ? <img src={title.coverUrl} alt={`Cover of ${title.title}`} width="260" height="390" decoding="async" referrerPolicy="no-referrer" /> : <span aria-hidden="true">B</span>}
+            {title.coverUrl ? <BookCover src={title.coverUrl} alt={`Cover of ${title.title}`} width="260" height="390" sizes="(max-width: 700px) 60vw, 260px" decoding="async" /> : <span aria-hidden="true">B</span>}
           </div>
           <div className={styles.detailText}>
             <p className={styles.eyebrow}>Bookworm title</p>
