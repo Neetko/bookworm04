@@ -154,6 +154,24 @@ async function inspectProfileWrite(payload, expectedStatus) {
 await inspectProfileWrite({ username: "Reader", bio: "Hello" }, 401)
 await inspectProfileWrite({ username: "Reader", bio: "x".repeat(8_193) }, 413)
 
+async function inspectAvatarWrite(body, expectedStatus) {
+  const response = await fetch(new URL("/api/profile/avatar", url), {
+    method: "POST",
+    headers: { Origin: new URL(url).origin },
+    body,
+  })
+  assert.equal(response.status, expectedStatus)
+  assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0")
+}
+
+const smallAvatar = new FormData()
+smallAvatar.set("file", new File([new Uint8Array([137, 80, 78, 71])], "avatar.png", { type: "image/png" }))
+await inspectAvatarWrite(smallAvatar, 401)
+
+const oversizedAvatar = new FormData()
+oversizedAvatar.set("file", new File([new Uint8Array(2 * 1024 * 1024 + 1)], "avatar.png", { type: "image/png" }))
+await inspectAvatarWrite(oversizedAvatar, 413)
+
 async function inspectListWrite(payload, expectedStatus) {
   const response = await fetch(new URL("/api/profile/lists", url), {
     method: "POST",
