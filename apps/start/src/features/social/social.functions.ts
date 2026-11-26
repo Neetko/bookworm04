@@ -69,6 +69,18 @@ export const getPublicClub = createServerFn({ method: "GET" })
     if (error) throw new Error("Could not load club")
     if (!club) return null
 
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: viewerProfile } = user
+      ? await supabase.from("user_profiles").select("id").eq("auth_user_id", user.id).maybeSingle()
+      : { data: null }
+    const viewerId = viewerProfile?.id as string | undefined
+    const [{ data: viewerMember }, { data: viewerApplication }] = viewerId
+      ? await Promise.all([
+          supabase.from("club_members").select("user_id").eq("club_id", club.id).eq("user_id", viewerId).maybeSingle(),
+          supabase.from("club_applications").select("id,status").eq("club_id", club.id).eq("user_id", viewerId).eq("status", "pending").maybeSingle(),
+        ])
+      : [{ data: null }, { data: null }]
+
     const [{ data: owner }, memberResult, { data: readingRows }] = await Promise.all([
       supabase.from("public_profiles").select("id,username,avatar_url").eq("id", club.owner_user_id).maybeSingle(),
       supabase.from("club_members").select("user_id", { count: "exact" }).eq("club_id", club.id).limit(100),
@@ -95,6 +107,52 @@ export const getPublicClub = createServerFn({ method: "GET" })
       memberCount: memberResult.count ?? (members ?? []).length,
       members: (members ?? []).map((member) => ({ id: member.id, username: member.username, avatarUrl: safePublicImageUrl(member.avatar_url) })),
       reading,
+      viewer: {
+        signedIn: Boolean(viewerId),
+        isOwner: viewerId === club.owner_user_id,
+        isMember: viewerId === club.owner_user_id || Boolean(viewerMember),
+        hasPendingApplication: Boolean(viewerApplication),
+      },
+    }
+  })
+
+export const getClubManagement = createServerFn({ method: "GET" })
+  .validator((input: unknown) => ({ id: validId(input && typeof input === "object" && "id" in input ? input.id : null) }))
+  .handler(async ({ data }) => {
+    if (!data.id) return { status: "not-found" as const }
+    const supabase = createRequestSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { status: "unauthorized" as const }
+    const { data: profile } = await supabase.from("user_profiles").select("id").eq("auth_user_id", user.id).maybeSingle()
+    if (!profile?.id) return { status: "unauthorized" as const }
+    const { data: club } = await supabase.from("clubs").select("id,name,description,type,categories,join_policy,owner_user_id,avatar_url,current_title_id").eq("id", data.id).maybeSingle()
+    if (!club) return { status: "not-found" as const }
+    if (club.owner_user_id !== profile.id) return { status: "forbidden" as const }
+
+    const [memberResult, readingResult, applicationResult, invitationResult, catalogResult] = await Promise.all([
+      supabase.from("club_members").select("user_id").eq("club_id", club.id).limit(500),
+      supabase.from("club_reading_items").select("id,title_id,title,author,created_at").eq("club_id", club.id).order("created_at", { ascending: false }).limit(200),
+      supabase.from("club_applications").select("id,user_id,created_at").eq("club_id", club.id).eq("status", "pending").order("created_at", { ascending: false }).limit(100),
+      supabase.from("club_invitations").select("id,invitee_user_id,created_at").eq("club_id", club.id).eq("status", "pending").order("created_at", { ascending: false }).limit(100),
+      supabase.from("titles").select("id,title,author").order("title").limit(200),
+    ])
+    const profileIds = [...new Set([
+      ...(memberResult.data ?? []).map((row) => row.user_id),
+      ...(applicationResult.data ?? []).map((row) => row.user_id),
+      ...(invitationResult.data ?? []).map((row) => row.invitee_user_id),
+    ])]
+    const { data: profiles } = profileIds.length
+      ? await supabase.from("public_profiles").select("id,username,avatar_url").in("id", profileIds)
+      : { data: [] as Array<{ id: string; username: string | null; avatar_url: string | null }> }
+    const profileMap = new Map((profiles ?? []).map((row) => [row.id as string, row]))
+    return {
+      status: "ok" as const,
+      club: { id: club.id, ownerId: club.owner_user_id, name: club.name, description: club.description ?? "", type: club.type, categories: club.categories ?? [], joinPolicy: club.join_policy, avatarUrl: safePublicImageUrl(club.avatar_url), currentTitleId: club.current_title_id },
+      reading: (readingResult.data ?? []).map((row) => ({ id: row.id, titleId: row.title_id, title: row.title ?? "Untitled", author: row.author })),
+      members: (memberResult.data ?? []).flatMap((row) => { const item = profileMap.get(row.user_id); return item ? [{ id: item.id, username: item.username, avatarUrl: safePublicImageUrl(item.avatar_url) }] : [] }),
+      applications: (applicationResult.data ?? []).flatMap((row) => { const item = profileMap.get(row.user_id); return item ? [{ id: row.id, username: item.username }] : [] }),
+      invitations: (invitationResult.data ?? []).flatMap((row) => { const item = profileMap.get(row.invitee_user_id); return item ? [{ id: row.id, username: item.username }] : [] }),
+      catalog: catalogResult.data ?? [],
     }
   })
 

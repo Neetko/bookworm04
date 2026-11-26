@@ -20,6 +20,7 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SearchTitlesRouteImport } from './routes/search-titles'
 import { Route as TrackReadingRouteImport } from './routes/track-reading'
+import { Route as ApiClubsRouteImport } from './routes/api.clubs'
 import { Route as ApiDiaryRouteImport } from './routes/api.diary'
 import { Route as ApiMessagesRouteImport } from './routes/api.messages'
 import { Route as ApiNotificationsRouteImport } from './routes/api.notifications'
@@ -33,12 +34,15 @@ import { Route as TitlesIdRouteImport } from './routes/titles.$id'
 import { Route as UsersUsernameRouteImport } from './routes/users.$username'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api.auth.google'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api.auth.logout'
+import { Route as ApiClubsIdRouteImport } from './routes/api.clubs.$id'
 import { Route as ApiNotificationsCountsRouteImport } from './routes/api.notifications.counts'
 import { Route as ApiNotificationsInvitationRouteImport } from './routes/api.notifications.invitation'
 import { Route as ApiOnboardingCompleteRouteImport } from './routes/api.onboarding.complete'
 import { Route as ApiProfileAvatarRouteImport } from './routes/api.profile.avatar'
 import { Route as ApiProfileListsRouteImport } from './routes/api.profile.lists'
 import { Route as CommunityClubsIdRouteImport } from './routes/community_.clubs.$id'
+import { Route as ApiClubsIdAvatarRouteImport } from './routes/api.clubs.$id.avatar'
+import { Route as CommunityClubsIdManageRouteImport } from './routes/community_.clubs.$id_.manage'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -93,6 +97,11 @@ const SearchTitlesRoute = SearchTitlesRouteImport.update({
 const TrackReadingRoute = TrackReadingRouteImport.update({
   id: '/track-reading',
   path: '/track-reading',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiClubsRoute = ApiClubsRouteImport.update({
+  id: '/api/clubs',
+  path: '/api/clubs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDiaryRoute = ApiDiaryRouteImport.update({
@@ -160,6 +169,11 @@ const ApiAuthLogoutRoute = ApiAuthLogoutRouteImport.update({
   path: '/api/auth/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiClubsIdRoute = ApiClubsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiClubsRoute,
+} as any)
 const ApiNotificationsCountsRoute = ApiNotificationsCountsRouteImport.update({
   id: '/counts',
   path: '/counts',
@@ -191,6 +205,16 @@ const CommunityClubsIdRoute = CommunityClubsIdRouteImport.update({
   path: '/community/clubs/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiClubsIdAvatarRoute = ApiClubsIdAvatarRouteImport.update({
+  id: '/avatar',
+  path: '/avatar',
+  getParentRoute: () => ApiClubsIdRoute,
+} as any)
+const CommunityClubsIdManageRoute = CommunityClubsIdManageRouteImport.update({
+  id: '/community_/clubs/$id_/manage',
+  path: '/community/clubs/$id/manage',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -204,6 +228,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRouteWithChildren
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
+  '/api/clubs': typeof ApiClubsRouteWithChildren
   '/api/diary': typeof ApiDiaryRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
@@ -217,12 +242,15 @@ export interface FileRoutesByFullPath {
   '/users/$username': typeof UsersUsernameRoute
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/clubs/$id': typeof ApiClubsIdRouteWithChildren
   '/api/notifications/counts': typeof ApiNotificationsCountsRoute
   '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
+  '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
+  '/community/clubs/$id/manage': typeof CommunityClubsIdManageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -236,6 +264,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRouteWithChildren
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
+  '/api/clubs': typeof ApiClubsRouteWithChildren
   '/api/diary': typeof ApiDiaryRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
@@ -249,12 +278,15 @@ export interface FileRoutesByTo {
   '/users/$username': typeof UsersUsernameRoute
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/clubs/$id': typeof ApiClubsIdRouteWithChildren
   '/api/notifications/counts': typeof ApiNotificationsCountsRoute
   '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
+  '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
+  '/community/clubs/$id/manage': typeof CommunityClubsIdManageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -269,6 +301,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRouteWithChildren
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
+  '/api/clubs': typeof ApiClubsRouteWithChildren
   '/api/diary': typeof ApiDiaryRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
@@ -282,12 +315,15 @@ export interface FileRoutesById {
   '/users/$username': typeof UsersUsernameRoute
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/clubs/$id': typeof ApiClubsIdRouteWithChildren
   '/api/notifications/counts': typeof ApiNotificationsCountsRoute
   '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
   '/community_/clubs/$id': typeof CommunityClubsIdRoute
+  '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
+  '/community_/clubs/$id_/manage': typeof CommunityClubsIdManageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -303,6 +339,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/search-titles'
     | '/track-reading'
+    | '/api/clubs'
     | '/api/diary'
     | '/api/messages'
     | '/api/notifications'
@@ -316,12 +353,15 @@ export interface FileRouteTypes {
     | '/users/$username'
     | '/api/auth/google'
     | '/api/auth/logout'
+    | '/api/clubs/$id'
     | '/api/notifications/counts'
     | '/api/notifications/invitation'
     | '/api/onboarding/complete'
     | '/api/profile/avatar'
     | '/api/profile/lists'
     | '/community/clubs/$id'
+    | '/api/clubs/$id/avatar'
+    | '/community/clubs/$id/manage'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -335,6 +375,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/search-titles'
     | '/track-reading'
+    | '/api/clubs'
     | '/api/diary'
     | '/api/messages'
     | '/api/notifications'
@@ -348,12 +389,15 @@ export interface FileRouteTypes {
     | '/users/$username'
     | '/api/auth/google'
     | '/api/auth/logout'
+    | '/api/clubs/$id'
     | '/api/notifications/counts'
     | '/api/notifications/invitation'
     | '/api/onboarding/complete'
     | '/api/profile/avatar'
     | '/api/profile/lists'
     | '/community/clubs/$id'
+    | '/api/clubs/$id/avatar'
+    | '/community/clubs/$id/manage'
   id:
     | '__root__'
     | '/'
@@ -367,6 +411,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/search-titles'
     | '/track-reading'
+    | '/api/clubs'
     | '/api/diary'
     | '/api/messages'
     | '/api/notifications'
@@ -380,12 +425,15 @@ export interface FileRouteTypes {
     | '/users/$username'
     | '/api/auth/google'
     | '/api/auth/logout'
+    | '/api/clubs/$id'
     | '/api/notifications/counts'
     | '/api/notifications/invitation'
     | '/api/onboarding/complete'
     | '/api/profile/avatar'
     | '/api/profile/lists'
     | '/community_/clubs/$id'
+    | '/api/clubs/$id/avatar'
+    | '/community_/clubs/$id_/manage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -400,6 +448,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRouteWithChildren
   SearchTitlesRoute: typeof SearchTitlesRoute
   TrackReadingRoute: typeof TrackReadingRoute
+  ApiClubsRoute: typeof ApiClubsRouteWithChildren
   ApiDiaryRoute: typeof ApiDiaryRoute
   ApiMessagesRoute: typeof ApiMessagesRoute
   ApiNotificationsRoute: typeof ApiNotificationsRouteWithChildren
@@ -412,6 +461,7 @@ export interface RootRouteChildren {
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
   ApiOnboardingCompleteRoute: typeof ApiOnboardingCompleteRoute
   CommunityClubsIdRoute: typeof CommunityClubsIdRoute
+  CommunityClubsIdManageRoute: typeof CommunityClubsIdManageRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -491,6 +541,13 @@ declare module '@tanstack/react-router' {
       path: '/track-reading'
       fullPath: '/track-reading'
       preLoaderRoute: typeof TrackReadingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/clubs': {
+      id: '/api/clubs'
+      path: '/api/clubs'
+      fullPath: '/api/clubs'
+      preLoaderRoute: typeof ApiClubsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/diary': {
@@ -584,6 +641,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthLogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/clubs/$id': {
+      id: '/api/clubs/$id'
+      path: '/$id'
+      fullPath: '/api/clubs/$id'
+      preLoaderRoute: typeof ApiClubsIdRouteImport
+      parentRoute: typeof ApiClubsRoute
+    }
     '/api/notifications/counts': {
       id: '/api/notifications/counts'
       path: '/counts'
@@ -626,6 +690,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunityClubsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/clubs/$id/avatar': {
+      id: '/api/clubs/$id/avatar'
+      path: '/avatar'
+      fullPath: '/api/clubs/$id/avatar'
+      preLoaderRoute: typeof ApiClubsIdAvatarRouteImport
+      parentRoute: typeof ApiClubsIdRoute
+    }
+    '/community_/clubs/$id_/manage': {
+      id: '/community_/clubs/$id_/manage'
+      path: '/community/clubs/$id/manage'
+      fullPath: '/community/clubs/$id/manage'
+      preLoaderRoute: typeof CommunityClubsIdManageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -659,6 +737,30 @@ const ProfileRouteChildren: ProfileRouteChildren = {
 
 const ProfileRouteWithChildren =
   ProfileRoute._addFileChildren(ProfileRouteChildren)
+
+interface ApiClubsIdRouteChildren {
+  ApiClubsIdAvatarRoute: typeof ApiClubsIdAvatarRoute
+}
+
+const ApiClubsIdRouteChildren: ApiClubsIdRouteChildren = {
+  ApiClubsIdAvatarRoute: ApiClubsIdAvatarRoute,
+}
+
+const ApiClubsIdRouteWithChildren = ApiClubsIdRoute._addFileChildren(
+  ApiClubsIdRouteChildren,
+)
+
+interface ApiClubsRouteChildren {
+  ApiClubsIdRoute: typeof ApiClubsIdRouteWithChildren
+}
+
+const ApiClubsRouteChildren: ApiClubsRouteChildren = {
+  ApiClubsIdRoute: ApiClubsIdRouteWithChildren,
+}
+
+const ApiClubsRouteWithChildren = ApiClubsRoute._addFileChildren(
+  ApiClubsRouteChildren,
+)
 
 interface ApiNotificationsRouteChildren {
   ApiNotificationsCountsRoute: typeof ApiNotificationsCountsRoute
@@ -699,6 +801,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRouteWithChildren,
   SearchTitlesRoute: SearchTitlesRoute,
   TrackReadingRoute: TrackReadingRoute,
+  ApiClubsRoute: ApiClubsRouteWithChildren,
   ApiDiaryRoute: ApiDiaryRoute,
   ApiMessagesRoute: ApiMessagesRoute,
   ApiNotificationsRoute: ApiNotificationsRouteWithChildren,
@@ -711,6 +814,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
   ApiOnboardingCompleteRoute: ApiOnboardingCompleteRoute,
   CommunityClubsIdRoute: CommunityClubsIdRoute,
+  CommunityClubsIdManageRoute: CommunityClubsIdManageRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
