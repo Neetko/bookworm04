@@ -4,7 +4,7 @@ For the current port order, staging setup, and release gates, see [TanStack Star
 
 The working Start preview is in `apps/start`. It has its own dependency lockfile and runs on port 3101, while the current Next app continues on port 3000. The preview now includes the public home, catalog search/detail, community/club views, public profiles, and a first authenticated messages read/send slice. Google-only sign-in/callback/logout, request-scoped Supabase auth, React Query SSR hydration, intent prefetch, CSP nonces, private cache headers, bounded message writes, and cross-origin write rejection are wired. The preview remains `noindex`; it is not yet a replacement site.
 
-Current blockers to staging acceptance are onboarding, the remaining private routes and mutations, prepared responsive image variants, and full signed-in browser/RLS journeys. In particular, a new Google user is redirected to `/onboarding`, which is not ported yet. Existing completed accounts can be used only after a fixed staging callback host is registered.
+Current blockers to staging acceptance are the remaining private routes and mutations, prepared responsive image variants, and full signed-in browser/RLS journeys. The first-time `/onboarding` flow now creates the authenticated profile and default reading lists, validates a unique username, saves favorite genres, and completes setup. Its optional title-selection and reader-suggestion steps remain deferred. Google sign-in still needs a fixed staging callback host before an end-to-end acceptance test.
 
 ## Route inventory
 
@@ -70,7 +70,7 @@ The Start preview now has a request-scoped `@supabase/ssr` client and Google-onl
 
 Set `PUBLIC_APP_ORIGIN` to the exact public origin for this deployment. Production requires HTTPS. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` to the same Supabase project used by the existing app (the adapter also accepts the existing `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` names). Register `${PUBLIC_APP_ORIGIN}/auth/callback` in Supabase's allowed redirect URLs before testing Google sign-in on a separate host. No service-role key is used by the preview auth routes.
 
-The local preview has verified a same-origin PKCE redirect and hardened HTTP-only auth cookies, safe handling of missing and invalid callback codes, and rejection of cross-origin writes. The messages slice verifies signed-out redirects, ownership-filtered reads, sanitized rich-text rendering, bounded JSON writes, quotas, and real 401/404/413 responses. A complete Google sign-in and account-switching test still requires a registered fixed staging callback URL and the onboarding port.
+The local preview has verified a same-origin PKCE redirect and hardened HTTP-only auth cookies, safe handling of missing and invalid callback codes, and rejection of cross-origin writes. The onboarding and messages slices verify signed-out redirects, bounded JSON writes, and real 401/404/413 responses. Messages additionally preserve ownership-filtered reads, sanitized rich-text rendering, and quotas. A complete Google sign-in and account-switching test still requires a registered fixed staging callback URL.
 
 ## Local commands
 

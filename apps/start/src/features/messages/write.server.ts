@@ -1,5 +1,6 @@
-import { createClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { readBoundedJson } from "../../server/bounded-json.server"
+import { createAdminSupabaseClient } from "../../server/supabase-admin.server"
 import { createRequestSupabaseClient } from "../../server/supabase.server"
 import { messagePreviewText, sanitizeMessageBody } from "./content"
 
@@ -15,53 +16,9 @@ function json(body: unknown, status: number) {
   return Response.json(body, { status })
 }
 
-async function readBoundedJson(request: Request) {
-  if (request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !== "application/json") {
-    return { ok: false as const, response: json({ error: "JSON request required" }, 415) }
-  }
-
-  const statedLength = Number(request.headers.get("content-length"))
-  if (Number.isFinite(statedLength) && statedLength > maxRequestBytes) {
-    return { ok: false as const, response: json({ error: "Message is too large" }, 413) }
-  }
-  if (!request.body) return { ok: false as const, response: json({ error: "Invalid JSON" }, 400) }
-
-  const reader = request.body.getReader()
-  const decoder = new TextDecoder()
-  let byteCount = 0
-  let text = ""
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      byteCount += value.byteLength
-      if (byteCount > maxRequestBytes) {
-        await reader.cancel()
-        return { ok: false as const, response: json({ error: "Message is too large" }, 413) }
-      }
-      text += decoder.decode(value, { stream: true })
-    }
-    text += decoder.decode()
-    return { ok: true as const, value: JSON.parse(text) as unknown }
-  } catch {
-    return { ok: false as const, response: json({ error: "Invalid JSON" }, 400) }
-  } finally {
-    reader.releaseLock()
-  }
-}
-
-function createAdminClient() {
-  const url = (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim()
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
-  if (!url || !key) return null
-  return createClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-}
-
 export async function handleMessageWrite(request: Request): Promise<Response> {
-  const jsonBody = await readBoundedJson(request)
-  if (!jsonBody.ok) return jsonBody.response
+  const jsonBody = await readBoundedJson(request, maxRequestBytes)
+  if (!jsonBody.ok) return json({ error: jsonBody.error }, jsonBody.status)
 
   const parsed = sendInput.safeParse(jsonBody.value)
   if (!parsed.success) return json({ error: "Invalid message" }, 400)
@@ -91,7 +48,7 @@ export async function handleMessageWrite(request: Request): Promise<Response> {
     }
   }
 
-  const admin = createAdminClient()
+  const admin = createAdminSupabaseClient()
   if (!admin) return json({ error: "Message service is not configured" }, 503)
   const { data: allowed, error: quotaError } = await admin.rpc("consume_message_write_quota", {
     p_profile_id: sender.id,
