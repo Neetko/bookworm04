@@ -14,10 +14,12 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as SearchTitlesRouteImport } from './routes/search-titles'
 import { Route as TrackReadingRouteImport } from './routes/track-reading'
 import { Route as ApiMessagesRouteImport } from './routes/api.messages'
+import { Route as ApiNotificationsRouteImport } from './routes/api.notifications'
 import { Route as ApiSecurityCheckRouteImport } from './routes/api.security-check'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as MessagesIdRouteImport } from './routes/messages_.$id'
@@ -25,6 +27,8 @@ import { Route as TitlesIdRouteImport } from './routes/titles.$id'
 import { Route as UsersUsernameRouteImport } from './routes/users.$username'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api.auth.google'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api.auth.logout'
+import { Route as ApiNotificationsCountsRouteImport } from './routes/api.notifications.counts'
+import { Route as ApiNotificationsInvitationRouteImport } from './routes/api.notifications.invitation'
 import { Route as ApiOnboardingCompleteRouteImport } from './routes/api.onboarding.complete'
 import { Route as CommunityClubsIdRouteImport } from './routes/community_.clubs.$id'
 
@@ -53,6 +57,11 @@ const MessagesRoute = MessagesRouteImport.update({
   path: '/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
@@ -71,6 +80,11 @@ const TrackReadingRoute = TrackReadingRouteImport.update({
 const ApiMessagesRoute = ApiMessagesRouteImport.update({
   id: '/api/messages',
   path: '/api/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotificationsRoute = ApiNotificationsRouteImport.update({
+  id: '/api/notifications',
+  path: '/api/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSecurityCheckRoute = ApiSecurityCheckRouteImport.update({
@@ -108,6 +122,17 @@ const ApiAuthLogoutRoute = ApiAuthLogoutRouteImport.update({
   path: '/api/auth/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiNotificationsCountsRoute = ApiNotificationsCountsRouteImport.update({
+  id: '/counts',
+  path: '/counts',
+  getParentRoute: () => ApiNotificationsRoute,
+} as any)
+const ApiNotificationsInvitationRoute =
+  ApiNotificationsInvitationRouteImport.update({
+    id: '/invitation',
+    path: '/invitation',
+    getParentRoute: () => ApiNotificationsRoute,
+  } as any)
 const ApiOnboardingCompleteRoute = ApiOnboardingCompleteRouteImport.update({
   id: '/api/onboarding/complete',
   path: '/api/onboarding/complete',
@@ -125,10 +150,12 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRouteWithChildren
   '/community': typeof CommunityRoute
   '/messages': typeof MessagesRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
   '/api/messages': typeof ApiMessagesRoute
+  '/api/notifications': typeof ApiNotificationsRouteWithChildren
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/messages/$id': typeof MessagesIdRoute
@@ -136,6 +163,8 @@ export interface FileRoutesByFullPath {
   '/users/$username': typeof UsersUsernameRoute
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/notifications/counts': typeof ApiNotificationsCountsRoute
+  '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
 }
@@ -145,10 +174,12 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRouteWithChildren
   '/community': typeof CommunityRoute
   '/messages': typeof MessagesRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
   '/api/messages': typeof ApiMessagesRoute
+  '/api/notifications': typeof ApiNotificationsRouteWithChildren
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/messages/$id': typeof MessagesIdRoute
@@ -156,6 +187,8 @@ export interface FileRoutesByTo {
   '/users/$username': typeof UsersUsernameRoute
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/notifications/counts': typeof ApiNotificationsCountsRoute
+  '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
 }
@@ -166,10 +199,12 @@ export interface FileRoutesById {
   '/auth': typeof AuthRouteWithChildren
   '/community': typeof CommunityRoute
   '/messages': typeof MessagesRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
   '/api/messages': typeof ApiMessagesRoute
+  '/api/notifications': typeof ApiNotificationsRouteWithChildren
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/messages_/$id': typeof MessagesIdRoute
@@ -177,6 +212,8 @@ export interface FileRoutesById {
   '/users/$username': typeof UsersUsernameRoute
   '/api/auth/google': typeof ApiAuthGoogleRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/notifications/counts': typeof ApiNotificationsCountsRoute
+  '/api/notifications/invitation': typeof ApiNotificationsInvitationRoute
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/community_/clubs/$id': typeof CommunityClubsIdRoute
 }
@@ -188,10 +225,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/community'
     | '/messages'
+    | '/notifications'
     | '/onboarding'
     | '/search-titles'
     | '/track-reading'
     | '/api/messages'
+    | '/api/notifications'
     | '/api/security-check'
     | '/auth/callback'
     | '/messages/$id'
@@ -199,6 +238,8 @@ export interface FileRouteTypes {
     | '/users/$username'
     | '/api/auth/google'
     | '/api/auth/logout'
+    | '/api/notifications/counts'
+    | '/api/notifications/invitation'
     | '/api/onboarding/complete'
     | '/community/clubs/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -208,10 +249,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/community'
     | '/messages'
+    | '/notifications'
     | '/onboarding'
     | '/search-titles'
     | '/track-reading'
     | '/api/messages'
+    | '/api/notifications'
     | '/api/security-check'
     | '/auth/callback'
     | '/messages/$id'
@@ -219,6 +262,8 @@ export interface FileRouteTypes {
     | '/users/$username'
     | '/api/auth/google'
     | '/api/auth/logout'
+    | '/api/notifications/counts'
+    | '/api/notifications/invitation'
     | '/api/onboarding/complete'
     | '/community/clubs/$id'
   id:
@@ -228,10 +273,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/community'
     | '/messages'
+    | '/notifications'
     | '/onboarding'
     | '/search-titles'
     | '/track-reading'
     | '/api/messages'
+    | '/api/notifications'
     | '/api/security-check'
     | '/auth/callback'
     | '/messages_/$id'
@@ -239,6 +286,8 @@ export interface FileRouteTypes {
     | '/users/$username'
     | '/api/auth/google'
     | '/api/auth/logout'
+    | '/api/notifications/counts'
+    | '/api/notifications/invitation'
     | '/api/onboarding/complete'
     | '/community_/clubs/$id'
   fileRoutesById: FileRoutesById
@@ -249,10 +298,12 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   CommunityRoute: typeof CommunityRoute
   MessagesRoute: typeof MessagesRoute
+  NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
   SearchTitlesRoute: typeof SearchTitlesRoute
   TrackReadingRoute: typeof TrackReadingRoute
   ApiMessagesRoute: typeof ApiMessagesRoute
+  ApiNotificationsRoute: typeof ApiNotificationsRouteWithChildren
   ApiSecurityCheckRoute: typeof ApiSecurityCheckRoute
   MessagesIdRoute: typeof MessagesIdRoute
   TitlesIdRoute: typeof TitlesIdRoute
@@ -300,6 +351,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboarding': {
       id: '/onboarding'
       path: '/onboarding'
@@ -326,6 +384,13 @@ declare module '@tanstack/react-router' {
       path: '/api/messages'
       fullPath: '/api/messages'
       preLoaderRoute: typeof ApiMessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notifications': {
+      id: '/api/notifications'
+      path: '/api/notifications'
+      fullPath: '/api/notifications'
+      preLoaderRoute: typeof ApiNotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/security-check': {
@@ -377,6 +442,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthLogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/notifications/counts': {
+      id: '/api/notifications/counts'
+      path: '/counts'
+      fullPath: '/api/notifications/counts'
+      preLoaderRoute: typeof ApiNotificationsCountsRouteImport
+      parentRoute: typeof ApiNotificationsRoute
+    }
+    '/api/notifications/invitation': {
+      id: '/api/notifications/invitation'
+      path: '/invitation'
+      fullPath: '/api/notifications/invitation'
+      preLoaderRoute: typeof ApiNotificationsInvitationRouteImport
+      parentRoute: typeof ApiNotificationsRoute
+    }
     '/api/onboarding/complete': {
       id: '/api/onboarding/complete'
       path: '/api/onboarding/complete'
@@ -404,16 +483,31 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface ApiNotificationsRouteChildren {
+  ApiNotificationsCountsRoute: typeof ApiNotificationsCountsRoute
+  ApiNotificationsInvitationRoute: typeof ApiNotificationsInvitationRoute
+}
+
+const ApiNotificationsRouteChildren: ApiNotificationsRouteChildren = {
+  ApiNotificationsCountsRoute: ApiNotificationsCountsRoute,
+  ApiNotificationsInvitationRoute: ApiNotificationsInvitationRoute,
+}
+
+const ApiNotificationsRouteWithChildren =
+  ApiNotificationsRoute._addFileChildren(ApiNotificationsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AuthRoute: AuthRouteWithChildren,
   CommunityRoute: CommunityRoute,
   MessagesRoute: MessagesRoute,
+  NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
   SearchTitlesRoute: SearchTitlesRoute,
   TrackReadingRoute: TrackReadingRoute,
   ApiMessagesRoute: ApiMessagesRoute,
+  ApiNotificationsRoute: ApiNotificationsRouteWithChildren,
   ApiSecurityCheckRoute: ApiSecurityCheckRoute,
   MessagesIdRoute: MessagesIdRoute,
   TitlesIdRoute: TitlesIdRoute,

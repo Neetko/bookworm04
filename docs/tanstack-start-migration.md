@@ -2,9 +2,9 @@
 
 For the current port order, staging setup, and release gates, see [TanStack Start cutover readiness — 25 November 2026](tanstack-start-cutover-readiness-2026-11-25.md).
 
-The working Start preview is in `apps/start`. It has its own dependency lockfile and runs on port 3101, while the current Next app continues on port 3000. The preview now includes the public home, catalog search/detail, community/club views, public profiles, and a first authenticated messages read/send slice. Google-only sign-in/callback/logout, request-scoped Supabase auth, React Query SSR hydration, intent prefetch, CSP nonces, private cache headers, bounded message writes, and cross-origin write rejection are wired. The preview remains `noindex`; it is not yet a replacement site.
+The working Start preview is in `apps/start`. It has its own dependency lockfile and runs on port 3101, while the current Next app continues on port 3000. The preview now includes the public home, catalog search/detail, community/club views, public profiles, authenticated messages, onboarding, and notifications. Google-only sign-in/callback/logout, request-scoped Supabase auth, React Query SSR hydration, intent prefetch, CSP nonces, private cache headers, bounded writes, and cross-origin write rejection are wired. The preview remains `noindex`; it is not yet a replacement site.
 
-Current blockers to staging acceptance are the remaining private routes and mutations, prepared responsive image variants, and full signed-in browser/RLS journeys. The first-time `/onboarding` flow now creates the authenticated profile and default reading lists, validates a unique username, saves favorite genres, and completes setup. Its optional title-selection and reader-suggestion steps remain deferred. The legacy `/track-reading` URL now preserves its redirect into catalog search. Google sign-in still needs a fixed staging callback host before an end-to-end acceptance test.
+Current blockers to staging acceptance are the remaining diary, profile, club-management, and staff routes and mutations, prepared responsive image variants, and full signed-in browser/RLS journeys. The first-time `/onboarding` flow creates the authenticated profile and default reading lists, validates a unique username, saves favorite genres, and completes setup. Its optional title-selection and reader-suggestion steps remain deferred. Notifications now preserve private cursor pagination, unread counts, read-state mutations, and authenticated club-invitation responses. The legacy `/track-reading` URL preserves its redirect into catalog search. Google sign-in still needs a fixed staging callback host before an end-to-end acceptance test.
 
 ## Route inventory
 
@@ -40,6 +40,7 @@ Preserve these public URLs. File names below are proposed Start route names, not
 | `/api/messages/recipients` | `app/api/messages/recipients/route.ts` | `routes/api.messages.recipients.ts` server handlers |
 | `/api/notifications` | `app/api/notifications/route.ts` | `routes/api.notifications.ts` server handlers |
 | `/api/notifications/counts` | `app/api/notifications/counts/route.ts` | `routes/api.notifications.counts.ts` server handlers |
+| `/api/notifications/invitation` | club invitation server actions | `routes/api.notifications.invitation.ts` server handlers |
 | `/api/track-reading/suggestions` | `app/api/track-reading/suggestions/route.ts` | `routes/api.track-reading.suggestions.ts` server handlers |
 | `/api/community/clubs/:id/invite-candidates` | `app/api/community/clubs/[id]/invite-candidates/route.ts` | `routes/api.community.clubs.$id.invite-candidates.ts` server handlers |
 
