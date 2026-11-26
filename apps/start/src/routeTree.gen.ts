@@ -16,6 +16,7 @@ import { Route as CommunityRouteImport } from './routes/community'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as SearchTitlesRouteImport } from './routes/search-titles'
+import { Route as TrackReadingRouteImport } from './routes/track-reading'
 import { Route as ApiMessagesRouteImport } from './routes/api.messages'
 import { Route as ApiSecurityCheckRouteImport } from './routes/api.security-check'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
@@ -60,6 +61,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const SearchTitlesRoute = SearchTitlesRouteImport.update({
   id: '/search-titles',
   path: '/search-titles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrackReadingRoute = TrackReadingRouteImport.update({
+  id: '/track-reading',
+  path: '/track-reading',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMessagesRoute = ApiMessagesRouteImport.update({
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/messages': typeof MessagesRoute
   '/onboarding': typeof OnboardingRoute
   '/search-titles': typeof SearchTitlesRoute
+  '/track-reading': typeof TrackReadingRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/messages': typeof MessagesRoute
   '/onboarding': typeof OnboardingRoute
   '/search-titles': typeof SearchTitlesRoute
+  '/track-reading': typeof TrackReadingRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/messages': typeof MessagesRoute
   '/onboarding': typeof OnboardingRoute
   '/search-titles': typeof SearchTitlesRoute
+  '/track-reading': typeof TrackReadingRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/onboarding'
     | '/search-titles'
+    | '/track-reading'
     | '/api/messages'
     | '/api/security-check'
     | '/auth/callback'
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/onboarding'
     | '/search-titles'
+    | '/track-reading'
     | '/api/messages'
     | '/api/security-check'
     | '/auth/callback'
@@ -219,6 +230,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/onboarding'
     | '/search-titles'
+    | '/track-reading'
     | '/api/messages'
     | '/api/security-check'
     | '/auth/callback'
@@ -239,6 +251,7 @@ export interface RootRouteChildren {
   MessagesRoute: typeof MessagesRoute
   OnboardingRoute: typeof OnboardingRoute
   SearchTitlesRoute: typeof SearchTitlesRoute
+  TrackReadingRoute: typeof TrackReadingRoute
   ApiMessagesRoute: typeof ApiMessagesRoute
   ApiSecurityCheckRoute: typeof ApiSecurityCheckRoute
   MessagesIdRoute: typeof MessagesIdRoute
@@ -299,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/search-titles'
       fullPath: '/search-titles'
       preLoaderRoute: typeof SearchTitlesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/track-reading': {
+      id: '/track-reading'
+      path: '/track-reading'
+      fullPath: '/track-reading'
+      preLoaderRoute: typeof TrackReadingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/messages': {
@@ -392,6 +412,7 @@ const rootRouteChildren: RootRouteChildren = {
   MessagesRoute: MessagesRoute,
   OnboardingRoute: OnboardingRoute,
   SearchTitlesRoute: SearchTitlesRoute,
+  TrackReadingRoute: TrackReadingRoute,
   ApiMessagesRoute: ApiMessagesRoute,
   ApiSecurityCheckRoute: ApiSecurityCheckRoute,
   MessagesIdRoute: MessagesIdRoute,

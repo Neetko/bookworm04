@@ -67,6 +67,14 @@ for (const path of [
   assert.equal(messagesRedirect.headers.get("cache-control"), "private, no-store, max-age=0")
 }
 
+const trackReadingRedirect = await fetch(new URL("/track-reading?q=Dune", url), {
+  cache: "no-store",
+  redirect: "manual",
+})
+assert.equal(trackReadingRedirect.status, 307)
+assert.match(trackReadingRedirect.headers.get("location") ?? "", /^\/search-titles\?/)
+assert.equal(trackReadingRedirect.headers.get("cache-control"), "private, no-store, max-age=0")
+
 async function inspectMessageWrite(payload, expectedStatus) {
   const response = await fetch(new URL("/api/messages", url), {
     method: "POST",
