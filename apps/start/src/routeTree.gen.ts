@@ -16,10 +16,12 @@ import { Route as CommunityRouteImport } from './routes/community'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SearchTitlesRouteImport } from './routes/search-titles'
 import { Route as TrackReadingRouteImport } from './routes/track-reading'
 import { Route as ApiMessagesRouteImport } from './routes/api.messages'
 import { Route as ApiNotificationsRouteImport } from './routes/api.notifications'
+import { Route as ApiProfileRouteImport } from './routes/api.profile'
 import { Route as ApiSecurityCheckRouteImport } from './routes/api.security-check'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as MessagesIdRouteImport } from './routes/messages_.$id'
@@ -67,6 +69,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SearchTitlesRoute = SearchTitlesRouteImport.update({
   id: '/search-titles',
   path: '/search-titles',
@@ -85,6 +92,11 @@ const ApiMessagesRoute = ApiMessagesRouteImport.update({
 const ApiNotificationsRoute = ApiNotificationsRouteImport.update({
   id: '/api/notifications',
   path: '/api/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProfileRoute = ApiProfileRouteImport.update({
+  id: '/api/profile',
+  path: '/api/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSecurityCheckRoute = ApiSecurityCheckRouteImport.update({
@@ -152,10 +164,12 @@ export interface FileRoutesByFullPath {
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/profile': typeof ProfileRoute
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
+  '/api/profile': typeof ApiProfileRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/messages/$id': typeof MessagesIdRoute
@@ -176,10 +190,12 @@ export interface FileRoutesByTo {
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/profile': typeof ProfileRoute
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
+  '/api/profile': typeof ApiProfileRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/messages/$id': typeof MessagesIdRoute
@@ -201,10 +217,12 @@ export interface FileRoutesById {
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
+  '/profile': typeof ProfileRoute
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
+  '/api/profile': typeof ApiProfileRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/messages_/$id': typeof MessagesIdRoute
@@ -227,10 +245,12 @@ export interface FileRouteTypes {
     | '/messages'
     | '/notifications'
     | '/onboarding'
+    | '/profile'
     | '/search-titles'
     | '/track-reading'
     | '/api/messages'
     | '/api/notifications'
+    | '/api/profile'
     | '/api/security-check'
     | '/auth/callback'
     | '/messages/$id'
@@ -251,10 +271,12 @@ export interface FileRouteTypes {
     | '/messages'
     | '/notifications'
     | '/onboarding'
+    | '/profile'
     | '/search-titles'
     | '/track-reading'
     | '/api/messages'
     | '/api/notifications'
+    | '/api/profile'
     | '/api/security-check'
     | '/auth/callback'
     | '/messages/$id'
@@ -275,10 +297,12 @@ export interface FileRouteTypes {
     | '/messages'
     | '/notifications'
     | '/onboarding'
+    | '/profile'
     | '/search-titles'
     | '/track-reading'
     | '/api/messages'
     | '/api/notifications'
+    | '/api/profile'
     | '/api/security-check'
     | '/auth/callback'
     | '/messages_/$id'
@@ -300,10 +324,12 @@ export interface RootRouteChildren {
   MessagesRoute: typeof MessagesRoute
   NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
+  ProfileRoute: typeof ProfileRoute
   SearchTitlesRoute: typeof SearchTitlesRoute
   TrackReadingRoute: typeof TrackReadingRoute
   ApiMessagesRoute: typeof ApiMessagesRoute
   ApiNotificationsRoute: typeof ApiNotificationsRouteWithChildren
+  ApiProfileRoute: typeof ApiProfileRoute
   ApiSecurityCheckRoute: typeof ApiSecurityCheckRoute
   MessagesIdRoute: typeof MessagesIdRoute
   TitlesIdRoute: typeof TitlesIdRoute
@@ -365,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/search-titles': {
       id: '/search-titles'
       path: '/search-titles'
@@ -391,6 +424,13 @@ declare module '@tanstack/react-router' {
       path: '/api/notifications'
       fullPath: '/api/notifications'
       preLoaderRoute: typeof ApiNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/profile': {
+      id: '/api/profile'
+      path: '/api/profile'
+      fullPath: '/api/profile'
+      preLoaderRoute: typeof ApiProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/security-check': {
@@ -504,10 +544,12 @@ const rootRouteChildren: RootRouteChildren = {
   MessagesRoute: MessagesRoute,
   NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
+  ProfileRoute: ProfileRoute,
   SearchTitlesRoute: SearchTitlesRoute,
   TrackReadingRoute: TrackReadingRoute,
   ApiMessagesRoute: ApiMessagesRoute,
   ApiNotificationsRoute: ApiNotificationsRouteWithChildren,
+  ApiProfileRoute: ApiProfileRoute,
   ApiSecurityCheckRoute: ApiSecurityCheckRoute,
   MessagesIdRoute: MessagesIdRoute,
   TitlesIdRoute: TitlesIdRoute,

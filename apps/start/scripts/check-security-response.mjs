@@ -58,6 +58,7 @@ for (const path of [
   "/messages/00000000-0000-0000-0000-000000000000?folder=inbox&page=1",
   "/onboarding",
   "/notifications",
+  "/profile",
 ]) {
   const messagesRedirect = await fetch(new URL(path, url), {
     cache: "no-store",
@@ -134,4 +135,20 @@ await inspectNotificationWrite("/api/notifications/invitation", "POST", {
   action: "accept",
 }, 401)
 await inspectNotificationWrite("/api/notifications/invitation", "POST", { action: "x".repeat(4_097) }, 413)
+
+async function inspectProfileWrite(payload, expectedStatus) {
+  const response = await fetch(new URL("/api/profile", url), {
+    method: "PATCH",
+    headers: {
+      Origin: new URL(url).origin,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+  assert.equal(response.status, expectedStatus)
+  assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0")
+}
+
+await inspectProfileWrite({ username: "Reader", bio: "Hello" }, 401)
+await inspectProfileWrite({ username: "Reader", bio: "x".repeat(8_193) }, 413)
 console.log(`Security headers passed on public, 404, and mutation responses; ${first.scriptCount} scripts use each fresh nonce.`)
