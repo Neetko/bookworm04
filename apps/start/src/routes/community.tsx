@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import type { FormEvent } from "react"
+import { useState, type FormEvent } from "react"
 import { normalizeCommunitySearch } from "../features/social/search"
 import { getCommunityClubs } from "../features/social/social.functions"
+import { GENRES } from "../features/titles/catalog"
 import styles from "../features/social/social.module.css"
 
 export const Route = createFileRoute("/community")({
@@ -16,6 +17,8 @@ function CommunityPage() {
   const clubs = Route.useLoaderData()
   const filters = Route.useSearch()
   const navigate = useNavigate()
+  const [creating, setCreating] = useState(false)
+  const [feedback, setFeedback] = useState("")
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
@@ -28,6 +31,26 @@ function CommunityPage() {
       }),
     })
   }
+  async function createClub(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setCreating(true)
+    setFeedback("")
+    const form = new FormData(event.currentTarget)
+    const response = await fetch("/api/clubs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: form.get("type"),
+        name: form.get("name"),
+        description: form.get("description"),
+        categories: form.getAll("categories"),
+      }),
+    })
+    const body = await response.json().catch(() => null) as { id?: string; error?: string } | null
+    setCreating(false)
+    if (!response.ok || !body?.id) { setFeedback(body?.error ?? "Could not create club"); return }
+    void navigate({ to: "/community/clubs/$id/manage", params: { id: body.id } })
+  }
   return <div className={styles.page}>
     <header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }}>Search titles</Link><Link to="/about">About</Link><Link to="/auth">Sign in</Link></nav></header>
     <main className={styles.main}>
@@ -39,6 +62,13 @@ function CommunityPage() {
         <input className={styles.input} name="genres" aria-label="Genres, comma separated" placeholder="Genres, comma separated" defaultValue={filters.genres} />
         <button className={styles.button} type="submit">Filter</button>
       </form>
+      <details className={styles.card}><summary className={styles.link}>Create a club</summary><form className={styles.form} onSubmit={createClub}>
+        <label>Type<select className={styles.select} name="type"><option value="book">Book club</option><option value="writer">Writer club</option></select></label>
+        <label>Name<input className={styles.input} name="name" maxLength={200} required /></label>
+        <label className={styles.full}>Description<textarea name="description" maxLength={5000} rows={4} /></label>
+        <fieldset className={styles.full}><legend>Categories</legend><div className={styles.checks}>{GENRES.map((genre) => <label key={genre}><input type="checkbox" name="categories" value={genre} />{genre}</label>)}</div></fieldset>
+        <button className={styles.button} type="submit" disabled={creating}>{creating ? "Creating…" : "Create club"}</button>{feedback && <p className={styles.feedback} role="status">{feedback}</p>}
+      </form></details>
       {clubs.length ? <div className={styles.grid}>{clubs.map((club) => <article className={styles.card} key={club.id}>
         <p className={styles.eyebrow}>{club.type === "writer" ? "Writer club" : "Book club"}</p>
         <h2><Link className={styles.link} to="/community/clubs/$id" params={{ id: club.id }} search={{}} preload="intent">{club.name}</Link></h2>

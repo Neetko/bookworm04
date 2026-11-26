@@ -31,4 +31,16 @@
 .muted { color: #bcaea2; }
 .sectionTitle { font-family: Georgia, serif; font-weight: 400; font-size: 1.7rem; margin: .2rem 0 1rem; }
 .empty { border: 1px solid #4a3b31; color: #bcaea2; padding: 2rem; margin-top: 2rem; }
+.actions { display: flex; gap: .7rem; align-items: center; margin: 1.3rem 0; }
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+.form label { display: grid; gap: .4rem; color: #cfc2b5; }
+.form textarea { border: 1px solid #655348; background: #100d0b; color: #f4eee7; padding: .8rem; font: inherit; resize: vertical; }
+.full { grid-column: 1 / -1; }
+.checks { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: .5rem; }
+.checks label { display: flex; align-items: center; gap: .3rem; }
+.inlineForm { display: flex; gap: .7rem; flex-wrap: wrap; align-items: center; margin: 1rem 0; }
+.inlineForm .input, .inlineForm .select { min-width: 12rem; }
+.smallButton { border: 1px solid #655348; background: #241a14; color: #eee4da; padding: .4rem .6rem; cursor: pointer; }
+.feedback { color: #d6b58f; margin: .8rem 0; }
+summary { cursor: pointer; }
 @media (max-width: 700px) { .header { align-items: flex-start; flex-direction: column; } .main { padding-top: 2rem; } .columns { grid-template-columns: 1fr; } }
