@@ -6,7 +6,7 @@ import type { MessageFolder } from "../features/messages/read.functions"
 import { messageListQuery } from "../features/messages/queries"
 import styles from "../features/messages/messages.module.css"
 
-async function sendMessage(data: { title: string; recipient: string; body: string }) {
+async function writeMessage(data: { title: string; recipient: string; body: string; status: "sent" | "draft" }) {
   const response = await fetch("/api/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -50,9 +50,9 @@ function MessagesPage() {
   const [composeOpen, setComposeOpen] = useState(false)
   const [feedback, setFeedback] = useState("")
   const send = useMutation({
-    mutationFn: sendMessage,
-    onSuccess: async () => {
-      setFeedback("Message sent.")
+    mutationFn: writeMessage,
+    onSuccess: async (_result, variables) => {
+      setFeedback(variables.status === "draft" ? "Draft saved." : "Message sent.")
       setComposeOpen(false)
       await queryClient.invalidateQueries({ queryKey: ["messages"] })
       await router.invalidate()
@@ -66,10 +66,13 @@ function MessagesPage() {
     event.preventDefault()
     setFeedback("")
     const data = new FormData(event.currentTarget)
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null
+    const status = submitter?.value === "draft" ? "draft" as const : "sent" as const
     send.mutate({
       recipient: String(data.get("recipient") ?? ""),
       title: String(data.get("title") ?? ""),
       body: String(data.get("body") ?? ""),
+      status,
     })
   }
   return (
@@ -77,10 +80,10 @@ function MessagesPage() {
       <div className={styles.top}><Link to="/">Bookworm</Link><Link to="/auth">Account</Link></div>
       <div className={styles.heading}><div><h1>Messages</h1><p>Your private conversations</p></div><button className={styles.composeButton} type="button" onClick={() => setComposeOpen((open) => !open)}>New message</button></div>
       {composeOpen && <form className={styles.compose} onSubmit={submitMessage}>
-        <label>Recipient username<input name="recipient" required maxLength={100} autoComplete="off" /></label>
+        <label>Recipient username<input name="recipient" maxLength={100} autoComplete="off" /></label>
         <label>Subject<input name="title" required maxLength={200} /></label>
         <label>Message<textarea name="body" required maxLength={10_000} rows={6} /></label>
-        <button type="submit" disabled={send.isPending}>{send.isPending ? "Sending…" : "Send"}</button>
+        <div className={styles.composeActions}><button type="submit" name="status" value="sent" disabled={send.isPending}>{send.isPending ? "Saving…" : "Send"}</button><button type="submit" name="status" value="draft" disabled={send.isPending}>Save draft</button></div>
       </form>}
       {feedback && <p className={styles.feedback} role="status">{feedback}</p>}
       <nav className={styles.folders} aria-label="Message folders">
