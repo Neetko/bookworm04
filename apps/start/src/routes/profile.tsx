@@ -84,7 +84,7 @@ function ProfilePage() {
   }
 
   return <main className={styles.shell}>
-    <div className={styles.top}><Link to="/">Bookworm</Link><nav><Link to="/notifications">Notifications</Link><Link to="/messages" search={{ folder: "inbox", page: 1 }}>Messages</Link></nav></div>
+    <div className={styles.top}><Link to="/">Bookworm</Link><nav><Link to="/diary" search={{ filterBy: "none", genres: "", author: "", title: "" }}>Diary</Link><Link to="/notifications">Notifications</Link><Link to="/messages" search={{ folder: "inbox", page: 1 }}>Messages</Link></nav></div>
     <section className={styles.hero}>
       {data.profile.avatarUrl ? <img className={styles.avatar} src={data.profile.avatarUrl} alt="" width="104" height="104" /> : <div className={styles.avatarFallback} aria-hidden="true">{data.profile.username.slice(0, 1).toUpperCase() || "U"}</div>}
       <div><div className={styles.heroTop}><div><h1>{data.profile.username || "Anonymous"}</h1><p className={styles.email}>{data.profile.email}</p></div><button className={styles.button} type="button" onClick={() => { setEditing((value) => !value); setFeedback("") }}>Edit profile</button></div><p className={styles.bio}>{data.profile.bio || "No bio yet."}</p><p className={styles.member}>Member since {formatDate(data.profile.createdAt)}</p></div>

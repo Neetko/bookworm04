@@ -13,17 +13,20 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CommunityRouteImport } from './routes/community'
+import { Route as DiaryRouteImport } from './routes/diary'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SearchTitlesRouteImport } from './routes/search-titles'
 import { Route as TrackReadingRouteImport } from './routes/track-reading'
+import { Route as ApiDiaryRouteImport } from './routes/api.diary'
 import { Route as ApiMessagesRouteImport } from './routes/api.messages'
 import { Route as ApiNotificationsRouteImport } from './routes/api.notifications'
 import { Route as ApiProfileRouteImport } from './routes/api.profile'
 import { Route as ApiSecurityCheckRouteImport } from './routes/api.security-check'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as DiaryIdRouteImport } from './routes/diary.$id'
 import { Route as MessagesIdRouteImport } from './routes/messages_.$id'
 import { Route as TitlesIdRouteImport } from './routes/titles.$id'
 import { Route as UsersUsernameRouteImport } from './routes/users.$username'
@@ -52,6 +55,11 @@ const AuthRoute = AuthRouteImport.update({
 const CommunityRoute = CommunityRouteImport.update({
   id: '/community',
   path: '/community',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiaryRoute = DiaryRouteImport.update({
+  id: '/diary',
+  path: '/diary',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MessagesRoute = MessagesRouteImport.update({
@@ -84,6 +92,11 @@ const TrackReadingRoute = TrackReadingRouteImport.update({
   path: '/track-reading',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDiaryRoute = ApiDiaryRouteImport.update({
+  id: '/api/diary',
+  path: '/api/diary',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMessagesRoute = ApiMessagesRouteImport.update({
   id: '/api/messages',
   path: '/api/messages',
@@ -108,6 +121,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
   getParentRoute: () => AuthRoute,
+} as any)
+const DiaryIdRoute = DiaryIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => DiaryRoute,
 } as any)
 const MessagesIdRoute = MessagesIdRouteImport.update({
   id: '/messages_/$id',
@@ -161,17 +179,20 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/auth': typeof AuthRouteWithChildren
   '/community': typeof CommunityRoute
+  '/diary': typeof DiaryRouteWithChildren
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
+  '/api/diary': typeof ApiDiaryRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/diary/$id': typeof DiaryIdRoute
   '/messages/$id': typeof MessagesIdRoute
   '/titles/$id': typeof TitlesIdRoute
   '/users/$username': typeof UsersUsernameRoute
@@ -187,17 +208,20 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/auth': typeof AuthRouteWithChildren
   '/community': typeof CommunityRoute
+  '/diary': typeof DiaryRouteWithChildren
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
+  '/api/diary': typeof ApiDiaryRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/diary/$id': typeof DiaryIdRoute
   '/messages/$id': typeof MessagesIdRoute
   '/titles/$id': typeof TitlesIdRoute
   '/users/$username': typeof UsersUsernameRoute
@@ -214,17 +238,20 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/auth': typeof AuthRouteWithChildren
   '/community': typeof CommunityRoute
+  '/diary': typeof DiaryRouteWithChildren
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
+  '/api/diary': typeof ApiDiaryRoute
   '/api/messages': typeof ApiMessagesRoute
   '/api/notifications': typeof ApiNotificationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/security-check': typeof ApiSecurityCheckRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/diary/$id': typeof DiaryIdRoute
   '/messages_/$id': typeof MessagesIdRoute
   '/titles/$id': typeof TitlesIdRoute
   '/users/$username': typeof UsersUsernameRoute
@@ -242,17 +269,20 @@ export interface FileRouteTypes {
     | '/about'
     | '/auth'
     | '/community'
+    | '/diary'
     | '/messages'
     | '/notifications'
     | '/onboarding'
     | '/profile'
     | '/search-titles'
     | '/track-reading'
+    | '/api/diary'
     | '/api/messages'
     | '/api/notifications'
     | '/api/profile'
     | '/api/security-check'
     | '/auth/callback'
+    | '/diary/$id'
     | '/messages/$id'
     | '/titles/$id'
     | '/users/$username'
@@ -268,17 +298,20 @@ export interface FileRouteTypes {
     | '/about'
     | '/auth'
     | '/community'
+    | '/diary'
     | '/messages'
     | '/notifications'
     | '/onboarding'
     | '/profile'
     | '/search-titles'
     | '/track-reading'
+    | '/api/diary'
     | '/api/messages'
     | '/api/notifications'
     | '/api/profile'
     | '/api/security-check'
     | '/auth/callback'
+    | '/diary/$id'
     | '/messages/$id'
     | '/titles/$id'
     | '/users/$username'
@@ -294,17 +327,20 @@ export interface FileRouteTypes {
     | '/about'
     | '/auth'
     | '/community'
+    | '/diary'
     | '/messages'
     | '/notifications'
     | '/onboarding'
     | '/profile'
     | '/search-titles'
     | '/track-reading'
+    | '/api/diary'
     | '/api/messages'
     | '/api/notifications'
     | '/api/profile'
     | '/api/security-check'
     | '/auth/callback'
+    | '/diary/$id'
     | '/messages_/$id'
     | '/titles/$id'
     | '/users/$username'
@@ -321,12 +357,14 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AuthRoute: typeof AuthRouteWithChildren
   CommunityRoute: typeof CommunityRoute
+  DiaryRoute: typeof DiaryRouteWithChildren
   MessagesRoute: typeof MessagesRoute
   NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
   ProfileRoute: typeof ProfileRoute
   SearchTitlesRoute: typeof SearchTitlesRoute
   TrackReadingRoute: typeof TrackReadingRoute
+  ApiDiaryRoute: typeof ApiDiaryRoute
   ApiMessagesRoute: typeof ApiMessagesRoute
   ApiNotificationsRoute: typeof ApiNotificationsRouteWithChildren
   ApiProfileRoute: typeof ApiProfileRoute
@@ -368,6 +406,13 @@ declare module '@tanstack/react-router' {
       path: '/community'
       fullPath: '/community'
       preLoaderRoute: typeof CommunityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/diary': {
+      id: '/diary'
+      path: '/diary'
+      fullPath: '/diary'
+      preLoaderRoute: typeof DiaryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/messages': {
@@ -412,6 +457,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrackReadingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/diary': {
+      id: '/api/diary'
+      path: '/api/diary'
+      fullPath: '/api/diary'
+      preLoaderRoute: typeof ApiDiaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/messages': {
       id: '/api/messages'
       path: '/api/messages'
@@ -446,6 +498,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof AuthRoute
+    }
+    '/diary/$id': {
+      id: '/diary/$id'
+      path: '/$id'
+      fullPath: '/diary/$id'
+      preLoaderRoute: typeof DiaryIdRouteImport
+      parentRoute: typeof DiaryRoute
     }
     '/messages_/$id': {
       id: '/messages_/$id'
@@ -523,6 +582,16 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface DiaryRouteChildren {
+  DiaryIdRoute: typeof DiaryIdRoute
+}
+
+const DiaryRouteChildren: DiaryRouteChildren = {
+  DiaryIdRoute: DiaryIdRoute,
+}
+
+const DiaryRouteWithChildren = DiaryRoute._addFileChildren(DiaryRouteChildren)
+
 interface ApiNotificationsRouteChildren {
   ApiNotificationsCountsRoute: typeof ApiNotificationsCountsRoute
   ApiNotificationsInvitationRoute: typeof ApiNotificationsInvitationRoute
@@ -541,12 +610,14 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AuthRoute: AuthRouteWithChildren,
   CommunityRoute: CommunityRoute,
+  DiaryRoute: DiaryRouteWithChildren,
   MessagesRoute: MessagesRoute,
   NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
   ProfileRoute: ProfileRoute,
   SearchTitlesRoute: SearchTitlesRoute,
   TrackReadingRoute: TrackReadingRoute,
+  ApiDiaryRoute: ApiDiaryRoute,
   ApiMessagesRoute: ApiMessagesRoute,
   ApiNotificationsRoute: ApiNotificationsRouteWithChildren,
   ApiProfileRoute: ApiProfileRoute,

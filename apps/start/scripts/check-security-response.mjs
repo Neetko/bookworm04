@@ -59,6 +59,7 @@ for (const path of [
   "/onboarding",
   "/notifications",
   "/profile",
+  "/diary?filterBy=none&genres=&author=&title=",
 ]) {
   const messagesRedirect = await fetch(new URL(path, url), {
     cache: "no-store",
@@ -151,4 +152,31 @@ async function inspectProfileWrite(payload, expectedStatus) {
 
 await inspectProfileWrite({ username: "Reader", bio: "Hello" }, 401)
 await inspectProfileWrite({ username: "Reader", bio: "x".repeat(8_193) }, 413)
+
+async function inspectDiaryWrite(method, payload, expectedStatus) {
+  const response = await fetch(new URL("/api/diary", url), {
+    method,
+    headers: {
+      Origin: new URL(url).origin,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+  assert.equal(response.status, expectedStatus)
+  assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0")
+}
+
+await inspectDiaryWrite("POST", {
+  titleId: "00000000-0000-0000-0000-000000000000",
+  progress: { mode: "pages", currentPage: 1, totalPages: 100 },
+  noteText: "Safe note",
+}, 401)
+await inspectDiaryWrite("PATCH", {
+  entryId: "00000000-0000-0000-0000-000000000000",
+  noteText: "Safe note",
+}, 401)
+await inspectDiaryWrite("PATCH", {
+  entryId: "00000000-0000-0000-0000-000000000000",
+  noteText: "x".repeat(64_001),
+}, 413)
 console.log(`Security headers passed on public, 404, and mutation responses; ${first.scriptCount} scripts use each fresh nonce.`)
