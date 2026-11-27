@@ -39,6 +39,23 @@ export type CatalogReview = {
 export type CatalogDetail = CatalogTitle & {
   isbn: string | null
   reviews: CatalogReview[]
+  shop: {
+    amazonUrl: string
+    audibleUrl: string
+  }
+  viewer: {
+    signedIn: boolean
+    isRead: boolean
+    progress: {
+      mode: "pages" | "audiobook"
+      currentPage: number
+      totalPages: number
+      minutesListened: number
+      totalMinutes: number
+      percent: number
+    } | null
+    todayNote: string
+  }
 }
 
 export function isGenre(value: unknown): value is Genre {

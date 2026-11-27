@@ -44,6 +44,30 @@ function toCatalogTitle(row: TitleRow): CatalogTitle {
   }
 }
 
+function envValue(...names: string[]): string {
+  for (const name of names) {
+    const value = process.env[name]?.trim()
+    if (value) return value
+  }
+  return ""
+}
+
+function amazonSearchUrl(query: string): string {
+  const url = new URL("https://www.amazon.com/s")
+  url.searchParams.set("k", query)
+  const tag = envValue("AMAZON_ASSOCIATES_TAG", "AMAZON_AFFILIATE_TAG", "NEXT_PUBLIC_AMAZON_TAG", "VITE_AMAZON_TAG")
+  if (tag) url.searchParams.set("tag", tag)
+  return url.toString()
+}
+
+function audibleSearchUrl(query: string): string {
+  const url = new URL("https://www.audible.com/search")
+  url.searchParams.set("keywords", query)
+  const tag = envValue("AUDIBLE_AFFILIATE_TAG", "VITE_AUDIBLE_AFFILIATE_TAG")
+  if (tag) url.searchParams.set("source_code", tag)
+  return url.toString()
+}
+
 export async function searchCatalog(input: CatalogSearch): Promise<CatalogTitle[]> {
   const search = normalizeCatalogSearch(input)
   const supabase = createRequestSupabaseClient()
@@ -103,5 +127,59 @@ export async function getCatalogDetail(id: string): Promise<CatalogDetail> {
     username: row.user_id ? names.get(row.user_id) ?? null : null,
   }))
 
-  return { ...title, isbn: data.isbn, reviews }
+  const { data: { user } } = await supabase.auth.getUser()
+  let viewer: CatalogDetail["viewer"] = {
+    signedIn: false,
+    isRead: false,
+    progress: null,
+    todayNote: "",
+  }
+
+  if (user) {
+    const { data: profile } = await supabase.from("user_profiles")
+      .select("id").eq("auth_user_id", user.id).maybeSingle()
+    if (profile?.id) {
+      const today = new Date().toISOString().slice(0, 10)
+      const [listResult, progressResult, diaryResult] = await Promise.all([
+        supabase.from("title_lists").select("id")
+          .eq("user_profile_id", profile.id).eq("list_type", "finished-reading").maybeSingle(),
+        supabase.from("title_user_progress")
+          .select("current_page,total_pages,minutes_listened,total_minutes,progress_percent")
+          .eq("user_profile_id", profile.id).eq("title_id", id).maybeSingle(),
+        supabase.from("reading_diary_entries").select("note_text")
+          .eq("user_profile_id", profile.id).eq("title_id", id).eq("entry_date", today)
+          .order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      ])
+      const { data: readItem } = listResult.data?.id
+        ? await supabase.from("title_list_items").select("title_id")
+            .eq("list_id", listResult.data.id).eq("title_id", id).maybeSingle()
+        : { data: null }
+      const saved = progressResult.data
+      viewer = {
+        signedIn: true,
+        isRead: Boolean(readItem?.title_id),
+        progress: saved ? {
+          mode: saved.total_minutes !== null ? "audiobook" : "pages",
+          currentPage: saved.current_page ?? 0,
+          totalPages: saved.total_pages ?? 300,
+          minutesListened: saved.minutes_listened ?? 0,
+          totalMinutes: saved.total_minutes ?? 600,
+          percent: saved.progress_percent ?? 0,
+        } : null,
+        todayNote: diaryResult.data?.note_text ?? "",
+      }
+    }
+  }
+
+  const searchTerms = `${title.title} ${title.author}`.trim()
+  return {
+    ...title,
+    isbn: data.isbn,
+    reviews,
+    viewer,
+    shop: {
+      amazonUrl: amazonSearchUrl(searchTerms),
+      audibleUrl: audibleSearchUrl(searchTerms),
+    },
+  }
 }

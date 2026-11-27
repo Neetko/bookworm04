@@ -28,3 +28,43 @@
 .genreOption input:checked+span{background:color-mix(in srgb,var(--genre-color) 65%,var(--bw-background));border-color:var(--genre-color);color:var(--bw-text)}
 .genreOption input:focus-visible+span{outline:2px solid var(--bw-primary);outline-offset:2px}
 .tags [data-genre]{background:color-mix(in srgb,var(--genre-color) 55%,var(--bw-background));border-radius:9px}
+
+/* Restored title engagement controls. */
+.detailText{min-width:0}
+.titleActions{margin-top:32px;padding-top:23px;border-top:1px solid var(--bw-border);display:grid;gap:20px}
+.readingActions,.shopActions{display:flex;align-items:flex-start;flex-wrap:wrap;gap:10px}
+.shopActions>span:first-child{align-self:center;margin-right:2px;color:var(--bw-muted);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.actionButton{min-height:38px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--bw-border);border-radius:5px;padding:9px 13px;font:700 12px Raleway,Arial,sans-serif;text-decoration:none;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,transform .15s ease!important}
+.actionButton:hover:not(:disabled){transform:translateY(-1px)}
+.actionButton:disabled{cursor:wait;opacity:.68}
+.actionButton small{font-size:13px;color:var(--bw-muted)}
+.actionPrimary{background:var(--bw-primary);border-color:var(--bw-primary);color:var(--bw-primary-text)}
+.actionPrimary:hover:not(:disabled){filter:brightness(1.1)}
+.actionSecondary{background:var(--bw-card);color:var(--bw-text)}
+.actionSecondary:hover:not(:disabled){background:var(--bw-tint);border-color:var(--bw-primary)}
+.actionComplete{background:color-mix(in srgb,#238457 72%,var(--bw-card));border-color:#43a477;color:#fff}
+.actionComplete:hover:not(:disabled){background:color-mix(in srgb,#176f47 80%,var(--bw-card))}
+.actionWithStatus{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.actionMessage,.progressSummary{font-size:11px;color:var(--bw-muted)}
+.progressSummary{padding:4px 7px;border-radius:99px;background:var(--bw-tint)}
+.modalBackdrop{position:fixed;z-index:1000;inset:0;display:grid;place-items:center;padding:20px;background:rgba(19,15,12,.74);backdrop-filter:blur(4px)}
+.progressDialog{width:min(540px,100%);max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box;background:var(--bw-popover);color:var(--bw-text);border:1px solid var(--bw-border);border-radius:8px;box-shadow:0 24px 70px rgba(0,0,0,.35);padding:25px}
+.dialogHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:18px;border-bottom:1px solid var(--bw-border)}
+.dialogHeader h2{margin:3px 0 4px;font:400 31px "IM Fell English SC",Georgia,serif}
+.dialogHeader p:last-child{margin:0;color:var(--bw-muted);font-size:13px}
+.closeButton{border:0;background:transparent;color:var(--bw-muted);font:300 29px/1 Georgia,serif;cursor:pointer;padding:0 3px}
+.closeButton:hover{color:var(--bw-text)}
+.progressForm{display:grid;gap:19px;padding-top:21px}
+.modePicker{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--bw-border);border-radius:5px;overflow:hidden}
+.modePicker button{border:0;background:var(--bw-background);color:var(--bw-muted);padding:10px;font:700 12px Raleway,Arial,sans-serif;cursor:pointer}
+.modePicker button+button{border-left:1px solid var(--bw-border)}
+.modePicker .modeActive{background:var(--bw-primary);color:var(--bw-primary-text)}
+.progressFields{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.progressFields label,.noteField{display:grid;gap:8px;font-size:12px;font-weight:700;color:var(--bw-text)}
+.progressFields input,.noteField textarea{box-sizing:border-box;width:100%;border:1px solid var(--bw-border);border-radius:4px;background:var(--bw-background);color:var(--bw-text);font:400 14px Raleway,Arial,sans-serif;padding:11px 12px}
+.progressFields input:focus,.noteField textarea:focus{outline:2px solid var(--bw-primary);outline-offset:1px}
+.noteField textarea{min-height:112px;resize:vertical;line-height:1.55}
+.formError{margin:0;border-left:3px solid #d24b46;padding:8px 11px;background:color-mix(in srgb,#d24b46 10%,var(--bw-card));color:var(--bw-text);font-size:12px}
+.dialogActions{display:flex;justify-content:flex-end;gap:9px;padding-top:2px}
+
+@media(max-width:700px){.titleActions{margin-top:25px}.readingActions,.shopActions{align-items:stretch}.readingActions>.actionWithStatus{width:100%}.readingActions .actionButton{flex:1}.shopActions>span:first-child{width:100%}.shopActions .actionButton{flex:1}.modalBackdrop{padding:10px}.progressDialog{max-height:calc(100vh - 20px);padding:20px}.progressFields{grid-template-columns:1fr}.dialogActions .actionButton{flex:1}}
