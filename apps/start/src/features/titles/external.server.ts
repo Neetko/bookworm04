@@ -119,9 +119,10 @@ export async function searchExternalCatalog(input: CatalogSearch): Promise<{ sta
   url.searchParams.set("orderBy", "relevance")
   url.searchParams.set("maxResults", "12")
   const payload = await fetchGoogleJson(url) as GoogleList | null
-  if (!payload || !Array.isArray(payload.items)) return { status: "unavailable", titles: [] }
+  if (!payload || typeof payload !== "object") return { status: "unavailable", titles: [] }
+  const items = Array.isArray(payload.items) ? payload.items : []
   const unique = new Map<string, Omit<ExternalCatalogTitle, "localTitleId">>()
-  for (const item of payload.items) {
+  for (const item of items) {
     const parsed = toExternalTitle(item)
     if (parsed && !unique.has(parsed.volumeId)) unique.set(parsed.volumeId, parsed)
   }

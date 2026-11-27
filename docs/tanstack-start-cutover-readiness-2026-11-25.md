@@ -1,34 +1,37 @@
-# TanStack Start cutover readiness — updated 26 November 2026
+# TanStack Start cutover readiness — updated 27 November 2026
 
-## Current baseline
+## Current state
 
-The production app is Next.js 15.5.29 on Vercel, and Vercel remains the chosen host. The separate `apps/start` package builds TanStack Start through Nitro. Public home, catalog, title, community, club, and profile views are ported, along with first-time onboarding and an initial private messages read/send slice. React Query SSR hydration and intent prefetch are installed. The preview remains `noindex` and incomplete; the current Next app stays live.
+The application route conversion is complete in `apps/start`. Every public, authenticated, club, writer, messaging, diary, notification, profile, moderator, and suggestion-review route has a TanStack Start equivalent. External Google Books search and reviewed catalog submission are also implemented. The old Next application remains in the repository only as a short-term rollback target.
 
-The confirmed security fixes remain in the Next app until cutover. Replacing Next removes its `/_next/image` optimizer only when the new site stops using that endpoint. It does not replace the HTML sanitizer, Supabase RLS, staff assurance checks, Google-only auth configuration, quotas, or private response headers.
+Vercel remains the host. The isolated `bookworm04-start` project builds from `apps/start` on Node 22 and is available at `https://bookworm04-start.vercel.app`. It remains `noindex`. The production `bookworm04` project has the non-secret TanStack origin, Nitro preset, and indexing settings prepared, but its root directory is not changed until the final merge.
 
-## Remaining build order
+Supabase accepts both production and staging `/auth/callback` URLs. Staging deliberately has only the public Supabase configuration: the production service-role credential was not copied into a second project. The full signed-in writer paths are exercised during the production cutover using the existing protected production environment.
 
-1. **Shared boundaries.** Extract framework-neutral validation, HTML sanitization, permissions, quotas, and typed data access from Next modules. Keep secrets in Start server code. Add parity checks for status codes, redirects, cache headers, CSP, and cookie refresh.
-2. **Finish public parity.** Complete external title ingestion, canonical query normalization, public metadata, and bounded responsive image delivery. Keep the preview `noindex` while incomplete.
-3. **Private pages and writes.** Extend onboarding with its optional title/follow steps, then port reading, diary, follows, club management/writing, profile edits, notifications, admin, and the remaining message operations. Check `auth.getUser()` and ownership inside every server handler. Reuse the existing database policies rather than granting Start broader browser access.
-4. **Images and assets.** Replace `next/image` with fixed, preprocessed cover and avatar sizes stored in Supabase Storage and explicit responsive sources. The current cover ingestion already produces bounded WebP output and avatar upload resizes to 200px; add the needed cover variants and migrate remote Google/Open Library images before removing the optimizer. Keep remote fetch allowlists, byte and pixel limits, and CSP image hosts constrained. Check image quality, failures, cache policy, and cost in staging.
-5. **Vercel staging.** Create a separate Vercel project with `apps/start` as its project root and a fixed staging hostname. CI now verifies Nitro's Vercel Build Output API bundle and Node 22 runtime. Set the exact HTTPS `PUBLIC_APP_ORIGIN`, Supabase public values, and the service-role key required by protected server writers. Register the staging `/auth/callback` in Supabase.
-6. **Cutover.** Verify route parity and Google login on staging, then test account switching, RLS, every mutation, signed-out behavior, image delivery, CDN caching, SEO, and real statuses. Keep the existing Next deployment as the rollback target. Move the production domain only after staging passes; Vercel continues hosting the Start deployment.
+## Completed release gates
 
-## Release gates
+- The Start package builds and type-checks on Node 22, and CI verifies Nitro's Vercel Build Output API bundle.
+- Existing dependency, unit, Next rollback-build, browser, and local RLS jobs remain required on migration pull requests.
+- The real Vercel staging hostname passed the Start security smoke suite: private/no-store responses, fresh CSP nonces, 404 behavior, signed-out redirects, cross-origin rejection, originless-write rejection, and bounded unauthenticated writes.
+- Google OAuth initiation on staging produces a PKCE request whose `redirect_to` is the allowlisted staging callback.
+- Responsive covers use direct, allowlisted Google Books/Open Library variants or bounded Supabase Storage images. Start does not call `/_next/image` and does not recreate an unrestricted image proxy.
+- Messages retain write-time sanitization, inert list previews, read-time sanitization, ownership checks, and quotas. Staff reads and mutations retain role checks plus AAL2 verification.
+- External title submission refetches the Google record on the server, bounds the response, deduplicates source mappings, and enters the existing staff-review workflow.
 
-- Full dependency audits, typecheck, build, unit tests, and browser/RLS journeys pass for Start.
-- Public URLs and important query states behave the same on direct load and client navigation; missing resources retain their intended status codes.
-- A normal user cannot read another user's messages or private profile, change roles, or write directly to restricted tables. Staff actions require AAL2. Stored hostile message HTML remains inert in list and detail views.
-- Personalized HTML, redirects, APIs, and server functions remain `private, no-store` through the selected host. CSP nonces and cross-origin write rejection are verified from actual responses.
-- Google callback and logout work on the staging host; sessions are checked after refresh and account switching. No production domain change happens during these tests.
-- Image URLs do not invoke `/_next/image` or an unrestricted remote transformation proxy. Storage paths and external hosts are allowlisted, and new variants are bounded at ingestion.
-- The production host and domain switch have a documented rollback command and a verified previous release.
+## Final cutover runbook
 
-## Decisions before an external staging deploy
+1. Merge the remaining staff and external-catalog migration branches after required CI passes.
+2. Point the existing `bookworm04` Vercel project's root directory at `apps/start`, keeping Node 22, `pnpm build`, and the existing production secrets.
+3. Deploy `main`, then verify `/`, catalog search, a missing route, signed-out private redirects, OAuth initiation, and the security smoke suite on `bookworm04.vercel.app`.
+4. Perform one Google sign-in and one bounded signed-in mutation. Verify logout and a second account before treating authentication acceptance as complete.
+5. Keep the previous Next deployment available as the rollback target during the observation window. Rollback is a Vercel project root/deployment promotion, not a database downgrade.
 
-- Create the separate Vercel project and fixed staging hostname; do not repoint the production project yet.
-- Choose a staging Supabase project or controlled test accounts and register the staging Google redirect. Do not use real user data merely to prove the preview works.
-- Decide whether the current public username directory and first-contact messaging behavior should remain; the framework migration does not change this policy.
+## Security invariants after cutover
+
+- Service-role credentials remain server-only and only narrow handlers use them after checking the authenticated user and owned resource.
+- Supabase RLS, grants, constraints, and transactional functions remain the final data boundary; changing frameworks does not replace them.
+- Personalized responses stay private and uncached, and the browser CSP uses a fresh nonce with inline event handlers disabled.
+- Hosted authentication remains Google-only. Staff access still requires an admin/moderator role and a verified AAL2 session.
+- The staging deployment remains `noindex`; production is indexable only because its explicit build-time setting is `false`.
 
 References: [TanStack migration guide](https://tanstack.com/start/latest/docs/framework/react/migrate-from-next-js), [TanStack hosting guide](https://tanstack.com/start/latest/docs/framework/react/guide/hosting), [Vercel Build Output API](https://vercel.com/docs/build-output-api/v3).
