@@ -49,7 +49,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         "connect-src 'self'",
         "object-src 'none'",
         "base-uri 'none'",
-        "form-action 'self'",
+        `form-action 'self' ${[supabaseImages, "https://accounts.google.com"].filter(Boolean).join(" ")}`,
         "frame-ancestors 'none'",
       ].join("; "),
     }
