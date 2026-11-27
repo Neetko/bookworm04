@@ -20,6 +20,8 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SearchTitlesRouteImport } from './routes/search-titles'
 import { Route as TrackReadingRouteImport } from './routes/track-reading'
+import { Route as AdminModeratorsRouteImport } from './routes/admin.moderators'
+import { Route as AdminSuggestionsRouteImport } from './routes/admin.suggestions'
 import { Route as ApiClubsRouteImport } from './routes/api.clubs'
 import { Route as ApiDiaryRouteImport } from './routes/api.diary'
 import { Route as ApiMessagesRouteImport } from './routes/api.messages'
@@ -42,6 +44,9 @@ import { Route as ApiNotificationsInvitationRouteImport } from './routes/api.not
 import { Route as ApiOnboardingCompleteRouteImport } from './routes/api.onboarding.complete'
 import { Route as ApiProfileAvatarRouteImport } from './routes/api.profile.avatar'
 import { Route as ApiProfileListsRouteImport } from './routes/api.profile.lists'
+import { Route as ApiStaffMfaRouteImport } from './routes/api.staff.mfa'
+import { Route as ApiStaffRolesRouteImport } from './routes/api.staff.roles'
+import { Route as ApiStaffSuggestionsRouteImport } from './routes/api.staff.suggestions'
 import { Route as ApiTrackReadingSuggestionsRouteImport } from './routes/api.track-reading.suggestions'
 import { Route as CommunityClubsIdRouteImport } from './routes/community_.clubs.$id'
 import { Route as ApiClubsIdAvatarRouteImport } from './routes/api.clubs.$id.avatar'
@@ -106,6 +111,16 @@ const SearchTitlesRoute = SearchTitlesRouteImport.update({
 const TrackReadingRoute = TrackReadingRouteImport.update({
   id: '/track-reading',
   path: '/track-reading',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminModeratorsRoute = AdminModeratorsRouteImport.update({
+  id: '/admin/moderators',
+  path: '/admin/moderators',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSuggestionsRoute = AdminSuggestionsRouteImport.update({
+  id: '/admin/suggestions',
+  path: '/admin/suggestions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiClubsRoute = ApiClubsRouteImport.update({
@@ -219,6 +234,21 @@ const ApiProfileListsRoute = ApiProfileListsRouteImport.update({
   path: '/lists',
   getParentRoute: () => ApiProfileRoute,
 } as any)
+const ApiStaffMfaRoute = ApiStaffMfaRouteImport.update({
+  id: '/api/staff/mfa',
+  path: '/api/staff/mfa',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStaffRolesRoute = ApiStaffRolesRouteImport.update({
+  id: '/api/staff/roles',
+  path: '/api/staff/roles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStaffSuggestionsRoute = ApiStaffSuggestionsRouteImport.update({
+  id: '/api/staff/suggestions',
+  path: '/api/staff/suggestions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTrackReadingSuggestionsRoute =
   ApiTrackReadingSuggestionsRouteImport.update({
     id: '/api/track-reading/suggestions',
@@ -286,6 +316,8 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRouteWithChildren
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
+  '/admin/moderators': typeof AdminModeratorsRoute
+  '/admin/suggestions': typeof AdminSuggestionsRoute
   '/api/clubs': typeof ApiClubsRouteWithChildren
   '/api/diary': typeof ApiDiaryRoute
   '/api/messages': typeof ApiMessagesRouteWithChildren
@@ -308,6 +340,9 @@ export interface FileRoutesByFullPath {
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
+  '/api/staff/mfa': typeof ApiStaffMfaRoute
+  '/api/staff/roles': typeof ApiStaffRolesRoute
+  '/api/staff/suggestions': typeof ApiStaffSuggestionsRoute
   '/api/track-reading/suggestions': typeof ApiTrackReadingSuggestionsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
@@ -331,6 +366,8 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRouteWithChildren
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
+  '/admin/moderators': typeof AdminModeratorsRoute
+  '/admin/suggestions': typeof AdminSuggestionsRoute
   '/api/clubs': typeof ApiClubsRouteWithChildren
   '/api/diary': typeof ApiDiaryRoute
   '/api/messages': typeof ApiMessagesRouteWithChildren
@@ -353,6 +390,9 @@ export interface FileRoutesByTo {
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
+  '/api/staff/mfa': typeof ApiStaffMfaRoute
+  '/api/staff/roles': typeof ApiStaffRolesRoute
+  '/api/staff/suggestions': typeof ApiStaffSuggestionsRoute
   '/api/track-reading/suggestions': typeof ApiTrackReadingSuggestionsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
@@ -377,6 +417,8 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRouteWithChildren
   '/search-titles': typeof SearchTitlesRoute
   '/track-reading': typeof TrackReadingRoute
+  '/admin/moderators': typeof AdminModeratorsRoute
+  '/admin/suggestions': typeof AdminSuggestionsRoute
   '/api/clubs': typeof ApiClubsRouteWithChildren
   '/api/diary': typeof ApiDiaryRoute
   '/api/messages': typeof ApiMessagesRouteWithChildren
@@ -399,6 +441,9 @@ export interface FileRoutesById {
   '/api/onboarding/complete': typeof ApiOnboardingCompleteRoute
   '/api/profile/avatar': typeof ApiProfileAvatarRoute
   '/api/profile/lists': typeof ApiProfileListsRoute
+  '/api/staff/mfa': typeof ApiStaffMfaRoute
+  '/api/staff/roles': typeof ApiStaffRolesRoute
+  '/api/staff/suggestions': typeof ApiStaffSuggestionsRoute
   '/api/track-reading/suggestions': typeof ApiTrackReadingSuggestionsRoute
   '/community_/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
@@ -424,6 +469,8 @@ export interface FileRouteTypes {
     | '/profile'
     | '/search-titles'
     | '/track-reading'
+    | '/admin/moderators'
+    | '/admin/suggestions'
     | '/api/clubs'
     | '/api/diary'
     | '/api/messages'
@@ -446,6 +493,9 @@ export interface FileRouteTypes {
     | '/api/onboarding/complete'
     | '/api/profile/avatar'
     | '/api/profile/lists'
+    | '/api/staff/mfa'
+    | '/api/staff/roles'
+    | '/api/staff/suggestions'
     | '/api/track-reading/suggestions'
     | '/community/clubs/$id'
     | '/api/clubs/$id/avatar'
@@ -469,6 +519,8 @@ export interface FileRouteTypes {
     | '/profile'
     | '/search-titles'
     | '/track-reading'
+    | '/admin/moderators'
+    | '/admin/suggestions'
     | '/api/clubs'
     | '/api/diary'
     | '/api/messages'
@@ -491,6 +543,9 @@ export interface FileRouteTypes {
     | '/api/onboarding/complete'
     | '/api/profile/avatar'
     | '/api/profile/lists'
+    | '/api/staff/mfa'
+    | '/api/staff/roles'
+    | '/api/staff/suggestions'
     | '/api/track-reading/suggestions'
     | '/community/clubs/$id'
     | '/api/clubs/$id/avatar'
@@ -514,6 +569,8 @@ export interface FileRouteTypes {
     | '/profile'
     | '/search-titles'
     | '/track-reading'
+    | '/admin/moderators'
+    | '/admin/suggestions'
     | '/api/clubs'
     | '/api/diary'
     | '/api/messages'
@@ -536,6 +593,9 @@ export interface FileRouteTypes {
     | '/api/onboarding/complete'
     | '/api/profile/avatar'
     | '/api/profile/lists'
+    | '/api/staff/mfa'
+    | '/api/staff/roles'
+    | '/api/staff/suggestions'
     | '/api/track-reading/suggestions'
     | '/community_/clubs/$id'
     | '/api/clubs/$id/avatar'
@@ -560,6 +620,8 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRouteWithChildren
   SearchTitlesRoute: typeof SearchTitlesRoute
   TrackReadingRoute: typeof TrackReadingRoute
+  AdminModeratorsRoute: typeof AdminModeratorsRoute
+  AdminSuggestionsRoute: typeof AdminSuggestionsRoute
   ApiClubsRoute: typeof ApiClubsRouteWithChildren
   ApiDiaryRoute: typeof ApiDiaryRoute
   ApiMessagesRoute: typeof ApiMessagesRouteWithChildren
@@ -572,6 +634,9 @@ export interface RootRouteChildren {
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
   ApiOnboardingCompleteRoute: typeof ApiOnboardingCompleteRoute
+  ApiStaffMfaRoute: typeof ApiStaffMfaRoute
+  ApiStaffRolesRoute: typeof ApiStaffRolesRoute
+  ApiStaffSuggestionsRoute: typeof ApiStaffSuggestionsRoute
   ApiTrackReadingSuggestionsRoute: typeof ApiTrackReadingSuggestionsRoute
   CommunityClubsIdRoute: typeof CommunityClubsIdRoute
   ApiUsersIdFollowRoute: typeof ApiUsersIdFollowRoute
@@ -658,6 +723,20 @@ declare module '@tanstack/react-router' {
       path: '/track-reading'
       fullPath: '/track-reading'
       preLoaderRoute: typeof TrackReadingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/moderators': {
+      id: '/admin/moderators'
+      path: '/admin/moderators'
+      fullPath: '/admin/moderators'
+      preLoaderRoute: typeof AdminModeratorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/suggestions': {
+      id: '/admin/suggestions'
+      path: '/admin/suggestions'
+      fullPath: '/admin/suggestions'
+      preLoaderRoute: typeof AdminSuggestionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/clubs': {
@@ -813,6 +892,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/profile/lists'
       preLoaderRoute: typeof ApiProfileListsRouteImport
       parentRoute: typeof ApiProfileRoute
+    }
+    '/api/staff/mfa': {
+      id: '/api/staff/mfa'
+      path: '/api/staff/mfa'
+      fullPath: '/api/staff/mfa'
+      preLoaderRoute: typeof ApiStaffMfaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/staff/roles': {
+      id: '/api/staff/roles'
+      path: '/api/staff/roles'
+      fullPath: '/api/staff/roles'
+      preLoaderRoute: typeof ApiStaffRolesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/staff/suggestions': {
+      id: '/api/staff/suggestions'
+      path: '/api/staff/suggestions'
+      fullPath: '/api/staff/suggestions'
+      preLoaderRoute: typeof ApiStaffSuggestionsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/track-reading/suggestions': {
       id: '/api/track-reading/suggestions'
@@ -1009,6 +1109,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRouteWithChildren,
   SearchTitlesRoute: SearchTitlesRoute,
   TrackReadingRoute: TrackReadingRoute,
+  AdminModeratorsRoute: AdminModeratorsRoute,
+  AdminSuggestionsRoute: AdminSuggestionsRoute,
   ApiClubsRoute: ApiClubsRouteWithChildren,
   ApiDiaryRoute: ApiDiaryRoute,
   ApiMessagesRoute: ApiMessagesRouteWithChildren,
@@ -1021,6 +1123,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthGoogleRoute: ApiAuthGoogleRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
   ApiOnboardingCompleteRoute: ApiOnboardingCompleteRoute,
+  ApiStaffMfaRoute: ApiStaffMfaRoute,
+  ApiStaffRolesRoute: ApiStaffRolesRoute,
+  ApiStaffSuggestionsRoute: ApiStaffSuggestionsRoute,
   ApiTrackReadingSuggestionsRoute: ApiTrackReadingSuggestionsRoute,
   CommunityClubsIdRoute: CommunityClubsIdRoute,
   ApiUsersIdFollowRoute: ApiUsersIdFollowRoute,
