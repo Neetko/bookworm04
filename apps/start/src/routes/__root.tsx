@@ -8,6 +8,8 @@ import {
   Scripts,
 } from "@tanstack/react-router"
 
+const noIndex = import.meta.env.VITE_PUBLIC_ROBOTS_NOINDEX !== "false"
+
 function configuredSupabaseImageOrigin() {
   const raw = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!raw) return null
@@ -55,8 +57,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Bookworm migration preview" },
-      { name: "robots", content: "noindex, nofollow" },
+      { title: "Bookworm — Reading progress, discussion, and clubs" },
+      { name: "description", content: "Discover titles, track reading progress, keep a reading diary, exchange recommendations, and join book or writers' clubs." },
+      { name: "referrer", content: "strict-origin-when-cross-origin" },
+      { name: "robots", content: noIndex ? "noindex, nofollow" : "index, follow" },
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "Bookworm" },
+      { property: "og:title", content: "Bookworm — Reading progress, discussion, and clubs" },
+      { property: "og:description", content: "Discover titles, track reading progress, exchange recommendations, and take part in reading communities." },
     ],
   }),
   component: Root,
