@@ -2,11 +2,11 @@
 
 ## Production state
 
-Bookworm still serves the Next app from `bookworm04.vercel.app`. The TanStack Start app in `apps/start` is an isolated, `noindex` preview; moving frameworks or hosts is not needed to close the confirmed message, private-data, or authentication flaws.
+Bookworm now serves the TanStack Start app in `apps/start` from `bookworm04.vercel.app`; Vercel remains the host. The previous Next deployment remains available as a temporary rollback target. The framework change was not required to close the confirmed message, private-data, or authentication flaws, which remain protected by application checks, sanitization, quotas, and Supabase policies.
 
 The stored message XSS chain is closed at multiple boundaries. Message writes sanitize HTML and reject empty or oversized sanitized bodies. List previews extract plain text without inserting hostile markup into a browser element. Detail views sanitize again. The live site sends a nonce-based CSP with `script-src-attr 'none'`. Sent messages cannot be edited, only drafts can. The dangerous historical message may remain in storage as evidence but is rendered inert.
 
-The Next image optimizer remains in the live app on patched Next 15.5.29. AVIF output is disabled, the Supabase remote host is restricted to this project's configured host, and an unrelated Supabase host returns HTTP 400 from `/_next/image`. The optimizer is removed as part of the Start cutover, after image delivery is replaced.
+The Next image optimizer is no longer in the live request path. TanStack Start serves allowlisted Google Books/Open Library responsive URLs directly and bounded Supabase Storage images without an unrestricted transformation proxy.
 
 Private message and profile reads are scoped by RLS. Message and other account mutations pass through server or database checks; message sending also has a per-account quota. Staff operations require the protected role record and AAL2 authenticator assurance. Hosted auth is Google-only: the public settings endpoint reports Google enabled and email sign-in disabled. OAuth account creation remains enabled by design.
 
@@ -24,4 +24,4 @@ The clean browser and RLS CI journeys passed on [PR #47](https://github.com/Neet
 
 1. **Open messaging and directory.** An authenticated reader can still look up public usernames and send to any username, with a quota of ten sent messages per minute per account. The public profile view includes role labels but excludes email. Restricting first contact to mutual follows would change product behavior; this is a product policy choice, not a route to private mail under the current RLS and sanitization boundaries.
 2. **Dependency maintenance.** Keep the full dependency audit green in both apps. Several transitive build-tool fixes use newer major versions; check lint, CSS output, schema tooling, and browser journeys after future changes to those packages.
-3. **Start migration.** Port data routes and mutations with their server checks, test Google login on a staging callback URL, then plan host cutover and rollback. Keep Next in service until route parity, private response caching, image delivery, and live session switching are verified.
+3. **Post-cutover acceptance.** Complete one interactive Google sign-in, logout, and account-switch check on production. Keep the known-good Next deployment available during the observation window, then remove the rollback implementation in a separate cleanup release.
