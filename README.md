@@ -6,9 +6,9 @@ Bookworm is a full-stack reading community for discovering titles, keeping a use
 
 **Hosted application:** [bookworm04.vercel.app](https://bookworm04.vercel.app)
 
-**Reproducible local showcase:** no Google OAuth credentials required
+**Reproducible local public showcase:** no Google OAuth credentials required
 
-> Release note: the public endpoint exists, but the portfolio branch, database migrations, and hosted Google sign-in must be promoted and verified together before the URL is treated as evidence of the final showcase release. The local setup below is the current reproducible reference.
+> The hosted application runs from `apps/start` through TanStack Start and Nitro on Vercel. The previous Next implementation remains in the repository only as a temporary rollback and deterministic browser-test harness.
 
 ![Bookworm catalog with title covers and genre filters](docs/images/bookworm-catalog.webp)
 
@@ -16,18 +16,18 @@ Bookworm is a full-stack reading community for discovering titles, keeping a use
 
 1. Open **Search Titles** and combine genre filters. Selecting more genres narrows the result to titles carrying every selected tag.
 2. Open a title. Reviews and discussion remain readable to guests; contribution controls explain why sign-in and finished-reading state are required.
-3. Sign in with the local fixture account, mark a title as read, and add a review or discussion post. Read state survives reloads.
+3. Sign in with Google on the hosted app, add titles to your lists, and keep progress or diary notes. Private state survives reloads and remains account-scoped.
 4. Visit **Home** to see a populated following feed, then **Community** to compare open, approval-required, and invitation-only clubs.
-5. Create a fresh account to exercise the real first-run path: every sign-up is sent through username, favorite-genre, and optional title-selection onboarding.
+5. Create a fresh account to exercise the real first-run path: every sign-up chooses a public username and favorite genres before entering the catalog and reading-list flows.
 
-The local reviewer account is disposable fixture data:
+The preserved Next browser-test harness has a disposable local fixture account:
 
 ```text
 Email: demo@bookworm.test
 Password: BookwormDemo!2026
 ```
 
-These credentials work only after the local database reset described below. They are not published to or accepted by the hosted environment.
+These credentials work only after the local database reset and only in the legacy test harness (`pnpm dev` at port 3000). They are not published to or accepted by the hosted TanStack application.
 
 ## What the project demonstrates
 
@@ -43,17 +43,16 @@ These credentials work only after the local database reset described below. They
 
 ```mermaid
 flowchart LR
-  Browser[Browser<br/>React client] --> Middleware[Next.js middleware]
-  Middleware --> App[App Router<br/>Server Components]
-  Browser --> Actions[Server actions and<br/>route handlers]
-  App --> Actions
+  Browser[Browser<br/>React client] --> Start[TanStack Start<br/>router + SSR]
+  Start --> Server[Start server functions<br/>and route handlers]
+  Browser --> Server
 
-  Actions --> Auth[Supabase Auth<br/>cookie-backed session]
-  Actions --> UserClient[User-scoped<br/>Supabase client]
+  Server --> Auth[Supabase Auth<br/>cookie-backed session]
+  Server --> UserClient[User-scoped<br/>Supabase client]
   UserClient --> Security[RLS + constraints +<br/>transactional functions]
   Security --> Postgres[(Postgres)]
 
-  Actions --> Trusted[Narrow trusted<br/>server operations]
+  Server --> Trusted[Narrow trusted<br/>server operations]
   Trusted --> ServiceRole[Service-role client]
   ServiceRole --> Postgres
 
@@ -102,6 +101,7 @@ Docker is expected for the local showcase because Supabase runs Auth, Postgres, 
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm --dir apps/start install --frozen-lockfile
 ```
 
 ### 2. Start and seed local Supabase
@@ -118,7 +118,7 @@ The reset replays all migrations and `supabase/seed.sql`. It creates 30 tagged t
 ### 3. Configure the application
 
 ```bash
-cp .env.example .env.local
+cp .env.example apps/start/.env.local
 supabase status -o env
 ```
 
@@ -132,15 +132,15 @@ Copy the values as follows:
 
 Keep the service-role key server-side and out of Git. `DATABASE_URL` is required only for Drizzle commands. `GOOGLE_BOOKS_API_KEY` is optional; local catalog browsing remains available without it, while external discovery receives the provider's unauthenticated quota.
 
-The template selects `NEXT_PUBLIC_AUTH_MODE=email`. Local email confirmation is disabled, so both the fixture login and fresh sign-up/onboarding work without an email service.
+The production Start app is Google-only. The preserved local Next journey still uses `NEXT_PUBLIC_AUTH_MODE=email` for disposable browser fixtures; it is a rollback/test harness rather than the hosted runtime.
 
 ### 4. Run Bookworm
 
 ```bash
-pnpm dev
+pnpm --dir apps/start dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3101](http://localhost:3101).
 
 To rebuild the committed showcase covers from their pinned Open Library records:
 
@@ -153,15 +153,17 @@ pnpm demo:covers
 Fast checks:
 
 ```bash
+pnpm --dir apps/start typecheck
+pnpm --dir apps/start build
+```
+
+The root Next checks remain during the rollback window, and clean local browser/database-policy verification still runs against the deterministic harness:
+
+```bash
 pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-```
-
-Clean local browser and database-policy verification:
-
-```bash
 pnpm test:e2e:local
 ```
 
@@ -177,7 +179,7 @@ The CI quality job builds the hosted Google-auth path. The local journey job use
 
 ## Hosted Google sign-in
 
-Hosted builds use Google by default (`NEXT_PUBLIC_AUTH_MODE=google`, or leave the variable unset). Every deployment needs its own Supabase project and Google OAuth client, the Supabase callback URL in Google, and the application URL in Supabase's allowed redirect list.
+Hosted Start builds use Google sign-in. Every deployment needs an exact `PUBLIC_APP_ORIGIN`, the Supabase callback URL in Google, and `${PUBLIC_APP_ORIGIN}/auth/callback` in Supabase's allowed redirect list.
 
 See the [Supabase Google sign-in guide](https://supabase.com/docs/guides/auth/social-sign-in/auth-google) and [redirect URL guide](https://supabase.com/docs/guides/auth/redirect-urls). A Google consent screen left in testing mode or a missing redirect URL can make a healthy application appear broken. This is why local reproduction intentionally does not depend on OAuth.
 
@@ -185,10 +187,10 @@ See the [Supabase Google sign-in guide](https://supabase.com/docs/guides/auth/so
 
 | Area | Responsibility |
 | --- | --- |
-| `app/` | App Router pages, route handlers, and thin server-action entry points |
-| `components/` | Reusable product and UI components |
-| `lib/server/` | Authenticated domain services and database clients |
-| `lib/` | Shared validation, parsing, matching, sanitization, and capabilities |
+| `apps/start/src/routes/` | TanStack Start pages and HTTP route handlers |
+| `apps/start/src/features/` | Product UI, validation, reads, and authenticated server writers |
+| `apps/start/src/server/` | Request-scoped auth, trusted clients, response policy, and bounded parsing |
+| `app/`, `components/`, `lib/` | Preserved Next rollback implementation during the observation window |
 | `supabase/migrations/` | Deployment source of truth for schema, functions, constraints, and RLS |
 | `supabase/seed.sql` | Local-only deterministic showcase data |
 | `tests/unit/` | Fast business-rule and integration-helper tests |
