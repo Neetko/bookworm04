@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useState, type FormEvent } from "react"
 import { normalizeCommunitySearch } from "../features/social/search"
@@ -52,7 +53,7 @@ function CommunityPage() {
     void navigate({ to: "/community/clubs/$id/manage", params: { id: body.id } })
   }
   return <div className={styles.page}>
-    <header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }}>Search titles</Link><Link to="/about">About</Link><Link to="/auth">Sign in</Link></nav></header>
+    <header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }}>Search titles</Link><Link to="/about">About</Link><Link to="/auth">Sign in</Link><ThemeToggle /></nav></header>
     <main className={styles.main}>
       <p className={styles.eyebrow}>Readers together</p><h1 className={styles.title}>Community</h1>
       <p className={styles.lead}>Explore book clubs and writer clubs. Club membership and writing tools will arrive here as the Start migration continues.</p>

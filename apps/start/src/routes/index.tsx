@@ -1,27 +1,30 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import "@fontsource/im-fell-english-sc/400.css"
 import "@fontsource/raleway/400.css"
 import "@fontsource/raleway/600.css"
 import "@fontsource/raleway/700.css"
-import { getPublicHome } from "../features/home/home.functions"
+import { getPublicHome, type HomeDashboard } from "../features/home/home.functions"
+import { GuestWelcomeMascot } from "../components/guest-welcome-mascot"
+import { ThemeToggle } from "../components/theme-toggle"
 import styles from "../features/home/home.module.css"
-import { BookCover } from "../components/book-cover"
 
 export const Route = createFileRoute("/")({
-  loader: () => getPublicHome(),
-  head: () => ({
-    meta: [
-      { title: "Bookworm — Keep your reading life in one place" },
-      { name: "description", content: "Discover titles, track your reading, share reviews, and find a book community on Bookworm." },
-    ],
-  }),
+  loader: async () => {
+    const home = await getPublicHome()
+    if (home.reader && !home.reader.onboarded) throw redirect({ to: "/onboarding" })
+    return home
+  },
+  head: () => ({ meta: [
+    { title: "Bookworm — Keep your reading life in one place" },
+    { name: "description", content: "Discover titles, track your reading, share reviews, and find a book community on Bookworm." },
+  ] }),
   component: HomePage,
 })
 
 const features = [
-  { marker: "01", title: "Track your reading", description: "Keep progress, diary notes, and finished titles together in a record you can actually use." },
-  { marker: "02", title: "Leave the useful review", description: "Rate what you finish and give other readers the context that recommendation lists leave out." },
-  { marker: "03", title: "Find your people", description: "Explore book clubs and writers’ groups, then join the conversations that match your reading life." },
+  { marker: "01", title: "Track reading progress", description: "Log reading sessions, follow your progress, and keep a useful record of every title." },
+  { marker: "02", title: "Rate & Review", description: "Share your thoughts and help other readers find their perfect books." },
+  { marker: "03", title: "Community", description: "Connect with fellow book lovers and discover recommendations." },
 ] as const
 
 function formatCount(value: number) {
@@ -29,67 +32,88 @@ function formatCount(value: number) {
 }
 
 function HomePage() {
-  const { counts, recentTitles } = Route.useLoaderData()
-  return (
-    <div className={styles.page}>
-      <a className={styles.skip} href="#main-content">Skip to main content</a>
-      <header className={styles.header}>
-        <nav className={styles.nav} aria-label="Primary navigation">
-          <Link className={styles.brand} to="/" aria-label="Bookworm home">BOOKWORM</Link>
-          <div className={styles.links}>
-            <Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }} preload="intent">Titles</Link>
-            <Link to="/community" search={{ q: "", t: "", genres: "" }} preload="intent">Community</Link>
-            <Link to="/about" preload="intent">About</Link>
+  const { counts, reader, dashboard } = Route.useLoaderData()
+  return <div className={styles.page}>
+    <a className={styles.skip} href="#main-content">Skip to main content</a>
+    <header className={styles.header}><nav className={styles.nav} aria-label="Primary navigation">
+      <Link className={styles.brand} to="/">BOOKWORM</Link>
+      <div className={styles.links}>
+        <Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }}>Titles</Link>
+        <Link to="/community" search={{ q: "", t: "", genres: "" }}>Community</Link>
+        <Link to="/about">About</Link>
+        {reader?.onboarded ? <><Link to="/diary" search={{ filterBy: "none", genres: "", author: "", title: "" }}>Diary</Link><Link to="/messages" search={{ folder: "inbox", page: 1 }}>Messages</Link><Link to="/profile">My profile</Link></> : null}
+      </div>
+      <div className={styles.navActions}><ThemeToggle />{reader ? <form action="/api/auth/logout" method="post"><button className={styles.signIn} type="submit">Sign out</button></form> : <Link className={styles.signIn} to="/auth" search={{}}>Sign in</Link>}</div>
+    </nav></header>
+    <main id="main-content">
+      {dashboard ? <ReaderDashboard dashboard={dashboard} /> : <>
+      <section className={styles.hero}>
+        <div className={styles.heroCopy}>
+          <p className={styles.eyebrow}>Your next chapter starts here</p>
+          <h1>{reader ? `Welcome back, ${reader.name}.` : "Keep your reading life in one place."}</h1>
+          <p className={styles.lead}>Discover your next read, track your progress, trade recommendations, and join book clubs and writers’ groups — or create your own!</p>
+          <div className={styles.actions}>
+            <Link className={styles.primaryAction} to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }}>Explore titles</Link>
+            {reader ? <Link className={styles.secondaryAction} to={reader.onboarded ? "/profile" : "/onboarding"}>{reader.onboarded ? "My profile" : "Finish setup"}</Link> : <Link className={styles.secondaryAction} to="/auth" search={{ mode: "signup" }}>Create an account</Link>}
           </div>
-          <Link className={styles.signIn} to="/auth" preload="intent">Sign in</Link>
-        </nav>
-      </header>
-      <main id="main-content">
-        <section className={styles.hero}>
-          <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}>Your next chapter starts here</p>
-            <h1>Keep your reading life in one place.</h1>
-            <p className={styles.lead}>Discover your next title, track what you are reading, trade thoughtful recommendations, and find a community that reads the way you do.</p>
-            <div className={styles.actions}>
-              <Link className={styles.primaryAction} to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }} preload="intent">Explore titles</Link>
-              <Link className={styles.secondaryAction} to="/auth" preload="intent">Create an account</Link>
-            </div>
-          </div>
-          <div className={styles.shelf} aria-label="A small selection from the Bookworm catalog">
-            <div className={styles.shelfLabel}>Recently shelved</div>
-            <div className={styles.books}>
-              {recentTitles.length ? recentTitles.slice(0, 4).map((title, index) => (
-                <Link key={title.id} className={styles.book} to="/titles/$id" params={{ id: title.id }} preload="intent">
-                  {title.coverUrl ? <BookCover src={title.coverUrl} alt="" width="144" height="216" sizes="144px" loading={index > 1 ? "lazy" : "eager"} /> : <span className={styles.bookFallback} aria-hidden="true">{title.title.slice(0, 1)}</span>}
-                  <span className={styles.bookTitle}>{title.title}</span>
-                  <span className={styles.bookAuthor}>{title.author}</span>
-                </Link>
-              )) : <div className={styles.emptyShelf}>The public catalog is ready to browse.</div>}
-            </div>
-            <div className={styles.shelfEdge} />
-          </div>
-        </section>
-        <section className={styles.features} aria-labelledby="features-heading">
-          <div className={styles.sectionIntro}>
-            <p className={styles.eyebrow}>Made for the full reading cycle</p>
-            <h2 id="features-heading">From first look to final thought.</h2>
-          </div>
-          <div className={styles.featureGrid}>
-            {features.map((feature) => <article className={styles.feature} key={feature.marker}><span>{feature.marker}</span><h3>{feature.title}</h3><p>{feature.description}</p></article>)}
-          </div>
-        </section>
-        <section className={styles.catalogBand} aria-label="Bookworm activity">
-          <div><strong>{formatCount(counts.titles)}</strong><span>titles in the catalog</span></div>
-          <div><strong>{formatCount(counts.reviews)}</strong><span>reader reviews</span></div>
-          <div><strong>{formatCount(counts.clubs)}</strong><span>reading communities</span></div>
-        </section>
-        <section className={styles.closing}>
-          <div><p className={styles.eyebrow}>Start with the catalog</p><h2>Look around before you sign up.</h2></div>
-          <p>Browse titles and public communities first. Create an account when you are ready to save progress or contribute.</p>
-          <Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }} preload="intent">Open the catalog <span aria-hidden="true">→</span></Link>
-        </section>
-      </main>
-      <footer className={styles.footer}><span>Bookworm</span><span>Read with context.</span></footer>
+        </div>
+        <div className={styles.mascot}><GuestWelcomeMascot /></div>
+      </section>
+      <section className={styles.features} aria-label="Bookworm features">
+        {features.map((feature) => <article className={styles.feature} key={feature.marker}><span className={styles.featureIcon} aria-hidden="true">{feature.marker}</span><h2>{feature.title}</h2><p>{feature.description}</p></article>)}
+      </section>
+      <section className={styles.stats} aria-label="Bookworm activity">
+        <div><strong>{formatCount(counts.titles)}</strong><span>Titles</span></div>
+        <div><strong>{formatCount(counts.reviews)}</strong><span>Reviews Written</span></div>
+        <div><strong>{formatCount(counts.clubs)}</strong><span>Clubs Created</span></div>
+      </section>
+      </>}
+    </main>
+  </div>
+}
+
+function eventText(event: HomeDashboard["activities"][number]) {
+  const title = event.metadata.title?.title ?? "a title"
+  const club = event.metadata.club?.name ?? "a club"
+  const list = event.metadata.list?.name ?? "a list"
+  switch (event.eventType) {
+    case "review_posted": return `reviewed ${title}${event.metadata.rating ? ` — ${event.metadata.rating}/10` : ""}.`
+    case "title_finished": return `finished reading ${title}.`
+    case "list_created": return `created the list “${list}”.`
+    case "list_item_added": return list === "Current Reading" ? `started reading ${title}.` : `added ${title} to “${list}”.`
+    case "club_created": return `created the club “${club}”.`
+    case "club_joined": return `joined “${club}”.`
+    case "achievement_earned": return `earned ${event.metadata.achievement?.name ?? "an achievement"}.`
+    default: return "shared an update."
+  }
+}
+
+function ReaderDashboard({ dashboard }: { dashboard: HomeDashboard }) {
+  const stats = [
+    ["Books this year", dashboard.stats.booksThisYear],
+    ["Currently reading", dashboard.stats.currentlyReading],
+    ["Reviews written", dashboard.stats.reviewsWritten],
+    ["Following", dashboard.stats.following],
+  ] as const
+  return <div className={styles.dashboard}>
+    <div className={styles.feed}>
+      <h1>Welcome back</h1><p className={styles.dashboardLead}>See what your fellow readers have been up to.</p>
+      <h2 className={styles.feedTab}>Your feed</h2>
+      {dashboard.activities.length ? dashboard.activities.map((event) => <article className={styles.activity} key={event.id}>
+        <div className={styles.activityAvatar}>{event.avatarUrl ? <img src={event.avatarUrl} alt="" width="40" height="40" loading="lazy" /> : event.actorName.slice(0, 2).toUpperCase()}</div>
+        <div><div className={styles.activityByline}><Link to="/users/$username" params={{ username: event.actorId }}>{event.actorName}</Link><time dateTime={event.createdAt ?? undefined}>{event.createdAt ? new Date(event.createdAt).toLocaleDateString() : ""}</time></div>
+          <p>{eventText(event)}</p>{event.metadata.reviewText ? <blockquote>“{event.metadata.reviewText}”</blockquote> : null}
+        </div>
+        {event.metadata.title?.id ? <Link className={styles.activityTitle} to="/titles/$id" params={{ id: event.metadata.title.id }} aria-label={`Open ${event.metadata.title.title ?? "title"}`}>{event.metadata.title.cover ? <img src={event.metadata.title.cover} alt="" width="70" height="105" loading="lazy" /> : "↗"}</Link> : null}
+      </article>) : <p className={styles.emptyFeed}>Your feed is empty for now.</p>}
     </div>
-  )
+    <aside className={styles.dashboardAside}>
+      <section className={styles.dashboardPanel}><h2>Readers to follow</h2>
+        {dashboard.suggestions.length ? dashboard.suggestions.map((person) => <Link className={styles.suggestedReader} to="/users/$username" params={{ username: person.id }} key={person.id}>
+          <span className={styles.activityAvatar}>{person.avatarUrl ? <img src={person.avatarUrl} alt="" width="36" height="36" loading="lazy" /> : person.username.slice(0, 2).toUpperCase()}</span>{person.username}
+        </Link>) : <p className={styles.dashboardLead}>Follow more readers to tune your community feed.</p>}
+      </section>
+      <section className={styles.dashboardPanel}><h2>Your progress</h2><div className={styles.progressStats}>{stats.map(([label, value]) => <div key={label}><strong>{formatCount(value)}</strong><span>{label}</span></div>)}</div></section>
+    </aside>
+  </div>
 }

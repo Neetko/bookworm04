@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-router"
 import { useState, type FormEvent } from "react"
 import { getClubManagement } from "../features/social/social.functions"
@@ -42,7 +43,7 @@ function ManageClubPage() {
     setBusy(false); if (!response.ok) { setFeedback(body?.error ?? "Could not upload avatar"); return }
     await router.invalidate(); setFeedback("Avatar updated.")
   }
-  return <div className={styles.page}><header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/community/clubs/$id" params={{ id }} search={{}}>View club</Link><Link to="/community" search={{ q: "", t: "", genres: "" }}>Community</Link></nav></header><main className={styles.main}>
+  return <div className={styles.page}><header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/community/clubs/$id" params={{ id }} search={{}}>View club</Link><Link to="/community" search={{ q: "", t: "", genres: "" }}>Community</Link><ThemeToggle /></nav></header><main className={styles.main}>
     <p className={styles.eyebrow}>Owner tools</p><h1 className={styles.title}>Manage {data.club.name}</h1>{feedback && <p className={styles.feedback} role="status">{feedback}</p>}
     <section className={styles.card}><h2 className={styles.sectionTitle}>Settings</h2><form className={styles.form} onSubmit={save}>
       <label>Name<input className={styles.input} name="name" defaultValue={data.club.name} maxLength={200} required /></label><label>Join policy<select className={styles.select} name="joinPolicy" defaultValue={data.club.joinPolicy}><option value="open">Open</option><option value="approval_required">Approval required</option><option value="invite_only">Invite only</option></select></label>

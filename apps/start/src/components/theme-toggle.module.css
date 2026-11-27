@@ -1,0 +1,2 @@
+.toggle{display:inline-grid;flex:none;place-items:center;width:36px;height:36px;border:1px solid var(--bw-border);border-radius:6px;background:var(--bw-background);color:var(--bw-text);cursor:pointer}
+.toggle svg{width:19px;height:19px}.toggle:hover,.toggle:focus-visible{border-color:var(--bw-primary)}

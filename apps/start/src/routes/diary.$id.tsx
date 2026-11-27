@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router"
 import { useState, type FormEvent } from "react"
@@ -64,7 +65,7 @@ function DiaryDetailPage() {
     ? `${entry.minutesListened ?? 0} / ${entry.totalMinutes ?? 0} min`
     : `${entry.currentPage ?? 0} / ${entry.totalPages ?? 0} pages`
   return <main className={styles.shell}>
-    <div className={styles.top}><Link to="/">Bookworm</Link><nav><Link to="/profile">Profile</Link><Link to="/messages" search={{ folder: "inbox", page: 1 }}>Messages</Link></nav></div>
+    <div className={styles.top}><Link to="/">Bookworm</Link><nav><Link to="/profile">Profile</Link><Link to="/messages" search={{ folder: "inbox", page: 1 }}>Messages</Link><ThemeToggle /></nav></div>
     <article className={styles.detail}>
       <div className={styles.backRow}><Link to="/diary" search={search}>← Back to diary</Link><div className={styles.navLinks}>{previous && <Link to="/diary/$id" params={{ id: previous.id }} search={search}>← Previous</Link>}{next && <Link to="/diary/$id" params={{ id: next.id }} search={search}>Next →</Link>}</div></div>
       <div className={styles.detailGrid}>{entry.coverUrl ? <BookCover className={styles.detailCover} src={entry.coverUrl} alt="" width="150" height="225" sizes="150px" /> : <span className={`${styles.detailCover} ${styles.coverFallback}`}>{entry.title.slice(0, 1)}</span>}<div><p className={styles.date}>{formatDate(entry.entryDate)}</p><h1>{entry.title}</h1><p className={styles.author}>{entry.author}</p>{entry.genres.length > 0 && <div className={styles.genres}>{entry.genres.map((genre) => <span key={genre}>{genre}</span>)}</div>}<div className={styles.detailProgress}><div className={styles.progress}><span style={{ width: `${entry.progressPercent}%` }} /></div><div className={styles.progressMeta}><span>{measure}</span><strong>{entry.progressPercent}%</strong></div></div></div></div>

@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, notFound, redirect, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState, type FormEvent } from "react"
@@ -67,7 +68,7 @@ function MessageDetailPage() {
 
   const recipient = message.type === "inbox" ? message.from : message.to
   return <main className={styles.shell}>
-    <div className={styles.top}><Link to="/">Bookworm</Link><Link to="/messages" search={{ folder, page }}>Back to messages</Link></div>
+    <div className={styles.top}><Link to="/">Bookworm</Link><Link to="/messages" search={{ folder, page }}>Back to messages</Link><ThemeToggle /></div>
     <article className={styles.detail}><header><p className={styles.eyebrow}>{message.type === "inbox" ? "From" : "To"} {recipient}</p><h1>{message.subject}</h1><time dateTime={message.date}>{formatDateTime(message.date)}</time></header>
       <div className={styles.content} dangerouslySetInnerHTML={{ __html: message.body }} /><div className={styles.detailActions}><button type="button" disabled={busy} onClick={() => void remove()}>Delete</button></div>
       <form className={styles.detailForm} onSubmit={submit}><h2>{message.type === "draft" ? "Edit draft" : "Reply"}</h2><label>Recipient<input name="recipient" defaultValue={recipient} maxLength={100} /></label><label>Subject<input name="title" defaultValue={message.type === "draft" ? message.subject : `Re: ${message.subject}`} maxLength={200} required /></label><label>Message<textarea name="body" defaultValue={message.type === "draft" ? plainText(message.body) : ""} maxLength={10_000} rows={7} required /></label><div className={styles.composeActions}><button name="status" value="sent" disabled={busy}>{busy ? "Saving…" : "Send"}</button>{message.type === "draft" && <button name="status" value="draft" disabled={busy}>Save draft</button>}</div></form>

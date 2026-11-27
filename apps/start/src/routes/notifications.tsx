@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useEffect, useState, type ReactNode } from "react"
@@ -204,7 +205,7 @@ function NotificationsPage() {
   }
 
   return <main className={styles.shell}>
-    <div className={styles.top}><Link to="/">Bookworm</Link><Link to="/messages" search={{ folder: "inbox", page: 1 }}>Messages</Link></div>
+    <div className={styles.top}><Link to="/">Bookworm</Link><Link to="/messages" search={{ folder: "inbox", page: 1 }}>Messages</Link><ThemeToggle /></div>
     <div className={styles.heading}><div><h1>Notifications</h1><p>Updates from readers, titles, and clubs</p></div><button className={styles.button} type="button" onClick={markAllRead} disabled={busy !== null || notifications.every((item) => item.isRead)}>Mark all read</button></div>
     {feedback && <p className={styles.feedback} role="status">{feedback}</p>}
     <section className={styles.list} aria-label="Notifications">

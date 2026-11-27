@@ -1,3 +1,92 @@
-body {
-  margin: 0;
+:root {
+  color-scheme: dark;
+  --background: oklch(0.1952 0.0165 53.5019);
+  --foreground: oklch(0.9109 0.0257 78.9106);
+  --card: oklch(0.2684 0.0214 47.9030);
+  --card-foreground: oklch(0.9109 0.0257 78.9106);
+  --popover: oklch(0.2260 0.0149 48.0419);
+  --popover-foreground: oklch(0.9109 0.0257 78.9106);
+  --primary: oklch(0.7182 0.0713 64.1284);
+  --primary-foreground: oklch(0.1952 0.0165 53.5019);
+  --secondary: oklch(0.4335 0.0269 53.8183);
+  --secondary-foreground: oklch(0.9109 0.0257 78.9106);
+  --muted: oklch(0.3211 0.0235 53.2518);
+  --muted-foreground: oklch(0.6643 0.0250 56.7694);
+  --accent: oklch(0.5455 0.0616 60.6400);
+  --accent-foreground: oklch(0.9109 0.0257 78.9106);
+  --destructive: oklch(0.4490 0.1268 28.6876);
+  --destructive-foreground: oklch(0.9109 0.0257 78.9106);
+  --border: oklch(0.3935 0.0259 48.0417);
+  --input: oklch(0.3524 0.0220 49.9192);
+  --ring: oklch(0.7182 0.0713 64.1284);
+  --chart-1: oklch(0.7182 0.0713 64.1284);
+  --chart-2: oklch(0.5455 0.0616 60.6400);
+  --chart-3: oklch(0.6283 0.1073 64.8897);
+  --chart-4: oklch(0.7973 0.0603 75.1779);
+  --chart-5: oklch(0.5851 0.0820 56.8262);
+  --sidebar: oklch(0.2684 0.0214 47.9030);
+  --sidebar-background: 240 5.9% 10%;
+  --sidebar-foreground: oklch(0.9109 0.0257 78.9106);
+  --sidebar-primary: oklch(0.3524 0.0220 49.9192);
+  --sidebar-primary-foreground: oklch(0.9109 0.0257 78.9106);
+  --sidebar-accent: oklch(0.4335 0.0269 53.8183);
+  --sidebar-accent-foreground: oklch(0.9109 0.0257 78.9106);
+  --sidebar-border: oklch(0.3935 0.0259 48.0417);
+  --sidebar-ring: oklch(0.5455 0.0616 60.6400);
+  --bw-background: var(--background);
+  --bw-text: var(--foreground);
+  --bw-card: var(--card);
+  --bw-popover: var(--popover);
+  --bw-primary: var(--primary);
+  --bw-primary-text: var(--primary-foreground);
+  --bw-muted: var(--muted-foreground);
+  --bw-border: var(--border);
+  --bw-tint: var(--muted);
+  --bw-input: var(--input);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: oklch(0.9800 0.0155 86.4240);
+  --foreground: oklch(0.2454 0.0381 51.1443);
+  --card: oklch(0.9396 0.0317 78.1605);
+  --card-foreground: oklch(0.2454 0.0381 51.1443);
+  --popover: oklch(0.9887 0.0126 86.8279);
+  --popover-foreground: oklch(0.2454 0.0381 51.1443);
+  --primary: oklch(0.4708 0.1121 50.8452);
+  --primary-foreground: oklch(0.9800 0.0155 86.4240);
+  --secondary: oklch(0.7973 0.0603 75.1779);
+  --secondary-foreground: oklch(0.2454 0.0381 51.1443);
+  --muted: oklch(0.9177 0.0223 74.0871);
+  --muted-foreground: oklch(0.4440 0.0492 44.5813);
+  --accent: oklch(0.7182 0.0713 64.1284);
+  --accent-foreground: oklch(0.2454 0.0381 51.1443);
+  --destructive: oklch(0.5175 0.1557 29.2441);
+  --destructive-foreground: oklch(0.9800 0.0155 86.4240);
+  --border: oklch(0.7806 0.0550 74.2770);
+  --input: oklch(0.9163 0.0160 73.6729);
+  --ring: oklch(0.4708 0.1121 50.8452);
+  --chart-1: oklch(0.4708 0.1121 50.8452);
+  --chart-2: oklch(0.7973 0.0603 75.1779);
+  --chart-3: oklch(0.6283 0.1073 64.8897);
+  --chart-4: oklch(0.5851 0.0820 56.8262);
+  --chart-5: oklch(0.5373 0.1019 51.2541);
+  --sidebar: oklch(0.4708 0.1121 50.8452);
+  --sidebar-background: 0 0% 98%;
+  --sidebar-foreground: oklch(0.9800 0.0155 86.4240);
+  --sidebar-primary: oklch(0.3926 0.0926 52.9253);
+  --sidebar-primary-foreground: oklch(0.9800 0.0155 86.4240);
+  --sidebar-accent: oklch(0.5851 0.0820 56.8262);
+  --sidebar-accent-foreground: oklch(0.9800 0.0155 86.4240);
+  --sidebar-border: oklch(0.5373 0.1019 51.2541);
+  --sidebar-ring: oklch(0.9396 0.0317 78.1605);
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+body { margin: 0; background: var(--bw-background); color: var(--bw-text); }
+/* Match the pre-cutover 500ms background and border easing. */
+*, *::before, *::after { transition: background-color 500ms ease-in-out, border-color 500ms ease-in-out; }
+h1, h2, h3, span, button, svg { transition: none !important; }
+:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-delay: 0ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-delay: 0ms !important; transition-duration: 1ms !important; }
 }

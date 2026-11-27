@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useEffect, useState, type FormEvent } from "react"
 import { checkOnboardingUsername, getOnboardingState } from "../features/onboarding/onboarding.functions"
@@ -91,7 +92,7 @@ function OnboardingPage() {
 
   const ready = availability.state === "available" && genres.length > 0 && !submitting
   return <div className={styles.page}>
-    <header className={styles.header}><nav className={styles.nav}><Link className={styles.brand} to="/">BOOKWORM</Link><form className={styles.signOut} action="/api/auth/logout" method="post"><button type="submit">Sign out</button></form></nav></header>
+    <header className={styles.header}><nav className={styles.nav}><Link className={styles.brand} to="/">BOOKWORM</Link><form className={styles.signOut} action="/api/auth/logout" method="post"><button type="submit">Sign out</button></form><ThemeToggle /></nav></header>
     <main className={styles.main}>
       <p className={styles.eyebrow}>New reader setup</p>
       <h1>Make Bookworm yours.</h1>

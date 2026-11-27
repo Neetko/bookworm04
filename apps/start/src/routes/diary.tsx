@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router"
 import { useState, type FormEvent } from "react"
@@ -110,7 +111,7 @@ function DiaryPage() {
   }
 
   return <main className={styles.shell}>
-    <div className={styles.top}><Link to="/">Bookworm</Link><nav><Link to="/profile">Profile</Link><Link to="/messages" search={{ folder: "inbox", page: 1 }}>Messages</Link></nav></div>
+    <div className={styles.top}><Link to="/">Bookworm</Link><nav><Link to="/profile">Profile</Link><Link to="/messages" search={{ folder: "inbox", page: 1 }}>Messages</Link><ThemeToggle /></nav></div>
     <div className={styles.heading}><div><h1>Reading diary</h1><p>Your private record of pages, listening, and notes.</p></div><button className={styles.button} type="button" onClick={() => { setComposing((value) => !value); setFeedback("") }} disabled={!data.titleOptions.length}>New entry</button></div>
     {composing && <form className={styles.composer} onSubmit={saveEntry}>
       <label>Title<select value={selectedTitleId} onChange={(event) => chooseTitle(event.target.value)} required><option value="">Choose from Planned or Current Reading</option>{data.titleOptions.map((title) => <option key={title.id} value={title.id}>{title.title} — {title.author}</option>)}</select></label>

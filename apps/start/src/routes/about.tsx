@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import "@fontsource/im-fell-english-sc/400.css"
 import "@fontsource/raleway/400.css"
@@ -56,7 +57,7 @@ function AboutPage() {
             <Link to="/">Home</Link>
             <Link to="/auth">Sign in</Link>
           </div>
-        </nav>
+        <ThemeToggle /></nav>
       </header>
 
       <main id="main-content" className={styles.main}>

@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { createFileRoute, Link, notFound } from "@tanstack/react-router"
 import { useState } from "react"
 import { getPublicUser } from "../features/social/social.functions"
@@ -30,7 +31,7 @@ function UserPage() {
     setFollowing(Boolean(body?.isFollowing)); setFriend(Boolean(body?.isFriend))
   }
   return <div className={styles.page}>
-    <header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/community" search={{ q: "", t: "", genres: "" }}>Community</Link><Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }}>Search titles</Link><Link to="/auth">Sign in</Link></nav></header>
+    <header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/community" search={{ q: "", t: "", genres: "" }}>Community</Link><Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }}>Search titles</Link><Link to="/auth">Sign in</Link><ThemeToggle /></nav></header>
     <main className={styles.main}>
       <p className={styles.eyebrow}>Reader profile</p>
       <div className={styles.profile}>{profile.avatarUrl && <img className={styles.avatar} src={profile.avatarUrl} alt="" width="80" height="80" decoding="async" />}<div><h1 className={styles.title}>{profile.username ?? "Anonymous"}</h1>{profile.bio && <p className={styles.lead}>{profile.bio}</p>}</div>{viewer.signedIn && !viewer.isSelf && <button className={styles.button} disabled={busy} onClick={() => void toggleFollow()}>{friend ? "Friends" : following ? "Following" : "Follow"}</button>}</div>{feedback && <p className={styles.feedback} role="status">{feedback}</p>}

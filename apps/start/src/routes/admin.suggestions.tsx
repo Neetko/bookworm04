@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 import { StaffMfa } from "../features/staff/staff-mfa"
@@ -37,4 +38,4 @@ function SuggestionsPage() {
   return <Shell><p className={styles.muted}>Staff tools</p><h1 className={styles.title}>Suggestions</h1><p>Review pending title metadata before it becomes public.</p>{data.suggestions.length ? data.suggestions.map((item) => <SuggestionCard key={item.id} item={item} onDone={() => router.invalidate()} />) : <section className={styles.card}><p>No pending suggestions.</p></section>}</Shell>
 }
 
-function Shell({ children }: { children: React.ReactNode }) { return <div className={styles.page}><header className={styles.header}><Link to="/">BOOKWORM</Link><nav><Link to="/admin/moderators" search={{ q: "" }}>Moderators</Link></nav></header><main className={styles.main}>{children}</main></div> }
+function Shell({ children }: { children: React.ReactNode }) { return <div className={styles.page}><header className={styles.header}><Link to="/">BOOKWORM</Link><nav><Link to="/admin/moderators" search={{ q: "" }}>Moderators</Link><ThemeToggle /></nav></header><main className={styles.main}>{children}</main></div> }

@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useState, type FormEvent } from "react"
@@ -124,7 +125,7 @@ function ListManagerPage() {
 
   const selectedIds = new Set(selected?.items.map((item) => item.titleId) ?? [])
   return <main className={styles.shell}>
-    <div className={styles.top}><Link to="/">Bookworm</Link><nav><Link to="/profile">Profile</Link><Link to="/diary" search={{ filterBy: "none", genres: "", author: "", title: "" }}>Diary</Link></nav></div>
+    <div className={styles.top}><Link to="/">Bookworm</Link><nav><Link to="/profile">Profile</Link><Link to="/diary" search={{ filterBy: "none", genres: "", author: "", title: "" }}>Diary</Link><ThemeToggle /></nav></div>
     <div className={styles.heading}><div><h1>Manage title lists</h1><p>Add local catalog titles to your reading workflow and custom collections.</p></div><Link className={styles.button} to="/profile">Back to profile</Link></div>
     {feedback && <p className={styles.feedback} role="status">{feedback}</p>}
     {creating && <form className={styles.form} onSubmit={saveList}><label>List name<input name="name" type="text" maxLength={100} required autoFocus /></label><label className={styles.checkbox}><input name="isPublic" type="checkbox" defaultChecked />Public list</label><div className={styles.actions}><button className={styles.button} type="submit" disabled={busy !== null}>Create list</button><button className={styles.button} type="button" onClick={() => setCreating(false)}>Cancel</button></div></form>}

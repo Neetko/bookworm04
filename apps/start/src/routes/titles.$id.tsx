@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { formatDate } from "../features/date-format"
 import { getTitleDetail } from "../features/titles/catalog.functions"
@@ -29,7 +30,7 @@ function TitleDetailPage() {
             <Link to="/about">About</Link>
             <Link to="/auth">Sign in</Link>
           </div>
-        </nav>
+        <ThemeToggle /></nav>
       </header>
       <main className={styles.main}>
         <Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }} className={styles.back}>← Back to catalog</Link>

@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-router"
 import { useState, type FormEvent } from "react"
 import { StaffMfa } from "../features/staff/staff-mfa"
@@ -34,4 +35,4 @@ function ModeratorsPage() {
   </StaffShell>
 }
 
-function StaffShell({ children }: { children: React.ReactNode }) { return <div className={styles.page}><header className={styles.header}><Link to="/">BOOKWORM</Link><nav><Link to="/admin/suggestions">Suggestions</Link></nav></header><main className={styles.main}>{children}</main></div> }
+function StaffShell({ children }: { children: React.ReactNode }) { return <div className={styles.page}><header className={styles.header}><Link to="/">BOOKWORM</Link><nav><Link to="/admin/suggestions">Suggestions</Link><ThemeToggle /></nav></header><main className={styles.main}>{children}</main></div> }

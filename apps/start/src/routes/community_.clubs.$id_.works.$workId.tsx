@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 import { getWriterWork } from "../features/writer/writer.functions"
@@ -28,7 +29,7 @@ function WriterWorkPage() {
     if (!response.ok) { setFeedback(body?.error ?? "Could not update like"); return }
     await router.invalidate()
   }
-  return <div className={styles.page}><header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/community/clubs/$id" params={{ id }} search={{}}>Back to club</Link><Link to="/community" search={{ q: "", t: "", genres: "" }}>Community</Link></nav></header><main className={styles.main}>
+  return <div className={styles.page}><header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/community/clubs/$id" params={{ id }} search={{}}>Back to club</Link><Link to="/community" search={{ q: "", t: "", genres: "" }}>Community</Link><ThemeToggle /></nav></header><main className={styles.main}>
     <p className={styles.eyebrow}>Writer club work</p><h1 className={styles.title}>{work.title}</h1><p className={styles.meta}>By {work.authorName} · Updated {new Date(work.updated_at).toLocaleDateString()}</p>
     <div className={styles.actions}><span className={styles.chip}>{work.is_public ? "Published" : "Private draft"}</span>{work.is_completed && <span className={styles.chip}>Complete</span>}<button className={styles.smallButton} disabled={busy || !work.is_public} onClick={() => void toggleLike()}>{work.viewerLiked ? "Unlike" : "Like"} · {work.likesCount}</button>{work.viewerCanEdit && <Link className={styles.button} to="/community/clubs/$id/write" params={{ id }} search={{ work: work.id }}>Edit work</Link>}</div>
     {feedback && <p className={styles.feedback} role="status">{feedback}</p>}<article className={`${styles.card} ${styles.writerText}`}>{work.content_text}</article>

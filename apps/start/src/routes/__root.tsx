@@ -6,6 +6,7 @@ import {
   HeadContent,
   Outlet,
   Scripts,
+  ScriptOnce,
 } from "@tanstack/react-router"
 
 const noIndex = import.meta.env.VITE_PUBLIC_ROBOTS_NOINDEX !== "false"
@@ -80,8 +81,9 @@ function Root() {
 
 function Document({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
+        <ScriptOnce children="try{if(localStorage.getItem('bookworm-theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}" />
         <HeadContent />
       </head>
       <body>

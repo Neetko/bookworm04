@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-router"
 import { useState, type FormEvent } from "react"
@@ -77,7 +78,7 @@ function MessagesPage() {
   }
   return (
     <main className={styles.shell}>
-      <div className={styles.top}><Link to="/">Bookworm</Link><Link to="/auth">Account</Link></div>
+      <div className={styles.top}><Link to="/">Bookworm</Link><Link to="/auth">Account</Link><ThemeToggle /></div>
       <div className={styles.heading}><div><h1>Messages</h1><p>Your private conversations</p></div><button className={styles.composeButton} type="button" onClick={() => setComposeOpen((open) => !open)}>New message</button></div>
       {composeOpen && <form className={styles.compose} onSubmit={submitMessage}>
         <label>Recipient username<input name="recipient" maxLength={100} autoComplete="off" /></label>

@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../components/theme-toggle"
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 import { getPublicClub } from "../features/social/social.functions"
@@ -28,7 +29,7 @@ function ClubPage() {
     await router.invalidate(); setFeedback("Membership updated.")
   }
   return <div className={styles.page}>
-    <header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/community" search={{ q: "", t: "", genres: "" }}>Community</Link><Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }}>Search titles</Link><Link to="/auth">Sign in</Link></nav></header>
+    <header className={styles.header}><Link className={styles.brand} to="/">BOOKWORM</Link><nav className={styles.nav}><Link to="/community" search={{ q: "", t: "", genres: "" }}>Community</Link><Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }}>Search titles</Link><Link to="/auth">Sign in</Link><ThemeToggle /></nav></header>
     <main className={styles.main}>
       <p className={styles.eyebrow}>{club.type === "writer" ? "Writer club" : "Book club"}</p>
       <h1 className={styles.title}>{club.name}</h1>

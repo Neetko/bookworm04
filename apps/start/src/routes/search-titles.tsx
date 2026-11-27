@@ -6,6 +6,7 @@ import type { ExternalCatalogTitle } from "../features/titles/external.server"
 import styles from "../features/titles/catalog.module.css"
 import externalStyles from "../features/titles/external-catalog.module.css"
 import { BookCover } from "../components/book-cover"
+import { ThemeToggle } from "../components/theme-toggle"
 
 export const Route = createFileRoute("/search-titles")({
   validateSearch: (search) => normalizeCatalogSearch(search),
@@ -46,6 +47,7 @@ function SearchTitlesPage() {
           <div className={styles.navLinks}>
             <Link to="/search-titles" search={{ q: "", title: "", author: "", genres: "", includeExternal: false }}>Search Titles</Link>
             <Link to="/about">About</Link>
+            <ThemeToggle />
             <Link to="/auth">Sign in</Link>
           </div>
         </nav>
@@ -65,9 +67,9 @@ function SearchTitlesPage() {
           <fieldset className={styles.genres}>
             <legend>Genres</legend>
             {GENRES.map((genre) => (
-              <label key={genre}>
+              <label className={styles.genreOption} data-genre={genre} key={genre}>
                 <input type="checkbox" name="genre" value={genre} defaultChecked={search.genres.split(",").includes(genre)} />
-                {genre}
+                <span>{genre}</span>
               </label>
             ))}
           </fieldset>
@@ -96,7 +98,7 @@ function SearchTitlesPage() {
                   <h3>{title.title}</h3>
                   <p>by {title.author}</p>
                   {title.year ? <small>{title.year}</small> : null}
-                  {title.genres.length ? <div className={styles.tags}>{title.genres.map((genre) => <span key={genre}>{genre}</span>)}</div> : null}
+                  {title.genres.length ? <div className={styles.tags}>{title.genres.map((genre) => <span data-genre={genre} key={genre}>{genre}</span>)}</div> : null}
                 </div>
               </Link>
             ))}
@@ -139,7 +141,7 @@ function ExternalTitleCard({ title }: { title: ExternalCatalogTitle }) {
     <div className={externalStyles.externalContent}>
       <h3>{title.title}</h3><p>by {title.author}</p>{title.year ? <small>{title.year}</small> : null}
       {title.localTitleId ? <Link className={externalStyles.submitLink} to="/titles/$id" params={{ id: title.localTitleId }}>View in Bookworm</Link> : <>
-        <fieldset className={externalStyles.externalGenres}><legend>Genres for review</legend>{GENRES.map((genre) => <label key={genre}><input type="checkbox" checked={genres.includes(genre)} onChange={() => toggle(genre)} />{genre}</label>)}</fieldset>
+        <fieldset className={externalStyles.externalGenres}><legend>Genres for review</legend>{GENRES.map((genre) => <label className={styles.genreOption} data-genre={genre} key={genre}><input type="checkbox" checked={genres.includes(genre)} onChange={() => toggle(genre)} /><span>{genre}</span></label>)}</fieldset>
         <button type="button" className={styles.submit} disabled={busy} onClick={() => void submit()}>{busy ? "Submitting…" : "Submit to Bookworm"}</button>
         {feedback ? <p className={externalStyles.feedback} role="status">{feedback}</p> : null}
       </>}
