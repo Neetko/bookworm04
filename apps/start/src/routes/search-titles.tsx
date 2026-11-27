@@ -3,6 +3,7 @@ import type { FormEvent } from "react"
 import { GENRES, normalizeCatalogSearch } from "../features/titles/catalog"
 import { getCatalogTitles } from "../features/titles/catalog.functions"
 import styles from "../features/titles/catalog.module.css"
+import { BookCover } from "../components/book-cover"
 
 export const Route = createFileRoute("/search-titles")({
   validateSearch: (search) => normalizeCatalogSearch(search),
@@ -80,7 +81,7 @@ function SearchTitlesPage() {
             {titles.map((title) => (
               <Link key={title.id} to="/titles/$id" params={{ id: title.id }} className={styles.card} preload="intent">
                 <div className={styles.cover}>
-                  {title.coverUrl ? <img src={title.coverUrl} alt="" width="210" height="315" loading="lazy" decoding="async" referrerPolicy="no-referrer" /> : <span aria-hidden="true">B</span>}
+                  {title.coverUrl ? <BookCover src={title.coverUrl} alt="" width="210" height="315" sizes="(max-width: 600px) 42vw, 210px" loading="lazy" decoding="async" /> : <span aria-hidden="true">B</span>}
                 </div>
                 <div className={styles.cardContent}>
                   <h3>{title.title}</h3>

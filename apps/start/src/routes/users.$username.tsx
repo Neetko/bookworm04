@@ -2,6 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router"
 import { useState } from "react"
 import { getPublicUser } from "../features/social/social.functions"
 import styles from "../features/social/social.module.css"
+import { BookCover } from "../components/book-cover"
 
 export const Route = createFileRoute("/users/$username")({
   loader: async ({ params }) => {
@@ -34,7 +35,7 @@ function UserPage() {
       <p className={styles.eyebrow}>Reader profile</p>
       <div className={styles.profile}>{profile.avatarUrl && <img className={styles.avatar} src={profile.avatarUrl} alt="" width="80" height="80" decoding="async" />}<div><h1 className={styles.title}>{profile.username ?? "Anonymous"}</h1>{profile.bio && <p className={styles.lead}>{profile.bio}</p>}</div>{viewer.signedIn && !viewer.isSelf && <button className={styles.button} disabled={busy} onClick={() => void toggleFollow()}>{friend ? "Friends" : following ? "Following" : "Follow"}</button>}</div>{feedback && <p className={styles.feedback} role="status">{feedback}</p>}
       <div className={styles.columns}>
-        <section className={styles.card}><h2 className={styles.sectionTitle}>Read titles</h2>{readTitles.length ? <ul className={styles.list}>{readTitles.map((title) => <li key={title.id}>{title.coverUrl && <img className={styles.cover} src={title.coverUrl} alt="" width="40" height="58" loading="lazy" decoding="async" />}<div><Link className={styles.link} to="/titles/$id" params={{ id: title.id }} preload="intent">{title.title}</Link><div className={styles.meta}>{title.author ?? "Unknown author"}</div></div></li>)}</ul> : <p className={styles.muted}>No titles marked as read yet.</p>}</section>
+        <section className={styles.card}><h2 className={styles.sectionTitle}>Read titles</h2>{readTitles.length ? <ul className={styles.list}>{readTitles.map((title) => <li key={title.id}>{title.coverUrl && <BookCover className={styles.cover} src={title.coverUrl} alt="" width="40" height="58" sizes="40px" loading="lazy" decoding="async" />}<div><Link className={styles.link} to="/titles/$id" params={{ id: title.id }} preload="intent">{title.title}</Link><div className={styles.meta}>{title.author ?? "Unknown author"}</div></div></li>)}</ul> : <p className={styles.muted}>No titles marked as read yet.</p>}</section>
         <section className={styles.card}><h2 className={styles.sectionTitle}>Points by genre</h2>{points.length ? <ul className={styles.list}>{points.map((point) => <li key={point.genre}><span>{point.genre}</span><strong>{point.points ?? 0}</strong></li>)}</ul> : <p className={styles.muted}>No points yet.</p>}</section>
       </div>
     </main>

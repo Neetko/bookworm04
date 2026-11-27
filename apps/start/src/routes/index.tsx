@@ -5,6 +5,7 @@ import "@fontsource/raleway/600.css"
 import "@fontsource/raleway/700.css"
 import { getPublicHome } from "../features/home/home.functions"
 import styles from "../features/home/home.module.css"
+import { BookCover } from "../components/book-cover"
 
 export const Route = createFileRoute("/")({
   loader: () => getPublicHome(),
@@ -59,7 +60,7 @@ function HomePage() {
             <div className={styles.books}>
               {recentTitles.length ? recentTitles.slice(0, 4).map((title, index) => (
                 <Link key={title.id} className={styles.book} to="/titles/$id" params={{ id: title.id }} preload="intent">
-                  {title.coverUrl ? <img src={title.coverUrl} alt="" width="144" height="216" loading={index > 1 ? "lazy" : "eager"} /> : <span className={styles.bookFallback} aria-hidden="true">{title.title.slice(0, 1)}</span>}
+                  {title.coverUrl ? <BookCover src={title.coverUrl} alt="" width="144" height="216" sizes="144px" loading={index > 1 ? "lazy" : "eager"} /> : <span className={styles.bookFallback} aria-hidden="true">{title.title.slice(0, 1)}</span>}
                   <span className={styles.bookTitle}>{title.title}</span>
                   <span className={styles.bookAuthor}>{title.author}</span>
                 </Link>
