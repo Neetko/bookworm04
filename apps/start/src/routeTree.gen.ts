@@ -47,6 +47,7 @@ import { Route as ApiProfileListsRouteImport } from './routes/api.profile.lists'
 import { Route as ApiStaffMfaRouteImport } from './routes/api.staff.mfa'
 import { Route as ApiStaffRolesRouteImport } from './routes/api.staff.roles'
 import { Route as ApiStaffSuggestionsRouteImport } from './routes/api.staff.suggestions'
+import { Route as ApiTitlesExternalRouteImport } from './routes/api.titles.external'
 import { Route as ApiTrackReadingSuggestionsRouteImport } from './routes/api.track-reading.suggestions'
 import { Route as CommunityClubsIdRouteImport } from './routes/community_.clubs.$id'
 import { Route as ApiClubsIdAvatarRouteImport } from './routes/api.clubs.$id.avatar'
@@ -249,6 +250,11 @@ const ApiStaffSuggestionsRoute = ApiStaffSuggestionsRouteImport.update({
   path: '/api/staff/suggestions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTitlesExternalRoute = ApiTitlesExternalRouteImport.update({
+  id: '/api/titles/external',
+  path: '/api/titles/external',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTrackReadingSuggestionsRoute =
   ApiTrackReadingSuggestionsRouteImport.update({
     id: '/api/track-reading/suggestions',
@@ -343,6 +349,7 @@ export interface FileRoutesByFullPath {
   '/api/staff/mfa': typeof ApiStaffMfaRoute
   '/api/staff/roles': typeof ApiStaffRolesRoute
   '/api/staff/suggestions': typeof ApiStaffSuggestionsRoute
+  '/api/titles/external': typeof ApiTitlesExternalRoute
   '/api/track-reading/suggestions': typeof ApiTrackReadingSuggestionsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
@@ -393,6 +400,7 @@ export interface FileRoutesByTo {
   '/api/staff/mfa': typeof ApiStaffMfaRoute
   '/api/staff/roles': typeof ApiStaffRolesRoute
   '/api/staff/suggestions': typeof ApiStaffSuggestionsRoute
+  '/api/titles/external': typeof ApiTitlesExternalRoute
   '/api/track-reading/suggestions': typeof ApiTrackReadingSuggestionsRoute
   '/community/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
@@ -444,6 +452,7 @@ export interface FileRoutesById {
   '/api/staff/mfa': typeof ApiStaffMfaRoute
   '/api/staff/roles': typeof ApiStaffRolesRoute
   '/api/staff/suggestions': typeof ApiStaffSuggestionsRoute
+  '/api/titles/external': typeof ApiTitlesExternalRoute
   '/api/track-reading/suggestions': typeof ApiTrackReadingSuggestionsRoute
   '/community_/clubs/$id': typeof CommunityClubsIdRoute
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
@@ -496,6 +505,7 @@ export interface FileRouteTypes {
     | '/api/staff/mfa'
     | '/api/staff/roles'
     | '/api/staff/suggestions'
+    | '/api/titles/external'
     | '/api/track-reading/suggestions'
     | '/community/clubs/$id'
     | '/api/clubs/$id/avatar'
@@ -546,6 +556,7 @@ export interface FileRouteTypes {
     | '/api/staff/mfa'
     | '/api/staff/roles'
     | '/api/staff/suggestions'
+    | '/api/titles/external'
     | '/api/track-reading/suggestions'
     | '/community/clubs/$id'
     | '/api/clubs/$id/avatar'
@@ -596,6 +607,7 @@ export interface FileRouteTypes {
     | '/api/staff/mfa'
     | '/api/staff/roles'
     | '/api/staff/suggestions'
+    | '/api/titles/external'
     | '/api/track-reading/suggestions'
     | '/community_/clubs/$id'
     | '/api/clubs/$id/avatar'
@@ -637,6 +649,7 @@ export interface RootRouteChildren {
   ApiStaffMfaRoute: typeof ApiStaffMfaRoute
   ApiStaffRolesRoute: typeof ApiStaffRolesRoute
   ApiStaffSuggestionsRoute: typeof ApiStaffSuggestionsRoute
+  ApiTitlesExternalRoute: typeof ApiTitlesExternalRoute
   ApiTrackReadingSuggestionsRoute: typeof ApiTrackReadingSuggestionsRoute
   CommunityClubsIdRoute: typeof CommunityClubsIdRoute
   ApiUsersIdFollowRoute: typeof ApiUsersIdFollowRoute
@@ -914,6 +927,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStaffSuggestionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/titles/external': {
+      id: '/api/titles/external'
+      path: '/api/titles/external'
+      fullPath: '/api/titles/external'
+      preLoaderRoute: typeof ApiTitlesExternalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/track-reading/suggestions': {
       id: '/api/track-reading/suggestions'
       path: '/api/track-reading/suggestions'
@@ -1126,6 +1146,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStaffMfaRoute: ApiStaffMfaRoute,
   ApiStaffRolesRoute: ApiStaffRolesRoute,
   ApiStaffSuggestionsRoute: ApiStaffSuggestionsRoute,
+  ApiTitlesExternalRoute: ApiTitlesExternalRoute,
   ApiTrackReadingSuggestionsRoute: ApiTrackReadingSuggestionsRoute,
   CommunityClubsIdRoute: CommunityClubsIdRoute,
   ApiUsersIdFollowRoute: ApiUsersIdFollowRoute,
