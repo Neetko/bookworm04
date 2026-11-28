@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { ThemeToggle } from "../components/theme-toggle"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
-import { formatDate } from "../features/date-format"
 import { getTitleDetail } from "../features/titles/catalog.functions"
 import type { CatalogDetail } from "../features/titles/catalog"
 import styles from "../features/titles/catalog.module.css"
 import { BookCover } from "../components/book-cover"
+import { TitleSocial } from "../features/titles/title-social"
 
 export const Route = createFileRoute("/titles/$id")({
   loader: ({ params }) => getTitleDetail({ data: { id: params.id } }),
@@ -216,7 +216,6 @@ function TitleDetailPage() {
             <p className={styles.author}>by {title.author}</p>
             <div className={styles.detailMeta}>
               {title.year ? <span>Published {title.year}</span> : null}
-              {title.isbn ? <span>ISBN {title.isbn}</span> : null}
               {average ? <span>{average}/10 · {title.reviews.length} reviews</span> : <span>No reviews yet</span>}
             </div>
             {title.genres.length ? <div className={styles.tags}>{title.genres.map((genre) => <span key={genre} data-genre={genre}>{genre}</span>)}</div> : null}
@@ -224,20 +223,7 @@ function TitleDetailPage() {
             <TitleActions title={title} />
           </div>
         </div>
-        <section className={styles.reviews}>
-          <div className={styles.resultHeader}><h2>Reader reviews</h2><span>{title.reviews.length}</span></div>
-          {title.reviews.length === 0 ? <p className={styles.empty}>No reviews yet.</p> : (
-            <div className={styles.reviewGrid}>
-              {title.reviews.map((review) => (
-                <article className={styles.review} key={review.id}>
-                  <div><strong>{review.username ?? "Reader"}</strong><span>{review.rating}/10</span></div>
-                  {review.text ? <p>{review.text}</p> : null}
-                  <small>{formatDate(review.createdAt)}</small>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+        <TitleSocial title={title} />
       </main>
     </div>
   )

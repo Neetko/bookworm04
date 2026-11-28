@@ -53,6 +53,7 @@ import { Route as CommunityClubsIdRouteImport } from './routes/community_.clubs.
 import { Route as ApiClubsIdAvatarRouteImport } from './routes/api.clubs.$id.avatar'
 import { Route as ApiClubsIdWorksRouteImport } from './routes/api.clubs.$id.works'
 import { Route as ApiTitlesIdReadingRouteImport } from './routes/api.titles.$id.reading'
+import { Route as ApiTitlesIdSocialRouteImport } from './routes/api.titles.$id.social'
 import { Route as ApiUsersIdFollowRouteImport } from './routes/api.users.$id.follow'
 import { Route as CommunityClubsIdManageRouteImport } from './routes/community_.clubs.$id_.manage'
 import { Route as CommunityClubsIdWriteRouteImport } from './routes/community_.clubs.$id_.write'
@@ -282,6 +283,11 @@ const ApiTitlesIdReadingRoute = ApiTitlesIdReadingRouteImport.update({
   path: '/api/titles/$id/reading',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTitlesIdSocialRoute = ApiTitlesIdSocialRouteImport.update({
+  id: '/api/titles/$id/social',
+  path: '/api/titles/$id/social',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiUsersIdFollowRoute = ApiUsersIdFollowRouteImport.update({
   id: '/api/users/$id/follow',
   path: '/api/users/$id/follow',
@@ -361,6 +367,7 @@ export interface FileRoutesByFullPath {
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
   '/api/clubs/$id/works': typeof ApiClubsIdWorksRouteWithChildren
   '/api/titles/$id/reading': typeof ApiTitlesIdReadingRoute
+  '/api/titles/$id/social': typeof ApiTitlesIdSocialRoute
   '/api/users/$id/follow': typeof ApiUsersIdFollowRoute
   '/community/clubs/$id/manage': typeof CommunityClubsIdManageRoute
   '/community/clubs/$id/write': typeof CommunityClubsIdWriteRoute
@@ -413,6 +420,7 @@ export interface FileRoutesByTo {
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
   '/api/clubs/$id/works': typeof ApiClubsIdWorksRouteWithChildren
   '/api/titles/$id/reading': typeof ApiTitlesIdReadingRoute
+  '/api/titles/$id/social': typeof ApiTitlesIdSocialRoute
   '/api/users/$id/follow': typeof ApiUsersIdFollowRoute
   '/community/clubs/$id/manage': typeof CommunityClubsIdManageRoute
   '/community/clubs/$id/write': typeof CommunityClubsIdWriteRoute
@@ -466,6 +474,7 @@ export interface FileRoutesById {
   '/api/clubs/$id/avatar': typeof ApiClubsIdAvatarRoute
   '/api/clubs/$id/works': typeof ApiClubsIdWorksRouteWithChildren
   '/api/titles/$id/reading': typeof ApiTitlesIdReadingRoute
+  '/api/titles/$id/social': typeof ApiTitlesIdSocialRoute
   '/api/users/$id/follow': typeof ApiUsersIdFollowRoute
   '/community_/clubs/$id_/manage': typeof CommunityClubsIdManageRoute
   '/community_/clubs/$id_/write': typeof CommunityClubsIdWriteRoute
@@ -520,6 +529,7 @@ export interface FileRouteTypes {
     | '/api/clubs/$id/avatar'
     | '/api/clubs/$id/works'
     | '/api/titles/$id/reading'
+    | '/api/titles/$id/social'
     | '/api/users/$id/follow'
     | '/community/clubs/$id/manage'
     | '/community/clubs/$id/write'
@@ -572,6 +582,7 @@ export interface FileRouteTypes {
     | '/api/clubs/$id/avatar'
     | '/api/clubs/$id/works'
     | '/api/titles/$id/reading'
+    | '/api/titles/$id/social'
     | '/api/users/$id/follow'
     | '/community/clubs/$id/manage'
     | '/community/clubs/$id/write'
@@ -624,6 +635,7 @@ export interface FileRouteTypes {
     | '/api/clubs/$id/avatar'
     | '/api/clubs/$id/works'
     | '/api/titles/$id/reading'
+    | '/api/titles/$id/social'
     | '/api/users/$id/follow'
     | '/community_/clubs/$id_/manage'
     | '/community_/clubs/$id_/write'
@@ -665,6 +677,7 @@ export interface RootRouteChildren {
   ApiTrackReadingSuggestionsRoute: typeof ApiTrackReadingSuggestionsRoute
   CommunityClubsIdRoute: typeof CommunityClubsIdRoute
   ApiTitlesIdReadingRoute: typeof ApiTitlesIdReadingRoute
+  ApiTitlesIdSocialRoute: typeof ApiTitlesIdSocialRoute
   ApiUsersIdFollowRoute: typeof ApiUsersIdFollowRoute
   CommunityClubsIdManageRoute: typeof CommunityClubsIdManageRoute
   CommunityClubsIdWriteRoute: typeof CommunityClubsIdWriteRoute
@@ -982,6 +995,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTitlesIdReadingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/titles/$id/social': {
+      id: '/api/titles/$id/social'
+      path: '/api/titles/$id/social'
+      fullPath: '/api/titles/$id/social'
+      preLoaderRoute: typeof ApiTitlesIdSocialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/users/$id/follow': {
       id: '/api/users/$id/follow'
       path: '/api/users/$id/follow'
@@ -1170,6 +1190,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTrackReadingSuggestionsRoute: ApiTrackReadingSuggestionsRoute,
   CommunityClubsIdRoute: CommunityClubsIdRoute,
   ApiTitlesIdReadingRoute: ApiTitlesIdReadingRoute,
+  ApiTitlesIdSocialRoute: ApiTitlesIdSocialRoute,
   ApiUsersIdFollowRoute: ApiUsersIdFollowRoute,
   CommunityClubsIdManageRoute: CommunityClubsIdManageRoute,
   CommunityClubsIdWriteRoute: CommunityClubsIdWriteRoute,

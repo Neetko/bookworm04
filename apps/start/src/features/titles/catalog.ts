@@ -31,14 +31,28 @@ export type CatalogTitle = {
 export type CatalogReview = {
   id: string
   rating: number
-  text: string
+  html: string
   createdAt: string
+  userId: string | null
   username: string | null
+  likesCount: number
+  viewerHasLiked: boolean
+}
+
+export type CatalogDiscussionPost = {
+  id: string
+  html: string
+  createdAt: string
+  userId: string | null
+  username: string | null
+  avatarUrl: string | null
+  likesCount: number
+  viewerHasLiked: boolean
 }
 
 export type CatalogDetail = CatalogTitle & {
-  isbn: string | null
   reviews: CatalogReview[]
+  discussionPosts: CatalogDiscussionPost[]
   shop: {
     amazonUrl: string
     audibleUrl: string
@@ -46,6 +60,11 @@ export type CatalogDetail = CatalogTitle & {
   viewer: {
     signedIn: boolean
     isRead: boolean
+    review: {
+      id: string
+      rating: number
+      html: string
+    } | null
     progress: {
       mode: "pages" | "audiobook"
       currentPage: number
