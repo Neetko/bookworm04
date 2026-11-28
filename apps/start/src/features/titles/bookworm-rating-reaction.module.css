@@ -1,0 +1,110 @@
+.reaction {
+  position: relative;
+  display: grid;
+  width: 196px;
+  min-height: 178px;
+  align-items: end;
+  justify-items: end;
+  isolation: isolate;
+}
+
+.annotation {
+  --annotation-surface: var(--popover);
+  --annotation-ink: var(--popover-foreground);
+  --annotation-border: var(--border);
+
+  position: absolute;
+  top: 2px;
+  left: -32px;
+  z-index: 1;
+  display: grid;
+  width: 138px;
+  min-height: 48px;
+  place-items: center start;
+  padding: 8px 11px 8px 13px;
+  overflow: visible;
+  color: var(--annotation-ink);
+  background: var(--annotation-surface);
+  border: 1px solid var(--annotation-border);
+  border-radius: 10px 10px 3px 10px;
+  box-shadow: 3px 3px 0 color-mix(in oklab, var(--foreground) 16%, transparent);
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  transform-origin: 100% 100%;
+}
+
+.annotation::before {
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 6px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--primary);
+  content: "";
+}
+
+.annotation::after {
+  position: absolute;
+  right: -5px;
+  bottom: 9px;
+  width: 9px;
+  height: 9px;
+  background: var(--annotation-surface);
+  border-right: 1px solid var(--annotation-border);
+  border-bottom: 1px solid var(--annotation-border);
+  content: "";
+  transform: rotate(-45deg);
+}
+
+.phrase {
+  grid-area: 1 / 1;
+  max-width: 114px;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.22;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.phraseFirst {
+  opacity: 1;
+}
+
+.phraseSecond {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .annotation {
+    animation: bookworm-annotation-enter 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .phraseFirst {
+    animation: bookworm-annotation-first 6800ms step-end infinite;
+  }
+
+  .phraseSecond {
+    animation: bookworm-annotation-second 6800ms step-end infinite;
+  }
+}
+
+@keyframes bookworm-annotation-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(3px, 2px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes bookworm-annotation-first {
+  0%, 49.999999% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes bookworm-annotation-second {
+  0%, 49.999999% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}

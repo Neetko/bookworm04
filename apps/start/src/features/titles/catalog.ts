@@ -46,6 +46,8 @@ export type CatalogDiscussionPost = {
   userId: string | null
   username: string | null
   avatarUrl: string | null
+  role: string | null
+  joinedAt: string | null
   likesCount: number
   viewerHasLiked: boolean
 }

@@ -1,4 +1,9 @@
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
+import { EditorContent, useEditor } from "@tiptap/react"
+import StarterKit from "@tiptap/starter-kit"
+import LinkExtension from "@tiptap/extension-link"
+import Placeholder from "@tiptap/extension-placeholder"
+import { Bold, Italic, Link as LinkIcon, List, ListOrdered, Unlink } from "lucide-react"
 import styles from "./catalog.module.css"
 
 type RichTextEditorProps = {
@@ -16,76 +21,56 @@ export function RichTextEditor({
   placeholder = "Write something…",
   disabled = false,
 }: RichTextEditorProps) {
-  const editorRef = useRef<HTMLDivElement>(null)
-  const lastEmittedRef = useRef<string | null>(null)
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: false, codeBlock: false }),
+      LinkExtension.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
+      Placeholder.configure({ placeholder }),
+    ],
+    content: value,
+    immediatelyRender: false,
+    editable: !disabled,
+    editorProps: { attributes: { "aria-label": label } },
+    onUpdate: ({ editor: currentEditor }) => {
+      onChange(currentEditor.getHTML(), currentEditor.getText())
+    },
+  })
 
   useEffect(() => {
-    const editor = editorRef.current
-    if (!editor || (lastEmittedRef.current !== null && value === lastEmittedRef.current)) return
-    editor.innerHTML = value
-    lastEmittedRef.current = value
-  }, [value])
-
-  function emitChange() {
-    const editor = editorRef.current
     if (!editor) return
-    const text = editor.textContent?.replace(/\u00a0/g, " ").trim() ?? ""
-    const html = text ? editor.innerHTML : ""
-    lastEmittedRef.current = html
-    onChange(html, text)
-  }
+    editor.setEditable(!disabled)
+  }, [disabled, editor])
 
-  function runCommand(command: string, argument?: string) {
-    if (disabled) return
-    editorRef.current?.focus()
-    document.execCommand(command, false, argument)
-    emitChange()
-  }
+  useEffect(() => {
+    if (!editor || editor.getHTML() === value) return
+    editor.commands.setContent(value || "", { emitUpdate: false })
+  }, [editor, value])
 
-  function toolbarButton(labelText: string, command: string, argument?: string) {
-    return <button
-      type="button"
-      aria-label={labelText}
-      title={labelText}
-      disabled={disabled}
-      onMouseDown={(event) => {
-        event.preventDefault()
-        runCommand(command, argument)
-      }}
-    >{labelText}</button>
+  if (!editor) return null
+
+  function setLink() {
+    if (!editor) return
+    const previousUrl = editor.getAttributes("link").href as string | undefined
+    const url = window.prompt("Enter URL", previousUrl ?? "")
+    if (url === null) return
+    if (!url.trim()) {
+      editor.chain().focus().unsetLink().run()
+      return
+    }
+    editor.chain().focus().setLink({ href: url.trim() }).run()
   }
 
   return <div className={styles.richEditor} aria-disabled={disabled}>
     <div className={styles.richToolbar} role="toolbar" aria-label={`${label} formatting`}>
-      {toolbarButton("Bold", "bold")}
-      {toolbarButton("Italic", "italic")}
-      {toolbarButton("Underline", "underline")}
-      {toolbarButton("Bullets", "insertUnorderedList")}
-      {toolbarButton("Numbered list", "insertOrderedList")}
-      {toolbarButton("Quote", "formatBlock", "blockquote")}
-      <button
-        type="button"
-        disabled={disabled}
-        onMouseDown={(event) => {
-          event.preventDefault()
-          if (disabled) return
-          const href = window.prompt("Link URL")?.trim()
-          if (href) runCommand("createLink", href)
-        }}
-      >Link</button>
-      {toolbarButton("Clear formatting", "removeFormat")}
+      <button type="button" data-active={editor.isActive("bold")} aria-label="Bold" title="Bold" onClick={() => editor.chain().focus().toggleBold().run()} disabled={disabled}><Bold size={16} /></button>
+      <button type="button" data-active={editor.isActive("italic")} aria-label="Italic" title="Italic" onClick={() => editor.chain().focus().toggleItalic().run()} disabled={disabled}><Italic size={16} /></button>
+      <button type="button" data-active={editor.isActive("bulletList")} aria-label="Bulleted list" title="Bulleted list" onClick={() => editor.chain().focus().toggleBulletList().run()} disabled={disabled}><List size={16} /></button>
+      <button type="button" data-active={editor.isActive("orderedList")} aria-label="Numbered list" title="Numbered list" onClick={() => editor.chain().focus().toggleOrderedList().run()} disabled={disabled}><ListOrdered size={16} /></button>
+      <button type="button" data-active={editor.isActive("link")} aria-label="Add link" title="Add link" onClick={setLink} disabled={disabled}><LinkIcon size={16} /></button>
+      <button type="button" aria-label="Remove link" title="Remove link" onClick={() => editor.chain().focus().unsetLink().run()} disabled={disabled}><Unlink size={16} /></button>
     </div>
-    <div
-      ref={editorRef}
-      className={styles.richSurface}
-      contentEditable={!disabled}
-      suppressContentEditableWarning
-      role="textbox"
-      aria-label={label}
-      aria-multiline="true"
-      data-placeholder={placeholder}
-      onInput={emitChange}
-      onBlur={emitChange}
-    />
+    <div className={styles.richSurface} onClick={() => { if (!disabled) editor.chain().focus().run() }}>
+      <EditorContent editor={editor} />
+    </div>
   </div>
 }

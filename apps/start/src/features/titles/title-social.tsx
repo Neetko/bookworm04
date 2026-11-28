@@ -1,14 +1,52 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { Link, useRouter } from "@tanstack/react-router"
-import { formatDate } from "../date-format"
+import { Calendar, Flag, Lock, MoreHorizontal, Send, ThumbsUp, User } from "lucide-react"
 import type { CatalogDetail, CatalogDiscussionPost, CatalogReview } from "./catalog"
+import { BookwormRatingReaction } from "./bookworm-rating-reaction"
+import { BookwormSprite, type BookwormRatingBand } from "./bookworm-sprite"
 import { RichTextEditor } from "./rich-text-editor"
+import reviewStyles from "./review-form.module.css"
 import styles from "./catalog.module.css"
 
 type SocialResult = {
   error?: string
   liked?: boolean
   likesCount?: number
+}
+
+const RATING_LABELS: Record<BookwormRatingBand, string> = {
+  "1-2": "Not for me",
+  "3-4": "Underwhelming",
+  "5-6": "Pretty neat",
+  "7-8": "Great read",
+  "9-10": "Outstanding",
+}
+
+function getRatingBand(rating: number): BookwormRatingBand | null {
+  if (rating <= 0) return null
+  if (rating <= 2) return "1-2"
+  if (rating <= 4) return "3-4"
+  if (rating <= 6) return "5-6"
+  if (rating <= 8) return "7-8"
+  return "9-10"
+}
+
+function formatRelativeDate(value: string) {
+  const elapsedSeconds = Math.round((new Date(value).getTime() - Date.now()) / 1_000)
+  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" })
+  if (Math.abs(elapsedSeconds) < 60) return formatter.format(elapsedSeconds, "second")
+  const minutes = Math.round(elapsedSeconds / 60)
+  if (Math.abs(minutes) < 60) return formatter.format(minutes, "minute")
+  const hours = Math.round(minutes / 60)
+  if (Math.abs(hours) < 24) return formatter.format(hours, "hour")
+  const days = Math.round(hours / 24)
+  if (Math.abs(days) < 30) return formatter.format(days, "day")
+  return new Intl.DateTimeFormat("en", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value))
+}
+
+function formatJoinedDate(value: string | null) {
+  if (!value) return "Unknown"
+  return new Intl.DateTimeFormat("en", { month: "short", year: "numeric" }).format(new Date(value))
 }
 
 async function mutateTitleSocial(titleId: string, payload: unknown): Promise<SocialResult> {
@@ -28,27 +66,37 @@ function ReviewerLink({ userId, username }: { userId: string | null; username: s
     : <span>{username ?? "Reader"}</span>
 }
 
+function LockedComposer({ area, signedIn }: { area: "reviews" | "discussion"; signedIn: boolean }) {
+  return <div className={styles.lockedComposer}>
+    <span className={styles.lockIcon} aria-hidden="true"><Lock size={16} /></span>
+    <div>
+      <strong>{area === "discussion" ? "Read-only discussion" : "Reviews unlock after reading"}</strong>
+      <p>{area === "discussion"
+        ? `${signedIn ? "Mark" : "Sign in and mark"} this title as read to post. You can still browse every discussion below.`
+        : `${signedIn ? "Mark" : "Sign in and mark"} this title as read to rate it and write a review.`}</p>
+    </div>
+  </div>
+}
+
 function ReviewComposer({ title }: { title: CatalogDetail }) {
   const router = useRouter()
   const existing = title.viewer.review
   const [rating, setRating] = useState(existing?.rating ?? 0)
+  const [hoverRating, setHoverRating] = useState<number | null>(null)
+  const [focusRating, setFocusRating] = useState<number | null>(null)
   const [html, setHtml] = useState(existing?.html ?? "")
   const [pending, setPending] = useState(false)
   const [feedback, setFeedback] = useState("")
+  const interactionRating = hoverRating ?? focusRating
+  const previewRating = interactionRating ?? rating
+  const displayBand = getRatingBand(interactionRating ?? 0) ?? getRatingBand(rating)
 
   useEffect(() => {
     setRating(existing?.rating ?? 0)
     setHtml(existing?.html ?? "")
   }, [existing?.id, existing?.rating, existing?.html])
 
-  if (!title.viewer.isRead) {
-    return <div className={styles.lockedComposer}>
-      <strong>Reviews unlock after reading.</strong>
-      <p>{title.viewer.signedIn
-        ? "Mark this title as read to rate it and write a review."
-        : "Sign in and mark this title as read to rate it and write a review."}</p>
-    </div>
-  }
+  if (!title.viewer.isRead) return <LockedComposer area="reviews" signedIn={title.viewer.signedIn} />
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -69,32 +117,66 @@ function ReviewComposer({ title }: { title: CatalogDetail }) {
     }
   }
 
-  return <form className={styles.reviewComposer} onSubmit={submit}>
-    <div className={styles.composerHeading}>
-      <div><p className={styles.eyebrow}>Your take</p><h3>{existing ? "Update your review" : "Review this title"}</h3></div>
-      <output aria-live="polite"><strong>{rating || "—"}</strong><span>/10</span></output>
+  return <form className={reviewStyles.composer} onSubmit={submit} aria-labelledby="review-composer-title">
+    <header className={reviewStyles.header}>
+      <div>
+        <p className={reviewStyles.eyebrow}>Your take</p>
+        <h3 className={reviewStyles.title} id="review-composer-title">Rate this title</h3>
+      </div>
+      <div className={reviewStyles.readout} aria-live="polite">
+        <span className={reviewStyles.readoutScore}>{previewRating || "—"}<small>/10</small></span>
+        <span className={reviewStyles.readoutLabel}>{displayBand ? RATING_LABELS[displayBand] : "Choose a score"}</span>
+      </div>
+    </header>
+    <div className={reviewStyles.ratingLayout}>
+      <fieldset className={reviewStyles.selector}>
+        <legend className={reviewStyles.legend}>Score from 1 to 10</legend>
+        <div className={reviewStyles.scoreGrid} onPointerCancel={() => setHoverRating(null)} onPointerLeave={() => setHoverRating(null)}>
+          {Array.from({ length: 10 }, (_, index) => index + 1).map((score) => <label
+            className={reviewStyles.scoreOption}
+            data-current={rating === score}
+            data-previewed={score <= previewRating}
+            key={score}
+            onPointerEnter={() => setHoverRating(score)}
+          >
+            <input
+              checked={rating === score}
+              className={reviewStyles.scoreInput}
+              name={`rating-${title.id}`}
+              onBlur={() => setFocusRating(null)}
+              onChange={() => setRating(score)}
+              onFocus={() => setFocusRating(score)}
+              type="radio"
+              value={score}
+            />
+            <span className={reviewStyles.scoreFace}><span className={reviewStyles.scoreNumber}>{score}</span></span>
+          </label>)}
+        </div>
+        <div className={reviewStyles.scaleLabels} aria-hidden="true"><span>rough</span><span>solid</span><span>all-time</span></div>
+      </fieldset>
+      <div className={reviewStyles.reactionStage} aria-hidden="true">
+        <span className={reviewStyles.previewLabel}>{interactionRating
+          ? `Previewing ${interactionRating}/10`
+          : rating
+            ? `Your verdict: ${rating}/10`
+            : "Mascot preview"}</span>
+        <div className={reviewStyles.reactionCanvas}>{displayBand
+          ? <BookwormRatingReaction key={displayBand} ratingBand={displayBand} />
+          : <BookwormSprite />}</div>
+      </div>
     </div>
-    <fieldset className={styles.ratingPicker}>
-      <legend>Rating from 1 to 10</legend>
-      <div>{Array.from({ length: 10 }, (_, index) => index + 1).map((score) => <label key={score} data-selected={rating === score}>
-        <input type="radio" name={`rating-${title.id}`} value={score} checked={rating === score} onChange={() => setRating(score)} />
-        <span>{score}</span>
-      </label>)}</div>
-    </fieldset>
-    <label className={styles.editorLabel}>Your review</label>
-    <RichTextEditor
-      value={html}
-      onChange={(nextHtml) => setHtml(nextHtml)}
-      label="Your review"
-      placeholder="What stayed with you?"
-      disabled={pending}
-    />
-    <div className={styles.composerFooter}>
-      <p>{feedback || (existing ? "Saving replaces your previous rating and review." : "You can revise this review later.")}</p>
+    <div className={reviewStyles.reviewField}>
+      <label className={reviewStyles.reviewLabel}>Your review</label>
+      <RichTextEditor value={html} onChange={setHtml} label="Your review" placeholder="What stayed with you?" disabled={pending} />
+    </div>
+    <footer className={reviewStyles.footer}>
+      <p className={reviewStyles.saveNote}>{feedback || (existing
+        ? "Saving will replace your previous rating and review."
+        : "You can come back and revise this later.")}</p>
       <button className={`${styles.actionButton} ${styles.actionPrimary}`} type="submit" disabled={pending || rating === 0}>
         {pending ? "Saving…" : existing ? "Update review" : "Publish review"}
       </button>
-    </div>
+    </footer>
   </form>
 }
 
@@ -102,7 +184,6 @@ function ReviewsPanel({ title }: { title: CatalogDetail }) {
   const [reviews, setReviews] = useState<CatalogReview[]>(title.reviews)
   const [pendingLike, setPendingLike] = useState<string | null>(null)
   const [feedback, setFeedback] = useState("")
-
   useEffect(() => setReviews(title.reviews), [title.reviews])
 
   async function toggleLike(review: CatalogReview) {
@@ -133,22 +214,23 @@ function ReviewsPanel({ title }: { title: CatalogDetail }) {
   return <div className={styles.socialPanel}>
     <ReviewComposer title={title} />
     {feedback ? <p className={styles.socialFeedback} role="status">{feedback}</p> : null}
-    {reviews.length === 0 ? <p className={styles.empty}>No reviews yet. Be the first reader to review it.</p> : <div className={styles.reviewGrid}>
-      {reviews.map((review) => <article className={styles.review} key={review.id}>
+    {reviews.length === 0 ? <p className={styles.empty}>No reviews yet. Be the first to review it.</p> : <div className={styles.reviewsList}>
+      <p className={styles.resultCount}>{reviews.length === 1 ? "1 review" : `${reviews.length} reviews`}</p>
+      {reviews.map((review) => <article className={styles.reviewRow} key={review.id}>
         <div className={styles.reviewHeader}>
           <ReviewerLink userId={review.userId} username={review.username} />
           <strong>{review.rating}/10</strong>
         </div>
         {review.html ? <div className={styles.richOutput} dangerouslySetInnerHTML={{ __html: review.html }} /> : null}
         <div className={styles.socialMeta}>
-          <small>{formatDate(review.createdAt)}</small>
+          <small>{formatRelativeDate(review.createdAt)}</small>
           <button
             type="button"
             data-liked={review.viewerHasLiked}
             disabled={!title.viewer.signedIn || pendingLike === review.id}
             title={title.viewer.signedIn ? "Like this review" : "Sign in to like reviews"}
             onClick={() => void toggleLike(review)}
-          ><span aria-hidden="true">♥</span> {review.likesCount}</button>
+          ><ThumbsUp size={15} aria-hidden="true" /><span>{review.likesCount}</span></button>
         </div>
       </article>)}
     </div>}
@@ -162,14 +244,7 @@ function DiscussionComposer({ title }: { title: CatalogDetail }) {
   const [pending, setPending] = useState(false)
   const [feedback, setFeedback] = useState("")
 
-  if (!title.viewer.isRead) {
-    return <div className={styles.lockedComposer}>
-      <strong>Read-only discussion</strong>
-      <p>{title.viewer.signedIn
-        ? "Mark this title as read to post. You can still read every discussion below."
-        : "Sign in and mark this title as read to post. You can still read every discussion below."}</p>
-    </div>
-  }
+  if (!title.viewer.isRead) return <LockedComposer area="discussion" signedIn={title.viewer.signedIn} />
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -193,26 +268,63 @@ function DiscussionComposer({ title }: { title: CatalogDetail }) {
   }
 
   return <form className={styles.discussionComposer} onSubmit={submit}>
-    <div className={styles.composerHeading}><div><p className={styles.eyebrow}>Discussion</p><h3>Share your thoughts</h3></div></div>
+    <h3>Share Your Thoughts</h3>
     <RichTextEditor
       value={html}
       onChange={(nextHtml, nextText) => { setHtml(nextHtml); setText(nextText) }}
       label="Discussion post"
-      placeholder="Share an insight, favourite moment, or question…"
+      placeholder="What are your thoughts on this book? Share your insights, favorite moments, or questions..."
       disabled={pending}
     />
     <div className={styles.composerFooter}>
       <p>{feedback || `${text.length} characters`}</p>
-      <button className={`${styles.actionButton} ${styles.actionPrimary}`} type="submit" disabled={pending || !text.trim()}>{pending ? "Posting…" : "Post"}</button>
+      <button className={`${styles.actionButton} ${styles.actionPrimary}`} type="submit" disabled={pending || !text.trim()}>
+        <Send size={15} aria-hidden="true" /> {pending ? "Posting…" : "Post"}
+      </button>
     </div>
   </form>
+}
+
+function DiscussionPost({ title, post, pendingLike, onLike }: {
+  title: CatalogDetail
+  post: CatalogDiscussionPost
+  pendingLike: boolean
+  onLike: () => void
+}) {
+  return <article className={styles.discussionPost}>
+    <aside>
+      {post.avatarUrl
+        ? <img src={post.avatarUrl} alt="" width="96" height="96" loading="lazy" decoding="async" />
+        : <span className={styles.avatarFallback} aria-hidden="true"><User size={48} /></span>}
+      <ReviewerLink userId={post.userId} username={post.username} />
+      {post.role ? <span className={styles.roleBadge}>{post.role}</span> : null}
+      <span className={styles.joinedDate}><Calendar size={13} aria-hidden="true" /> Joined {formatJoinedDate(post.joinedAt)}</span>
+      <span className={styles.profileRule} aria-hidden="true" />
+    </aside>
+    <div className={styles.discussionBody}>
+      <header>
+        <small>Posted {formatRelativeDate(post.createdAt)}</small>
+        <span aria-hidden="true"><MoreHorizontal size={17} /></span>
+      </header>
+      <div className={styles.richOutput} dangerouslySetInnerHTML={{ __html: post.html }} />
+      <div className={styles.postActions}>
+        <button
+          type="button"
+          data-liked={post.viewerHasLiked}
+          disabled={!title.viewer.isRead || pendingLike}
+          title={title.viewer.isRead ? "Like this post" : "Mark this title as read to like discussion posts"}
+          onClick={onLike}
+        ><ThumbsUp size={15} aria-hidden="true" /><span>({post.likesCount})</span></button>
+        <span title="Report post" aria-hidden="true"><Flag size={15} /></span>
+      </div>
+    </div>
+  </article>
 }
 
 function DiscussionPanel({ title }: { title: CatalogDetail }) {
   const [posts, setPosts] = useState<CatalogDiscussionPost[]>(title.discussionPosts)
   const [pendingLike, setPendingLike] = useState<string | null>(null)
   const [feedback, setFeedback] = useState("")
-
   useEffect(() => setPosts(title.discussionPosts), [title.discussionPosts])
 
   async function toggleLike(post: CatalogDiscussionPost) {
@@ -244,23 +356,13 @@ function DiscussionPanel({ title }: { title: CatalogDetail }) {
     <DiscussionComposer title={title} />
     {feedback ? <p className={styles.socialFeedback} role="status">{feedback}</p> : null}
     {posts.length === 0 ? <p className={styles.empty}>No discussion posts yet.</p> : <div className={styles.discussionList}>
-      {posts.map((post) => <article className={styles.discussionPost} key={post.id}>
-        <aside>
-          {post.avatarUrl ? <img src={post.avatarUrl} alt="" width="48" height="48" loading="lazy" decoding="async" /> : <span aria-hidden="true">B</span>}
-          <ReviewerLink userId={post.userId} username={post.username} />
-        </aside>
-        <div className={styles.discussionBody}>
-          <small>Posted {formatDate(post.createdAt)}</small>
-          <div className={styles.richOutput} dangerouslySetInnerHTML={{ __html: post.html }} />
-          <button
-            type="button"
-            data-liked={post.viewerHasLiked}
-            disabled={!title.viewer.isRead || pendingLike === post.id}
-            title={title.viewer.isRead ? "Like this post" : "Mark this title as read to like discussion posts"}
-            onClick={() => void toggleLike(post)}
-          ><span aria-hidden="true">♥</span> {post.likesCount}</button>
-        </div>
-      </article>)}
+      {posts.map((post) => <DiscussionPost
+        key={post.id}
+        title={title}
+        post={post}
+        pendingLike={pendingLike === post.id}
+        onLike={() => void toggleLike(post)}
+      />)}
     </div>}
   </div>
 }
@@ -269,9 +371,12 @@ export function TitleSocial({ title }: { title: CatalogDetail }) {
   const [tab, setTab] = useState<"reviews" | "discussion">("reviews")
   return <section className={styles.socialSection}>
     <div className={styles.socialTabs} role="tablist" aria-label="Title activity">
-      <button type="button" role="tab" aria-selected={tab === "reviews"} onClick={() => setTab("reviews")}>Reviews <span>{title.reviews.length}</span></button>
-      <button type="button" role="tab" aria-selected={tab === "discussion"} onClick={() => setTab("discussion")}>Discussion <span>{title.discussionPosts.length}</span></button>
+      <button type="button" role="tab" aria-selected={tab === "reviews"} onClick={() => setTab("reviews")}>Reviews</button>
+      <button type="button" role="tab" aria-selected={tab === "discussion"} onClick={() => setTab("discussion")}>Discussion</button>
     </div>
-    <div role="tabpanel">{tab === "reviews" ? <ReviewsPanel title={title} /> : <DiscussionPanel title={title} />}</div>
+    <section className={styles.socialCard} role="tabpanel">
+      <h2>{tab === "reviews" ? "Reviews" : "Discussion"}</h2>
+      {tab === "reviews" ? <ReviewsPanel title={title} /> : <DiscussionPanel title={title} />}
+    </section>
   </section>
 }

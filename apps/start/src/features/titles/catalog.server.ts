@@ -142,7 +142,7 @@ export async function getCatalogDetail(id: string): Promise<CatalogDetail> {
 
   const [profileResult, reviewLikeResult, viewerPostLikeResult] = await Promise.all([
     authorIds.length
-      ? supabase.from("public_profiles").select("id,username,avatar_url").in("id", authorIds)
+      ? supabase.from("public_profiles").select("id,username,avatar_url,role,created_at").in("id", authorIds)
       : Promise.resolve({ data: [], error: null }),
     reviewIds.length
       ? supabase.from("review_likes").select("review_id,user_id").in("review_id", reviewIds)
@@ -187,6 +187,8 @@ export async function getCatalogDetail(id: string): Promise<CatalogDetail> {
       userId: row.user_id as string | null,
       username: profile?.username ? String(profile.username) : null,
       avatarUrl: safePublicImageUrl(profile?.avatar_url ?? null),
+      role: profile?.role ? String(profile.role) : null,
+      joinedAt: profile?.created_at ? String(profile.created_at) : null,
       likesCount: Number(row.likes_count) || 0,
       viewerHasLiked: viewerPostLikes.has(row.id as string),
     }

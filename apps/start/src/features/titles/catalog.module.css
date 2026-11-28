@@ -69,68 +69,68 @@
 
 @media(max-width:700px){.titleActions{margin-top:25px}.readingActions,.shopActions{align-items:stretch}.readingActions>.actionWithStatus{width:100%}.readingActions .actionButton{flex:1}.shopActions>span:first-child{width:100%}.shopActions .actionButton{flex:1}.modalBackdrop{padding:10px}.progressDialog{max-height:calc(100vh - 20px);padding:20px}.progressFields{grid-template-columns:1fr}.dialogActions .actionButton{flex:1}}
 
-/* Reviews and title discussion. */
-.socialSection{margin-top:54px}
-.socialTabs{display:flex;gap:6px;border-bottom:1px solid var(--bw-border)}
-.socialTabs button{position:relative;border:0;background:transparent;color:var(--bw-muted);padding:13px 17px;font:700 13px Raleway,Arial,sans-serif;cursor:pointer}
-.socialTabs button[aria-selected="true"]{color:var(--bw-text)}
-.socialTabs button[aria-selected="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;background:var(--bw-primary)}
-.socialTabs span{display:inline-grid;place-items:center;min-width:19px;height:19px;margin-left:5px;border-radius:99px;background:var(--bw-tint);font-size:10px}
-.socialPanel{display:grid;gap:25px;padding-top:24px}
-.reviewComposer,.discussionComposer,.lockedComposer{border:1px solid var(--bw-border);border-radius:7px;background:var(--bw-card);padding:23px}
-.lockedComposer{border-style:dashed;background:color-mix(in srgb,var(--bw-tint) 48%,var(--bw-card))}
-.lockedComposer strong{font-family:"IM Fell English SC",Georgia,serif;font-size:22px;font-weight:400}
-.lockedComposer p{margin:7px 0 0;color:var(--bw-muted);font-size:13px;line-height:1.55}
-.composerHeading{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:19px}
-.composerHeading h3{margin:3px 0 0;font:400 28px "IM Fell English SC",Georgia,serif}
-.composerHeading output{display:flex;align-items:baseline;color:var(--bw-primary)}
-.composerHeading output strong{font:400 35px "IM Fell English SC",Georgia,serif}
-.composerHeading output span{font-size:12px;font-weight:700}
-.ratingPicker{border:0;padding:0;margin:0 0 21px}
-.ratingPicker legend,.editorLabel{display:block;margin-bottom:9px;color:var(--bw-muted);font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
-.ratingPicker>div{display:grid;grid-template-columns:repeat(10,minmax(35px,1fr));gap:6px}
-.ratingPicker label{cursor:pointer}
-.ratingPicker input{position:absolute;width:1px;height:1px;opacity:0}
-.ratingPicker label span{display:grid;place-items:center;min-height:39px;border:1px solid var(--bw-border);border-radius:5px;background:var(--bw-background);font-size:13px;font-weight:700;transition:background-color .15s,border-color .15s,transform .15s}
-.ratingPicker label:hover span{border-color:var(--bw-primary);transform:translateY(-1px)}
-.ratingPicker label[data-selected="true"] span{border-color:var(--bw-primary);background:var(--bw-primary);color:var(--bw-primary-text)}
-.ratingPicker input:focus-visible+span{outline:2px solid var(--bw-primary);outline-offset:2px}
+/* Reviews and title discussion, matched to the pre-TanStack title page. */
+.socialSection{margin-top:34px}
+.socialTabs{display:inline-flex;margin-bottom:24px;border:1px solid var(--bw-border);background:var(--bw-card)}
+.socialTabs button{min-width:98px;border:0;background:transparent;color:var(--bw-muted);padding:11px 16px;font:500 12px "IM Fell English SC",Georgia,serif;letter-spacing:.1em;cursor:pointer}
+.socialTabs button+button{border-left:1px solid var(--bw-border)}
+.socialTabs button[aria-selected="true"]{background:var(--bw-background);color:var(--bw-text);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--bw-border) 68%,transparent)}
+.socialCard{border:1px solid var(--bw-border);border-radius:5px;background:var(--bw-card)}
+.socialCard>h2{margin:0;padding:20px 24px 0;font:400 27px "IM Fell English SC",Georgia,serif}
+.socialPanel{display:grid;gap:24px;padding:23px 24px 25px}
+.discussionComposer,.lockedComposer{border:1px solid var(--bw-border);border-radius:5px;background:var(--bw-card);padding:23px}
+.discussionComposer{display:grid;gap:16px}
+.discussionComposer h3{margin:0;font:400 22px "IM Fell English SC",Georgia,serif}
+.lockedComposer{display:flex;align-items:flex-start;gap:13px;border-style:dashed;background:color-mix(in srgb,var(--bw-tint) 42%,var(--bw-card))}
+.lockIcon{display:grid;flex:none;width:32px;height:32px;place-items:center;border-radius:50%;background:var(--bw-tint);color:var(--bw-muted)}
+.lockedComposer strong{font:400 17px "IM Fell English SC",Georgia,serif;letter-spacing:.09em}
+.lockedComposer p{margin:7px 0 0;color:var(--bw-muted);font:400 12px/1.55 "IM Fell English SC",Georgia,serif;letter-spacing:.1em}
 .richEditor{overflow:hidden;border:1px solid var(--bw-border);border-radius:5px;background:var(--bw-background)}
 .richEditor[aria-disabled="true"]{opacity:.7}
-.richToolbar{display:flex;flex-wrap:wrap;gap:4px;padding:7px;border-bottom:1px solid var(--bw-border);background:var(--bw-tint)}
-.richToolbar button{border:1px solid transparent;border-radius:4px;background:transparent;color:var(--bw-text);padding:6px 8px;font:700 11px Raleway,Arial,sans-serif;cursor:pointer}
-.richToolbar button:hover:not(:disabled){border-color:var(--bw-border);background:var(--bw-card)}
+.richToolbar{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border-bottom:1px solid var(--bw-border);background:var(--bw-tint)}
+.richToolbar button{display:grid;width:32px;height:30px;place-items:center;border:1px solid var(--bw-border);border-radius:4px;background:var(--bw-card);color:var(--bw-text);cursor:pointer}
+.richToolbar button:hover:not(:disabled),.richToolbar button[data-active="true"]{border-color:var(--bw-primary);background:var(--bw-primary);color:var(--bw-primary-text)}
 .richToolbar button:disabled{cursor:not-allowed;opacity:.55}
-.richSurface{min-height:145px;padding:13px 14px;color:var(--bw-text);font:400 14px/1.7 Raleway,Arial,sans-serif;outline:0}
-.richSurface:focus{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--bw-primary) 70%,transparent)}
-.richSurface:empty::before{content:attr(data-placeholder);color:var(--bw-muted);pointer-events:none}
-.richSurface p{margin:0 0 9px}.richSurface p:last-child{margin-bottom:0}
-.composerFooter{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-top:15px}
+.richSurface{padding:12px 14px;color:var(--bw-text);font:400 14px/1.7 Raleway,Arial,sans-serif;cursor:text}
+.richSurface:focus-within{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--bw-primary) 70%,transparent)}
+.richSurface :global(.ProseMirror){min-height:145px;outline:0}
+.richSurface :global(.ProseMirror p){margin:0 0 9px}
+.richSurface :global(.ProseMirror p:last-child){margin-bottom:0}
+.richSurface :global(.tiptap p.is-editor-empty:first-child::before){height:0;float:left;color:var(--bw-muted);content:attr(data-placeholder);pointer-events:none}
+.composerFooter{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-top:0}
 .composerFooter p{margin:0;color:var(--bw-muted);font-size:11px;line-height:1.5}
 .socialFeedback{margin:0;border-left:3px solid var(--bw-primary);padding:9px 12px;background:var(--bw-tint);font-size:12px}
-.reviewGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:15px}
-.review{display:flex;min-height:165px;flex-direction:column;border-radius:6px}
+.reviewsList{display:grid}
+.resultCount{margin:0;padding-bottom:14px;color:var(--bw-muted);font-size:12px}
+.reviewRow{padding:20px 0;border-top:1px solid var(--bw-border)}
+.reviewRow:last-child{padding-bottom:0}
 .reviewHeader{display:flex;justify-content:space-between;align-items:baseline;gap:14px;font-size:13px}
 .reviewHeader>strong{color:var(--bw-primary)}
-.profileLink{color:var(--bw-text);font-weight:700;text-decoration:none}
+.profileLink{color:var(--bw-text);font:600 18px "IM Fell English SC",Georgia,serif;letter-spacing:.04em;text-decoration:none}
 .profileLink:hover{text-decoration:underline}
-.richOutput{margin-top:13px;color:var(--bw-text);font-size:14px;line-height:1.7;overflow-wrap:anywhere}
-.review>.richOutput{display:block;justify-content:initial;gap:0;font-size:14px}.review>.richOutput span{font-weight:inherit}
+.richOutput{margin-top:14px;color:var(--bw-text);font-size:14px;line-height:1.75;overflow-wrap:anywhere}
 .richOutput p{margin:0 0 10px}.richOutput p:last-child{margin-bottom:0}
 .richOutput ul,.richOutput ol{padding-left:22px}.richOutput blockquote{margin:12px 0;border-left:3px solid var(--bw-primary);padding-left:13px;color:var(--bw-muted)}
 .richOutput a{color:var(--bw-primary)}
-.socialMeta{display:flex;align-items:center;justify-content:space-between;gap:13px;margin-top:auto;padding-top:17px}
-.socialMeta button,.discussionBody>button{border:0;border-radius:99px;background:var(--bw-tint);color:var(--bw-muted);padding:6px 10px;font:700 11px Raleway,Arial,sans-serif;cursor:pointer}
-.socialMeta button[data-liked="true"],.discussionBody>button[data-liked="true"]{background:color-mix(in srgb,var(--bw-primary) 18%,var(--bw-tint));color:var(--bw-primary)}
-.socialMeta button:disabled,.discussionBody>button:disabled{cursor:not-allowed;opacity:.58}
+.socialMeta{display:flex;align-items:center;justify-content:space-between;gap:13px;padding-top:16px;color:var(--bw-muted)}
+.socialMeta button,.postActions button{display:inline-flex;align-items:center;gap:5px;border:0;border-radius:4px;background:transparent;color:var(--bw-muted);padding:6px 8px;font:500 11px Raleway,Arial,sans-serif;cursor:pointer}
+.socialMeta button:hover:not(:disabled),.postActions button:hover:not(:disabled){background:var(--bw-tint);color:var(--bw-text)}
+.socialMeta button[data-liked="true"],.postActions button[data-liked="true"]{color:var(--bw-primary)}
+.socialMeta button:disabled,.postActions button:disabled{cursor:not-allowed;opacity:.58}
 .discussionList{display:grid;gap:15px}
-.discussionPost{display:grid;grid-template-columns:150px 1fr;border:1px solid var(--bw-border);border-radius:7px;background:var(--bw-card);overflow:hidden}
-.discussionPost aside{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 14px;border-right:1px solid var(--bw-border);background:color-mix(in srgb,var(--bw-tint) 52%,var(--bw-card));text-align:center;font-size:12px}
-.discussionPost aside img,.discussionPost aside>span:first-child{width:48px;height:48px;border-radius:50%;object-fit:cover}
-.discussionPost aside>span:first-child{display:grid;place-items:center;background:var(--bw-primary);color:var(--bw-primary-text);font:400 25px "IM Fell English SC",Georgia,serif}
-.discussionBody{display:flex;min-width:0;flex-direction:column;padding:22px}
-.discussionBody>small{color:var(--bw-muted)}
-.discussionBody>.richOutput{margin-bottom:20px}
-.discussionBody>button{align-self:flex-start;margin-top:auto}
+.discussionPost{display:grid;grid-template-columns:256px minmax(0,1fr);min-height:330px;border:1px solid var(--bw-border);border-radius:5px;background:var(--bw-card);overflow:hidden}
+.discussionPost aside{display:flex;flex-direction:column;align-items:center;padding:26px 24px;border-right:1px solid var(--bw-border);background:color-mix(in srgb,var(--bw-tint) 27%,var(--bw-card));text-align:center}
+.discussionPost aside>img,.avatarFallback{width:96px;height:96px;border-radius:50%;object-fit:cover;border:4px solid var(--bw-card);box-shadow:0 2px 8px #0005}
+.avatarFallback{display:grid;place-items:center;background:var(--bw-tint);color:var(--bw-text)}
+.discussionPost aside>.profileLink{margin-top:16px}
+.roleBadge{margin-top:8px;border-radius:99px;background:var(--bw-tint);padding:4px 10px;color:var(--bw-text);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.joinedDate{display:flex;align-items:center;gap:5px;margin-top:14px;color:var(--bw-muted);font:400 11px "IM Fell English SC",Georgia,serif;letter-spacing:.08em}
+.profileRule{width:100%;margin-top:20px;border-top:1px solid var(--bw-border)}
+.discussionBody{position:relative;display:flex;min-width:0;flex-direction:column;padding:26px 24px 48px}
+.discussionBody>header{display:flex;align-items:center;justify-content:space-between;gap:16px;color:var(--bw-muted)}
+.discussionBody>header small{font:400 11px "IM Fell English SC",Georgia,serif;letter-spacing:.11em;text-transform:uppercase}
+.discussionBody>.richOutput{margin:28px 0 22px;font-family:"IM Fell English SC",Georgia,serif;letter-spacing:.08em}
+.postActions{position:absolute;right:14px;bottom:10px;left:14px;display:flex;align-items:center;justify-content:space-between;color:var(--bw-muted)}
+.postActions>span{display:grid;width:32px;height:32px;place-items:center}
 
-@media(max-width:700px){.socialSection{margin-top:38px}.socialTabs button{flex:1;padding-inline:8px}.reviewComposer,.discussionComposer,.lockedComposer{padding:18px}.ratingPicker>div{grid-template-columns:repeat(5,1fr)}.composerHeading{align-items:center}.composerFooter{align-items:stretch;flex-direction:column}.composerFooter .actionButton{width:100%}.reviewGrid{grid-template-columns:1fr}.discussionPost{grid-template-columns:1fr}.discussionPost aside{align-items:center;flex-direction:row;border-right:0;border-bottom:1px solid var(--bw-border);text-align:left;padding:13px 17px}.discussionPost aside img,.discussionPost aside>span:first-child{width:38px;height:38px}.discussionBody{padding:18px}}
+@media(max-width:760px){.socialSection{margin-top:38px}.socialTabs{display:flex}.socialTabs button{flex:1}.socialCard>h2{padding-inline:18px}.socialPanel{padding:19px 18px}.discussionComposer,.lockedComposer{padding:18px}.composerFooter{align-items:stretch;flex-direction:column}.composerFooter .actionButton{width:100%}.discussionPost{grid-template-columns:1fr;min-height:0}.discussionPost aside{align-items:center;display:grid;grid-template-columns:52px minmax(0,1fr);column-gap:13px;border-right:0;border-bottom:1px solid var(--bw-border);text-align:left;padding:14px 17px}.discussionPost aside>img,.avatarFallback{grid-row:1/4;width:48px;height:48px;border-width:2px}.discussionPost aside>.profileLink{margin-top:0}.roleBadge,.joinedDate{justify-self:start;margin-top:3px}.profileRule{display:none}.discussionBody{min-height:230px;padding:19px 18px 46px}}
